@@ -3,325 +3,874 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#0f172a">
+    <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="/manifest.json">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Antonio:wght@400;600;700&family=Chakra+Petch:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <title>Aegis AI</title>
     <style>
+        /* ============================================
+           LCARS THEME — Aegis AI
+           ============================================ */
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         :root {
-            --bg: #0f172a;
-            --surface: #1e293b;
-            --surface-2: #334155;
-            --text: #f1f5f9;
-            --text-dim: #94a3b8;
-            --accent: #2563eb;
-            --accent-glow: #3b82f6;
-            --success: #22c55e;
-            --warning: #f59e0b;
-            --error: #ef4444;
-            --radius: 12px;
+            /* LCARS color tokens */
+            --lcars-bg: #000000;
+            --lcars-surface: #0a0a0a;
+            --lcars-text: #D1D5DB;
+            --lcars-text-dim: #9CA3AF;
+
+            --lcars-blue-1: #3B82F6;
+            --lcars-blue-2: #1D4ED8;
+            --lcars-blue-3: #93C5FD;
+
+            --lcars-purple-1: #8B5CF6;
+            --lcars-purple-2: #6D28D9;
+            --lcars-purple-3: #C4B5FD;
+
+            --lcars-pink-1: #EC4899;
+            --lcars-pink-2: #BE185D;
+            --lcars-pink-3: #FBCFE8;
+
+            --lcars-grey-1: #374151;
+            --lcars-grey-2: #6B7280;
+            --lcars-grey-3: #D1D5DB;
+            --lcars-grey-4: #9CA3AF;
+
+            --lcars-success: #22c55e;
+            --lcars-warning: #f59e0b;
+            --lcars-error: #ef4444;
+
+            /* Layout */
+            --sidebar-width: 200px;
+            --top-bar-height: 48px;
+            --bottom-bar-height: 56px;
+            --elbow-radius: 40px;
+            --bar-gap: 2px;
+
+            /* Fonts */
+            --font-display: 'Antonio', 'Orbitron', 'Segoe UI', sans-serif;
+            --font-body: 'Chakra Petch', 'Segoe UI', system-ui, sans-serif;
+            --font-mono: 'JetBrains Mono', 'Consolas', 'Courier New', monospace;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-            background: var(--bg);
-            color: var(--text);
+            font-family: var(--font-body);
+            background: var(--lcars-bg);
+            color: var(--lcars-text);
             height: 100dvh;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ========== LCARS FRAME ========== */
+
+        .lcars-frame {
+            display: grid;
+            grid-template-rows: var(--top-bar-height) 1fr var(--bottom-bar-height);
+            grid-template-columns: var(--sidebar-width) 1fr;
+            height: 100dvh;
+            gap: 0;
+        }
+
+        /* ========== TOP BAR ========== */
+
+        .lcars-top-bar {
+            grid-column: 1 / -1;
             display: flex;
-            flex-direction: column;
+            align-items: stretch;
+            gap: var(--bar-gap);
+            padding: 0;
             overflow: hidden;
         }
 
-        /* Header */
-        .header {
-            background: var(--surface);
-            padding: 12px 16px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            border-bottom: 1px solid var(--surface-2);
-            flex-shrink: 0;
-        }
-
-        .header .shield {
-            width: 32px;
-            height: 32px;
-            background: var(--accent);
-            border-radius: 50%;
+        .lcars-top-bar .endcap-left {
+            width: var(--sidebar-width);
+            background: var(--lcars-blue-1);
+            border-radius: 0 0 0 0;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 16px;
-            font-weight: bold;
+            flex-shrink: 0;
         }
 
-        .header .info {
+        .lcars-top-bar .endcap-left .hamburger {
+            display: none;
+            background: none;
+            border: none;
+            color: #000;
+            font-size: 22px;
+            cursor: pointer;
+            padding: 4px 8px;
+        }
+
+        .lcars-top-bar .bar-segment {
+            flex: 0 0 auto;
+        }
+
+        .lcars-top-bar .bar-seg-1 { width: 80px; background: var(--lcars-blue-2); }
+        .lcars-top-bar .bar-seg-2 { width: 40px; background: var(--lcars-purple-1); }
+        .lcars-top-bar .bar-seg-3 { flex: 1; background: var(--lcars-purple-2); }
+
+        .lcars-top-bar .title-area {
+            flex: 2;
+            background: var(--lcars-bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 0 20px;
+            border-bottom: 3px solid var(--lcars-blue-1);
+        }
+
+        .lcars-top-bar .title-area .agent-name {
+            font-family: var(--font-display);
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--lcars-blue-3);
+            text-transform: uppercase;
+            letter-spacing: 3px;
+        }
+
+        .lcars-top-bar .title-area .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--lcars-success);
+            animation: statusPulse 2s ease-in-out infinite;
+        }
+
+        .lcars-top-bar .bar-seg-4 { width: 60px; background: var(--lcars-purple-1); }
+        .lcars-top-bar .bar-seg-5 { width: 40px; background: var(--lcars-blue-1); }
+
+        .lcars-top-bar .endcap-right {
+            width: 80px;
+            background: var(--lcars-pink-1);
+            border-radius: 0 0 24px 0;
+            flex-shrink: 0;
+        }
+
+        /* ========== SIDEBAR ========== */
+
+        .lcars-sidebar {
+            grid-row: 2 / 3;
+            grid-column: 1 / 2;
+            background: var(--lcars-bg);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            overflow-x: hidden;
+            scrollbar-width: thin;
+            scrollbar-color: var(--lcars-grey-1) transparent;
+        }
+
+        .lcars-sidebar::-webkit-scrollbar { width: 4px; }
+        .lcars-sidebar::-webkit-scrollbar-track { background: transparent; }
+        .lcars-sidebar::-webkit-scrollbar-thumb { background: var(--lcars-grey-1); border-radius: 2px; }
+
+        /* Sidebar bar blocks */
+        .sidebar-bars {
+            display: flex;
+            flex-direction: column;
+            gap: var(--bar-gap);
+            padding-right: 8px;
+        }
+
+        .sidebar-bar {
+            height: 20px;
+            border-radius: 0 10px 10px 0;
+            flex-shrink: 0;
+        }
+
+        .sidebar-bar.sb-1 { background: var(--lcars-blue-2); height: 32px; }
+        .sidebar-bar.sb-2 { background: var(--lcars-purple-1); height: 24px; }
+        .sidebar-bar.sb-3 { background: var(--lcars-purple-2); height: 16px; }
+        .sidebar-bar.sb-4 { background: var(--lcars-blue-1); height: 20px; }
+
+        /* Sidebar data sections */
+        .sidebar-data {
+            padding: 12px 12px 12px 8px;
             flex: 1;
         }
 
-        .header .name {
-            font-weight: 600;
-            font-size: 16px;
+        .sidebar-section {
+            margin-bottom: 16px;
         }
 
-        .header .status {
+        .sidebar-section-title {
+            font-family: var(--font-display);
             font-size: 11px;
-            color: var(--success);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--lcars-purple-3);
+            margin-bottom: 6px;
+            padding-bottom: 3px;
+            border-bottom: 1px solid var(--lcars-grey-1);
         }
 
-        .header .menu-btn {
-            background: none;
-            border: none;
-            color: var(--text-dim);
-            font-size: 20px;
-            cursor: pointer;
-            padding: 8px;
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 3px 0;
+            font-size: 11px;
         }
 
-        /* Messages */
+        .data-row .label {
+            font-family: var(--font-display);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--lcars-grey-4);
+            font-size: 10px;
+        }
+
+        .data-row .value {
+            font-family: var(--font-mono);
+            color: var(--lcars-blue-3);
+            font-size: 11px;
+            text-align: right;
+            max-width: 110px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .data-row .dot-indicator {
+            width: 6px;
+            height: 6px;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+
+        .data-row .dot-indicator.on { background: var(--lcars-success); }
+        .data-row .dot-indicator.off { background: var(--lcars-error); }
+
+        /* GPU gauge */
+        .gpu-gauge {
+            margin-top: 4px;
+        }
+
+        .gauge-bar {
+            height: 6px;
+            background: var(--lcars-grey-1);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 3px;
+        }
+
+        .gauge-bar .fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+
+        .gauge-bar .fill.blue { background: var(--lcars-blue-1); }
+        .gauge-bar .fill.purple { background: var(--lcars-purple-1); }
+        .gauge-bar .fill.pink { background: var(--lcars-pink-1); }
+
+        /* ========== MAIN CONTENT ========== */
+
+        .lcars-content {
+            grid-row: 2 / 3;
+            grid-column: 2 / 3;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+            border-left: 3px solid var(--lcars-blue-2);
+        }
+
+        /* ========== MESSAGES ========== */
+
         .messages {
             flex: 1;
             overflow-y: auto;
-            padding: 16px;
+            padding: 16px 20px;
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 10px;
             scroll-behavior: smooth;
+            scrollbar-width: thin;
+            scrollbar-color: var(--lcars-grey-1) transparent;
         }
+
+        .messages::-webkit-scrollbar { width: 6px; }
+        .messages::-webkit-scrollbar-track { background: transparent; }
+        .messages::-webkit-scrollbar-thumb { background: var(--lcars-grey-1); border-radius: 3px; }
 
         .msg {
-            max-width: 85%;
+            max-width: 80%;
             padding: 10px 14px;
-            border-radius: var(--radius);
-            font-size: 15px;
-            line-height: 1.5;
+            font-size: 14px;
+            line-height: 1.6;
             word-wrap: break-word;
-            animation: fadeIn 0.2s ease;
+            animation: msgSlideIn 0.25s ease-out;
+            border-radius: 2px;
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(8px); }
-            to { opacity: 1; transform: translateY(0); }
+        @keyframes msgSlideIn {
+            from { opacity: 0; transform: translateX(-12px); }
+            to { opacity: 1; transform: translateX(0); }
         }
 
         .msg.agent {
-            background: var(--surface);
             align-self: flex-start;
-            border-bottom-left-radius: 4px;
+            background: rgba(59, 130, 246, 0.08);
+            border-left: 3px solid var(--lcars-blue-1);
+            color: var(--lcars-text);
         }
 
         .msg.user {
-            background: var(--accent);
             align-self: flex-end;
-            border-bottom-right-radius: 4px;
+            background: rgba(139, 92, 246, 0.08);
+            border-right: 3px solid var(--lcars-purple-1);
+            text-align: right;
         }
 
         .msg.system {
-            background: var(--surface-2);
             align-self: center;
-            font-size: 12px;
-            color: var(--text-dim);
-            padding: 6px 12px;
-            border-radius: 20px;
+            background: rgba(107, 114, 128, 0.2);
+            font-family: var(--font-display);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--lcars-grey-4);
+            padding: 5px 16px;
+            border-radius: 12px;
         }
 
         .msg .sender {
-            font-size: 11px;
-            color: var(--text-dim);
+            font-family: var(--font-display);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--lcars-blue-3);
             margin-bottom: 4px;
-            font-weight: 600;
         }
 
         .msg.user .sender {
-            color: rgba(255,255,255,0.7);
+            color: var(--lcars-purple-3);
         }
 
         .msg.wellness {
-            border-left: 3px solid var(--warning);
+            border-left: 3px solid var(--lcars-warning);
         }
 
+        /* Typing indicator */
         .typing {
             align-self: flex-start;
-            color: var(--text-dim);
-            font-size: 13px;
             padding: 8px 0;
-        }
-
-        .typing::after {
-            content: '';
-            animation: dots 1.5s infinite;
-        }
-
-        @keyframes dots {
-            0%, 20% { content: '.'; }
-            40% { content: '..'; }
-            60%, 100% { content: '...'; }
-        }
-
-        /* Input */
-        .input-area {
-            background: var(--surface);
-            padding: 12px 16px;
-            border-top: 1px solid var(--surface-2);
             display: flex;
-            gap: 8px;
-            align-items: flex-end;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .typing-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--lcars-blue-3);
+            animation: typingBounce 1.2s ease-in-out infinite;
+        }
+
+        .typing-dot:nth-child(2) { animation-delay: 0.15s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.3s; }
+
+        @keyframes typingBounce {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30% { transform: translateY(-6px); opacity: 1; }
+        }
+
+        /* ========== BOTTOM BAR ========== */
+
+        .lcars-bottom-bar {
+            grid-column: 1 / -1;
+            display: flex;
+            align-items: stretch;
+            gap: var(--bar-gap);
+        }
+
+        /* Elbow connector */
+        .lcars-elbow {
+            width: var(--sidebar-width);
+            position: relative;
+            flex-shrink: 0;
+            background: var(--lcars-bg);
+        }
+
+        .lcars-elbow .elbow-outer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--lcars-purple-1);
+            border-radius: 0 var(--elbow-radius) 0 0;
+        }
+
+        .lcars-elbow .elbow-inner {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: calc(100% - 32px);
+            height: calc(100% - 32px);
+            background: var(--lcars-bg);
+            border-radius: 0 var(--elbow-radius) 0 0;
+        }
+
+        /* Bottom bar segments */
+        .lcars-bottom-bar .bar-seg-b1 {
+            width: 60px;
+            background: var(--lcars-purple-2);
             flex-shrink: 0;
         }
 
-        .input-area textarea {
+        .lcars-bottom-bar .input-wrapper {
             flex: 1;
-            background: var(--bg);
-            border: 1px solid var(--surface-2);
-            border-radius: var(--radius);
-            color: var(--text);
-            padding: 10px 14px;
-            font-size: 15px;
-            font-family: inherit;
-            resize: none;
-            max-height: 120px;
-            min-height: 42px;
-            line-height: 1.4;
-            outline: none;
-        }
-
-        .input-area textarea:focus {
-            border-color: var(--accent);
-        }
-
-        .input-area textarea::placeholder {
-            color: var(--text-dim);
-        }
-
-        .send-btn {
-            background: var(--accent);
-            border: none;
-            border-radius: 50%;
-            width: 42px;
-            height: 42px;
-            color: white;
-            font-size: 18px;
-            cursor: pointer;
             display: flex;
             align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            transition: background 0.15s;
+            gap: 8px;
+            padding: 6px 12px;
+            background: var(--lcars-bg);
+            border-top: 3px solid var(--lcars-purple-1);
         }
 
-        .send-btn:hover { background: var(--accent-glow); }
-        .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .lcars-bottom-bar .input-wrapper textarea {
+            flex: 1;
+            background: #111111;
+            border: 1px solid var(--lcars-grey-1);
+            border-radius: 4px;
+            color: var(--lcars-text);
+            padding: 8px 12px;
+            font-size: 14px;
+            font-family: var(--font-body);
+            resize: none;
+            max-height: 100px;
+            min-height: 38px;
+            line-height: 1.4;
+            outline: none;
+            transition: border-color 0.15s;
+        }
 
-        /* Sidebar */
-        .sidebar {
+        .lcars-bottom-bar .input-wrapper textarea:focus {
+            border-color: var(--lcars-blue-1);
+        }
+
+        .lcars-bottom-bar .input-wrapper textarea::placeholder {
+            font-family: var(--font-display);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--lcars-grey-2);
+            font-size: 12px;
+        }
+
+        .transmit-btn {
+            background: var(--lcars-pink-1);
+            border: none;
+            border-radius: 4px;
+            color: #000;
+            font-family: var(--font-display);
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            padding: 10px 18px;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .transmit-btn:hover {
+            background: var(--lcars-pink-3);
+            color: #000;
+        }
+
+        .transmit-btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+
+        .lcars-bottom-bar .bar-seg-b2 {
+            width: 40px;
+            background: var(--lcars-blue-1);
+            flex-shrink: 0;
+            border-radius: 0 0 24px 0;
+        }
+
+        /* ========== SCAN LINE ========== */
+
+        .lcars-scan-line {
             position: fixed;
             top: 0;
-            right: -300px;
-            width: 300px;
-            height: 100%;
-            background: var(--surface);
-            z-index: 100;
-            transition: right 0.25s ease;
-            padding: 16px;
-            overflow-y: auto;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg,
+                transparent 0%,
+                rgba(59, 130, 246, 0.06) 20%,
+                rgba(59, 130, 246, 0.15) 50%,
+                rgba(59, 130, 246, 0.06) 80%,
+                transparent 100%
+            );
+            animation: scanSweep 8s linear infinite;
+            pointer-events: none;
+            z-index: 1000;
         }
 
-        .sidebar.open { right: 0; }
+        @keyframes scanSweep {
+            0% { top: 0; }
+            100% { top: 100vh; }
+        }
+
+        /* ========== STATUS PULSE ========== */
+
+        @keyframes statusPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* ========== BAR SHIMMER ========== */
+
+        @keyframes barShimmer {
+            0% { opacity: 0.7; }
+            50% { opacity: 1; }
+            100% { opacity: 0.7; }
+        }
+
+        .shimmer {
+            animation: barShimmer 3s ease-in-out infinite;
+        }
+
+        /* ========== SIDEBAR OVERLAY (mobile) ========== */
 
         .sidebar-overlay {
             position: fixed;
             inset: 0;
-            background: rgba(0,0,0,0.5);
-            z-index: 99;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 199;
             display: none;
+            backdrop-filter: blur(2px);
         }
 
         .sidebar-overlay.open { display: block; }
 
-        .sidebar h3 {
-            font-size: 14px;
-            color: var(--text-dim);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin: 16px 0 8px;
+        /* ========== RESPONSIVE: TABLET (768-1023px) ========== */
+
+        @media (max-width: 1023px) {
+            :root {
+                --sidebar-width: 170px;
+            }
+
+            .lcars-top-bar .bar-seg-1 { width: 50px; }
+            .lcars-top-bar .bar-seg-2 { width: 24px; }
+            .lcars-top-bar .bar-seg-4 { width: 30px; }
+            .lcars-top-bar .bar-seg-5 { width: 24px; }
+            .lcars-top-bar .endcap-right { width: 50px; }
         }
 
-        .sidebar h3:first-child { margin-top: 0; }
+        /* ========== RESPONSIVE: MOBILE (<768px) ========== */
 
-        .sidebar .proto {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 0;
-            font-size: 14px;
-            border-bottom: 1px solid var(--surface-2);
+        @media (max-width: 767px) {
+            .lcars-frame {
+                grid-template-columns: 1fr;
+                grid-template-rows: var(--top-bar-height) 1fr var(--bottom-bar-height);
+            }
+
+            /* Top bar: simplified */
+            .lcars-top-bar .endcap-left {
+                width: auto;
+                padding: 0 12px;
+                border-radius: 0;
+            }
+
+            .lcars-top-bar .endcap-left .hamburger {
+                display: block;
+            }
+
+            .lcars-top-bar .bar-seg-1,
+            .lcars-top-bar .bar-seg-2,
+            .lcars-top-bar .bar-seg-3,
+            .lcars-top-bar .bar-seg-4,
+            .lcars-top-bar .bar-seg-5 {
+                display: none;
+            }
+
+            .lcars-top-bar .title-area {
+                border-bottom-width: 2px;
+            }
+
+            .lcars-top-bar .title-area .agent-name {
+                font-size: 18px;
+                letter-spacing: 2px;
+            }
+
+            .lcars-top-bar .endcap-right {
+                width: 50px;
+                border-radius: 0;
+            }
+
+            /* Sidebar: hidden, slides from left as overlay */
+            .lcars-sidebar {
+                position: fixed;
+                top: 0;
+                left: -280px;
+                width: 280px;
+                height: 100%;
+                z-index: 200;
+                background: var(--lcars-bg);
+                border-right: 3px solid var(--lcars-blue-2);
+                transition: left 0.25s ease;
+                padding-top: var(--top-bar-height);
+            }
+
+            .lcars-sidebar.open {
+                left: 0;
+            }
+
+            /* Content: full width */
+            .lcars-content {
+                grid-column: 1;
+                border-left: none;
+            }
+
+            /* Bottom bar: no elbow */
+            .lcars-elbow { display: none; }
+            .lcars-bottom-bar .bar-seg-b1 { display: none; }
+
+            .lcars-bottom-bar {
+                grid-column: 1;
+            }
+
+            .lcars-bottom-bar .input-wrapper {
+                border-top-width: 2px;
+            }
+
+            .lcars-bottom-bar .bar-seg-b2 {
+                width: 8px;
+                border-radius: 0;
+            }
+
+            .transmit-btn {
+                padding: 10px 12px;
+                font-size: 11px;
+                letter-spacing: 1px;
+            }
+
+            .msg { max-width: 90%; }
         }
 
-        .sidebar .proto .dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--success);
+        /* ========== SAFE AREA (notched phones) ========== */
+
+        @supports (padding: env(safe-area-inset-bottom)) {
+            .lcars-bottom-bar .input-wrapper {
+                padding-bottom: calc(6px + env(safe-area-inset-bottom));
+            }
+            .lcars-top-bar {
+                padding-top: env(safe-area-inset-top);
+            }
         }
 
-        .sidebar .proto .dot.off { background: var(--error); }
+        /* ========== MOBILE SIDEBAR CLOSE ========== */
 
-        .sidebar .close-btn {
+        .sidebar-close {
+            display: none;
             position: absolute;
-            top: 12px;
-            right: 12px;
+            top: 10px;
+            right: 10px;
             background: none;
             border: none;
-            color: var(--text-dim);
-            font-size: 22px;
+            color: var(--lcars-grey-4);
+            font-size: 24px;
             cursor: pointer;
+            z-index: 201;
         }
 
-        /* Safe area for notched phones */
-        @supports (padding: env(safe-area-inset-bottom)) {
-            .input-area { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
-            .header { padding-top: calc(12px + env(safe-area-inset-top)); }
+        @media (max-width: 767px) {
+            .sidebar-close { display: block; }
         }
     </style>
 </head>
 <body>
 
-<div class="header">
-    <div class="shield" id="shield">A</div>
-    <div class="info">
-        <div class="name" id="agentName">Aegis</div>
-        <div class="status" id="statusDot">Online</div>
+<div class="lcars-frame">
+
+    <!-- ===== TOP BAR ===== -->
+    <div class="lcars-top-bar">
+        <div class="endcap-left">
+            <button class="hamburger" onclick="toggleSidebar()">&#9776;</button>
+            <span class="top-endcap-label" style="font-family:var(--font-display);font-size:13px;font-weight:700;color:#000;letter-spacing:1px;display:none;">AEGIS</span>
+        </div>
+        <div class="bar-segment bar-seg-1 shimmer"></div>
+        <div class="bar-segment bar-seg-2"></div>
+        <div class="bar-segment bar-seg-3"></div>
+        <div class="title-area">
+            <span class="agent-name" id="agentName">AEGIS</span>
+            <div class="status-indicator" id="statusDot"></div>
+        </div>
+        <div class="bar-segment bar-seg-4"></div>
+        <div class="bar-segment bar-seg-5 shimmer"></div>
+        <div class="endcap-right"></div>
     </div>
-    <button class="menu-btn" onclick="toggleSidebar()">&#9776;</button>
+
+    <!-- ===== SIDEBAR ===== -->
+    <div class="lcars-sidebar" id="sidebar">
+        <button class="sidebar-close" onclick="toggleSidebar()">&times;</button>
+
+        <div class="sidebar-bars">
+            <div class="sidebar-bar sb-1"></div>
+            <div class="sidebar-bar sb-2 shimmer"></div>
+            <div class="sidebar-bar sb-3"></div>
+            <div class="sidebar-bar sb-4 shimmer"></div>
+        </div>
+
+        <div class="sidebar-data">
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">System</div>
+                <div id="sysInfo">
+                    <div class="data-row"><span class="label">Status</span><span class="value">Loading...</span></div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">Protocols</div>
+                <div id="protoList"></div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">Packs</div>
+                <div id="packList"></div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">GPU</div>
+                <div id="gpuInfo">
+                    <div class="data-row"><span class="label">Status</span><span class="value">--</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== CONTENT AREA ===== -->
+    <div class="lcars-content">
+        <div class="messages" id="messages">
+            <div class="msg system" id="connectMsg">CHANNEL OPEN</div>
+        </div>
+    </div>
+
+    <!-- ===== BOTTOM BAR ===== -->
+    <div class="lcars-bottom-bar">
+        <div class="lcars-elbow">
+            <div class="elbow-outer"></div>
+            <div class="elbow-inner"></div>
+        </div>
+        <div class="bar-seg-b1"></div>
+        <div class="input-wrapper">
+            <textarea id="input" placeholder="ENTER QUERY..." rows="1"
+                      onkeydown="handleKey(event)" oninput="autoGrow(this)"></textarea>
+            <button class="transmit-btn" id="sendBtn" onclick="sendMessage()">TRANSMIT</button>
+        </div>
+        <div class="bar-seg-b2 shimmer"></div>
+    </div>
+
 </div>
 
-<div class="messages" id="messages">
-    <div class="msg system">Connected to Aegis AI</div>
-</div>
+<!-- Scan line overlay -->
+<div class="lcars-scan-line" id="scanLine"></div>
 
-<div class="input-area">
-    <textarea id="input" placeholder="Message..." rows="1"
-              onkeydown="handleKey(event)" oninput="autoGrow(this)"></textarea>
-    <button class="send-btn" id="sendBtn" onclick="sendMessage()">&#9654;</button>
-</div>
-
+<!-- Sidebar overlay for mobile -->
 <div class="sidebar-overlay" id="overlay" onclick="toggleSidebar()"></div>
-<div class="sidebar" id="sidebar">
-    <button class="close-btn" onclick="toggleSidebar()">&times;</button>
-    <h3>System</h3>
-    <div id="sysInfo"></div>
-    <h3>Protocols</h3>
-    <div id="protoList"></div>
-    <h3>Packs</h3>
-    <div id="packList"></div>
-</div>
 
 <script>
 const API = window.location.origin + '/api';
 let sending = false;
+let currentTheme = null;
+
+// ========== THEME LOADING ==========
+
+async function loadTheme() {
+    try {
+        const res = await fetch(API + '/theme');
+        const theme = await res.json();
+        currentTheme = theme;
+        applyTheme(theme);
+    } catch (e) {
+        // Theme load failed — defaults are already in CSS
+    }
+}
+
+function applyTheme(theme) {
+    if (!theme) return;
+    const root = document.documentElement;
+
+    // Apply colors as CSS custom properties
+    const colors = theme.colors || {};
+    const colorMap = {
+        'background': '--lcars-bg',
+        'surface': '--lcars-surface',
+        'text': '--lcars-text',
+        'text_dim': '--lcars-text-dim',
+        'blue_1': '--lcars-blue-1',
+        'blue_2': '--lcars-blue-2',
+        'blue_3': '--lcars-blue-3',
+        'purple_1': '--lcars-purple-1',
+        'purple_2': '--lcars-purple-2',
+        'purple_3': '--lcars-purple-3',
+        'pink_1': '--lcars-pink-1',
+        'pink_2': '--lcars-pink-2',
+        'pink_3': '--lcars-pink-3',
+        'grey_1': '--lcars-grey-1',
+        'grey_2': '--lcars-grey-2',
+        'grey_3': '--lcars-grey-3',
+        'grey_4': '--lcars-grey-4',
+        'success': '--lcars-success',
+        'warning': '--lcars-warning',
+        'error': '--lcars-error',
+    };
+
+    for (const [key, prop] of Object.entries(colorMap)) {
+        if (colors[key]) root.style.setProperty(prop, colors[key]);
+    }
+
+    // Apply fonts
+    const fonts = theme.fonts || {};
+    if (fonts.display) root.style.setProperty('--font-display', fonts.display);
+    if (fonts.body) root.style.setProperty('--font-body', fonts.body);
+    if (fonts.mono) root.style.setProperty('--font-mono', fonts.mono);
+
+    // Apply terminology
+    const terms = theme.terminology || {};
+    if (terms.input_placeholder) {
+        document.getElementById('input').placeholder = terms.input_placeholder;
+    }
+    if (terms.send_label) {
+        document.getElementById('sendBtn').textContent = terms.send_label;
+    }
+    if (terms.connected_label) {
+        const connectMsg = document.getElementById('connectMsg');
+        if (connectMsg) connectMsg.textContent = terms.connected_label;
+    }
+    if (terms.title) {
+        document.title = terms.title;
+    }
+
+    // Apply animations
+    const anims = theme.animations || {};
+    const scanLine = document.getElementById('scanLine');
+    if (scanLine) {
+        scanLine.style.display = anims.scan_line ? '' : 'none';
+        if (anims.scan_speed) {
+            scanLine.style.animationDuration = anims.scan_speed;
+        }
+    }
+}
+
+// ========== MESSAGING ==========
 
 async function sendMessage() {
     const input = document.getElementById('input');
@@ -333,7 +882,7 @@ async function sendMessage() {
 
     addMessage(text, 'user');
     input.value = '';
-    input.style.height = '42px';
+    input.style.height = '38px';
 
     const typing = showTyping();
 
@@ -348,7 +897,7 @@ async function sendMessage() {
         addMessage(data.response, 'agent', data.agent_name, data.wellness_flag);
     } catch (e) {
         removeTyping(typing);
-        addMessage('Connection error. Is the server running?', 'system');
+        addMessage('SIGNAL LOST -- VERIFY SERVER STATUS', 'system');
     }
 
     sending = false;
@@ -362,7 +911,7 @@ function addMessage(text, type, sender, wellness) {
     div.className = 'msg ' + type + (wellness ? ' wellness' : '');
 
     if (sender && type === 'agent') {
-        div.innerHTML = '<div class="sender">' + sender + '</div>' + escapeHtml(text);
+        div.innerHTML = '<div class="sender">' + escapeHtml(sender).toUpperCase() + '</div>' + escapeHtml(text);
     } else {
         div.textContent = text;
     }
@@ -375,13 +924,15 @@ function showTyping() {
     const msgs = document.getElementById('messages');
     const div = document.createElement('div');
     div.className = 'typing';
-    div.textContent = 'Thinking';
+    div.innerHTML = '<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>';
     msgs.appendChild(div);
     msgs.scrollTop = msgs.scrollHeight;
     return div;
 }
 
-function removeTyping(el) { if (el && el.parentNode) el.parentNode.removeChild(el); }
+function removeTyping(el) {
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+}
 
 function escapeHtml(s) {
     return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
@@ -395,48 +946,123 @@ function handleKey(e) {
 }
 
 function autoGrow(el) {
-    el.style.height = '42px';
-    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+    el.style.height = '38px';
+    el.style.height = Math.min(el.scrollHeight, 100) + 'px';
 }
 
+// ========== SIDEBAR ==========
+
 function toggleSidebar() {
-    document.getElementById('sidebar').classList.toggle('open');
-    document.getElementById('overlay').classList.toggle('open');
-    if (document.getElementById('sidebar').classList.contains('open')) loadStatus();
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('overlay');
+    const isMobile = window.innerWidth < 768;
+
+    if (isMobile) {
+        sidebar.classList.toggle('open');
+        overlay.classList.toggle('open');
+    }
+
+    loadStatus();
+}
+
+// ========== STATUS / DATA READOUTS ==========
+
+function lcarsDataRow(label, value) {
+    return '<div class="data-row"><span class="label">' + escapeHtml(label) +
+           '</span><span class="value">' + escapeHtml(String(value)) + '</span></div>';
+}
+
+function lcarsProtoRow(name, enabled) {
+    const dotClass = enabled ? 'on' : 'off';
+    return '<div class="data-row"><span class="label">' + escapeHtml(name) +
+           '</span><div class="dot-indicator ' + dotClass + '"></div></div>';
 }
 
 async function loadStatus() {
     try {
-        const [statusRes, packsRes] = await Promise.all([
-            fetch(API + '/status'), fetch(API + '/packs')
+        const [statusRes, packsRes, gpuRes] = await Promise.all([
+            fetch(API + '/status'),
+            fetch(API + '/packs'),
+            fetch(API + '/gpu').catch(() => null),
         ]);
         const status = await statusRes.json();
         const packs = await packsRes.json();
 
-        document.getElementById('agentName').textContent = status.agent_name;
-        document.getElementById('shield').textContent = status.agent_name[0];
+        // Update agent name
+        const displayName = status.agent_name || 'AEGIS';
+        document.getElementById('agentName').textContent = displayName.toUpperCase();
 
+        // System info
         document.getElementById('sysInfo').innerHTML =
-            '<div class="proto">Model <span>' + status.model + '</span></div>' +
-            '<div class="proto">Session <span>' + status.session_id + '</span></div>' +
-            '<div class="proto">Messages <span>' + status.message_count + '</span></div>';
+            lcarsDataRow('MODEL', status.model || '--') +
+            lcarsDataRow('SESSION', (status.session_id || '--').substring(0, 8)) +
+            lcarsDataRow('MESSAGES', status.message_count || 0);
 
-        document.getElementById('protoList').innerHTML = status.protocols.map(p =>
-            '<div class="proto"><span>' + p.name + '</span><div class="dot' + (p.enabled ? '' : ' off') + '"></div></div>'
-        ).join('');
+        // Protocols
+        document.getElementById('protoList').innerHTML =
+            (status.protocols || []).map(function(p) {
+                return lcarsProtoRow(p.name, p.enabled);
+            }).join('');
 
+        // Packs
+        const active = packs.active || {};
         document.getElementById('packList').innerHTML =
-            '<div class="proto">Personality <span>' + packs.active.personality + '</span></div>' +
-            '<div class="proto">Voice <span>' + packs.active.voice + '</span></div>' +
-            '<div class="proto">Theme <span>' + packs.active.theme + '</span></div>';
-    } catch (e) {}
+            lcarsDataRow('PERSONA', (active.personality || '--').toUpperCase()) +
+            lcarsDataRow('VOICE', (active.voice || '--').toUpperCase()) +
+            lcarsDataRow('THEME', (active.theme || '--').toUpperCase());
+
+        // GPU info
+        if (gpuRes && gpuRes.ok) {
+            const gpu = await gpuRes.json();
+            if (gpu && !gpu.error) {
+                let gpuHtml = lcarsDataRow('GPU', gpu.name || 'N/A');
+                if (gpu.memory_used_mb && gpu.memory_total_mb) {
+                    const pct = Math.round((gpu.memory_used_mb / gpu.memory_total_mb) * 100);
+                    const color = pct > 80 ? 'pink' : pct > 50 ? 'purple' : 'blue';
+                    gpuHtml += lcarsDataRow('VRAM', gpu.memory_used_mb + '/' + gpu.memory_total_mb + ' MB');
+                    gpuHtml += '<div class="gpu-gauge"><div class="gauge-bar"><div class="fill ' + color + '" style="width:' + pct + '%"></div></div></div>';
+                }
+                if (gpu.temperature) {
+                    gpuHtml += lcarsDataRow('TEMP', gpu.temperature + ' C');
+                }
+                document.getElementById('gpuInfo').innerHTML = gpuHtml;
+            }
+        }
+    } catch (e) {
+        // Status load failed — keep defaults
+    }
 }
 
-// Load agent name on startup
-fetch(API + '/status').then(r => r.json()).then(data => {
-    document.getElementById('agentName').textContent = data.agent_name;
-    document.getElementById('shield').textContent = data.agent_name[0];
-}).catch(() => {});
+// ========== SESSION PERSISTENCE ==========
+
+window.addEventListener('beforeunload', () => {
+    navigator.sendBeacon(API + '/end-session', '{}');
+});
+
+// ========== STARTUP ==========
+
+async function init() {
+    await loadTheme();
+    loadStatus();
+
+    // Also fetch agent name for top bar
+    try {
+        const res = await fetch(API + '/status');
+        const data = await res.json();
+        const name = data.agent_name || 'AEGIS';
+        document.getElementById('agentName').textContent = name.toUpperCase();
+    } catch (e) {}
+
+    // Show desktop top-endcap label on wider screens
+    if (window.innerWidth >= 768) {
+        const lbl = document.querySelector('.top-endcap-label');
+        if (lbl) lbl.style.display = 'block';
+        const hamburger = document.querySelector('.hamburger');
+        if (hamburger) hamburger.style.display = 'none';
+    }
+}
+
+init();
 </script>
 
 </body>

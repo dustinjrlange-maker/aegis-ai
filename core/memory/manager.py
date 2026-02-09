@@ -114,3 +114,45 @@ class MemoryManager:
                 print(f"  — Warning: Could not extract facts: {e}")
 
         print("  — All records secured. Session complete.")
+
+    def periodic_save(self, messages):
+        """Save transcript (always) — cheap, idempotent."""
+        chat_messages = [m for m in messages if m["role"] != "system"]
+        if len(chat_messages) < 2:
+            return
+        save_transcript(messages, self.session_id)
+
+    def extract_recent_facts(self, messages, since_index=0):
+        """Extract facts from only recent messages (since last extraction)."""
+        recent = messages[since_index:]
+        if len([m for m in recent if m["role"] != "system"]) < 4:
+            return []
+        try:
+            facts = extract_facts(recent)
+            if facts:
+                update_profile(facts)
+                store_facts(self.session_id, facts)
+            return facts
+        except Exception:
+            return []
+
+    def end_session_quiet(self, messages):
+        """Like end_session but without print statements (for server use)."""
+        chat_messages = [m for m in messages if m["role"] != "system"]
+        if len(chat_messages) < 2:
+            return
+        save_transcript(messages, self.session_id)
+        if self.auto_summarize:
+            try:
+                _, summary_text = generate_summary(messages, self.session_id)
+                store_summary(self.session_id, summary_text)
+            except Exception:
+                pass
+        if self.auto_extract:
+            try:
+                facts = extract_facts(messages)
+                if facts:
+                    update_profile(facts)
+                    store_facts(self.session_id, facts)
+            except Exception:
+                pass

@@ -6,7 +6,9 @@ Run with: uvicorn server.app:app --host 0.0.0.0 --port 8484
 
 import sys
 import re
+import logging
 from pathlib import Path
+from contextlib import asynccontextmanager
 
 # Ensure project root is on path
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -25,6 +27,7 @@ from core.memory.character_memory import CharacterMemory
 from core.personality.pack_loader import (
     load_personality_pack, build_system_prompt,
     get_agent_display_name, list_packs, load_voice_pack,
+    load_theme_pack,
 )
 from core.protocols.registry import ProtocolRegistry
 from core.protocols.communications import CommunicationsProtocol
@@ -67,10 +70,23 @@ protocol_registry.register(CreativeProtocol())
 # Conversation history (per-session, in-memory for now)
 messages = [{"role": "system", "content": full_prompt}]
 
+# Memory auto-save tracking
+last_fact_extraction_index = 0
+FACT_EXTRACTION_INTERVAL = 15  # messages between LLM-based extractions
+
+logger = logging.getLogger("aegis.server")
+
 
 # --- FastAPI App ---
 
-app = FastAPI(title="Aegis AI", version="1.0.0")
+@asynccontextmanager
+async def lifespan(app):
+    yield
+    # Server shutting down — save everything
+    logger.info("Server shutdown — saving session memory...")
+    memory.end_session_quiet(messages)
+
+app = FastAPI(title="Aegis AI", version="1.0.0", lifespan=lifespan)
 
 # Serve static files (UI)
 ui_dir = PROJECT_ROOT / "ui"
@@ -182,6 +198,16 @@ async def chat(req: ChatRequest):
 
         messages.append({"role": "assistant", "content": reply})
 
+        # Auto-save transcript (cheap, every response)
+        global last_fact_extraction_index
+        memory.periodic_save(messages)
+
+        # Periodic fact extraction (expensive, every N messages)
+        msg_count = len([m for m in messages if m["role"] != "system"])
+        if msg_count - last_fact_extraction_index >= FACT_EXTRACTION_INTERVAL:
+            memory.extract_recent_facts(messages, since_index=last_fact_extraction_index)
+            last_fact_extraction_index = msg_count
+
         return ChatResponse(
             agent_name=agent_name,
             response=reply,
@@ -195,6 +221,13 @@ async def chat(req: ChatRequest):
             agent_name=agent_name,
             response=f"Communication error: {e}",
         )
+
+
+@app.post("/api/end-session")
+async def end_session():
+    """End the current session — saves transcript, summary, facts, profile."""
+    memory.end_session_quiet(messages)
+    return {"success": True}
 
 
 @app.get("/api/packs")
@@ -234,6 +267,13 @@ async def manage_tasks(req: TaskRequest):
         return {"error": "Invalid action. Use: add, done, remove, list"}
 
 
+@app.get("/api/theme")
+async def get_theme():
+    """Get active theme configuration."""
+    theme_pack = load_theme_pack()
+    return theme_pack.get("theme", {})
+
+
 @app.get("/api/gpu")
 async def get_gpu():
     """Get GPU status."""
@@ -246,14 +286,18 @@ async def get_gpu():
 @app.get("/manifest.json")
 async def manifest():
     """PWA manifest for phone/tablet install."""
+    theme_pack = load_theme_pack()
+    colors = theme_pack.get("theme", {}).get("colors", {})
+    bg_color = colors.get("background", "#0f172a")
+    theme_color = colors.get("blue_1", "#2563eb")
     return {
         "name": "Aegis AI",
         "short_name": "Aegis",
         "description": "Your digital aegis — protective AI companion",
         "start_url": "/",
         "display": "standalone",
-        "background_color": "#0f172a",
-        "theme_color": "#2563eb",
+        "background_color": bg_color,
+        "theme_color": theme_color,
         "icons": [
             {"src": "/static/icon-192.png", "sizes": "192x192", "type": "image/png"},
             {"src": "/static/icon-512.png", "sizes": "512x512", "type": "image/png"},
