@@ -177,6 +177,12 @@ async def chat(req: ChatRequest):
         if handled:
             return ChatResponse(agent_name=agent_name, response=cmd_response)
 
+    # Refresh session context (picks up new profile facts, updated time)
+    session_context = memory.build_session_context()
+    char_context = char_memory.get_core_context()
+    refreshed_prompt = "\n\n".join([p for p in [system_prompt, char_context, session_context] if p])
+    messages[0] = {"role": "system", "content": refreshed_prompt}
+
     # Run through protocols
     proto_context = {"messages": messages, "memory": memory, "char_memory": char_memory}
     proto_result = protocol_registry.process_input(user_input, proto_context)

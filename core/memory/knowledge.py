@@ -4,9 +4,12 @@ ChromaDB vector store for semantic memory search.
 The agent can find relevant memories by meaning, not just keywords.
 """
 
+import logging
 from pathlib import Path
 import chromadb
 from core.config import CONFIG, get_path
+
+logger = logging.getLogger(__name__)
 
 
 # Persistent ChromaDB client
@@ -122,7 +125,7 @@ def store_facts(session_id, facts):
         )
 
 
-def get_relevant_context(user_message, n_results=3, max_distance=1.2):
+def get_relevant_context(user_message, n_results=3, max_distance=1.5):
     """Search for memories relevant to what the user just said.
     Returns formatted context string, or empty string if nothing is relevant.
 
@@ -132,9 +135,14 @@ def get_relevant_context(user_message, n_results=3, max_distance=1.2):
         max_distance: Only include results closer than this threshold.
             Lower = stricter matching. ChromaDB distances typically range 0.0-2.0.
     """
-    memories = search_memory(user_message, n_results=n_results)
+    try:
+        memories = search_memory(user_message, n_results=n_results)
+    except Exception as e:
+        logger.warning("Memory search failed: %s", e)
+        return ""
 
     if not memories:
+        logger.debug("No memories found for: %s", user_message[:80])
         return ""
 
     # Filter out irrelevant results — ChromaDB always returns something,
@@ -142,7 +150,12 @@ def get_relevant_context(user_message, n_results=3, max_distance=1.2):
     relevant = [m for m in memories if m.get("distance") is not None and m["distance"] < max_distance]
 
     if not relevant:
+        distances = [f"{m.get('distance', '?'):.2f}" for m in memories[:3]]
+        logger.debug("Memories found but filtered out (distances: %s, threshold: %s): %s",
+                      ", ".join(distances), max_distance, user_message[:80])
         return ""
+
+    logger.debug("Found %d relevant memories for: %s", len(relevant), user_message[:80])
 
     context_lines = []
     for mem in relevant:

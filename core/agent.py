@@ -220,6 +220,15 @@ def run():
                     print(cmd_response)
                 continue
 
+        # Refresh session context (picks up new profile facts, updated time)
+        refreshed_session = memory.build_session_context()
+        refreshed_char = char_memory.get_core_context()
+        refreshed_parts = [personality_prompt]
+        if refreshed_char:
+            refreshed_parts.append(refreshed_char)
+        refreshed_parts.append(refreshed_session)
+        messages[0] = {"role": "system", "content": "\n\n".join(refreshed_parts)}
+
         # Run input through protocol pipeline
         proto_context = {
             "messages": messages,

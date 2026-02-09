@@ -81,29 +81,35 @@ class MemoryManager:
         # Security protocols
         context_parts.append(get_security_context())
 
-        # User profile — only include name, not full facts.
-        # Full facts are available via memory search when relevant topics come up.
+        # User profile — include the full profile so the agent knows its companion
         profile = get_profile_summary()
         if profile and profile != "No user profile on file.":
-            # Extract just the name from the profile
-            companion_name = "Companion"
-            for line in profile.split("\n"):
-                if "**NAME:**" in line.upper() or line.strip().startswith("- **NAME:"):
-                    companion_name = line.split(":")[-1].strip().strip("*")
-                    break
-                if "# User Profile" in line and "—" in line:
-                    companion_name = line.split("—")[-1].strip()
-                    break
+            companion_name = self.companion_name or "Companion"
             context_parts.append(
-                f"\nYour companion's name is {companion_name}. "
-                "You have a profile on them but do not reference it unless they bring up a relevant topic."
+                f"Your companion's name is {companion_name}. "
+                "Below is everything you know about them from past conversations. "
+                "Use this knowledge naturally — you REMEMBER these things. "
+                "Do not recite the profile robotically, but draw on it when relevant. "
+                "If they ask if you remember something, check this profile.\n\n"
+                f"{profile}"
+            )
+        else:
+            context_parts.append(
+                "This is a new companion — you don't have a profile on them yet. "
+                "Get to know them through conversation. Key facts will be recorded automatically."
             )
 
-        # Recent session journals — only include topics, not detailed facts
+        # Recent session journals — include summaries so the agent has continuity
         recent_logs = load_recent_summaries(count=3)
         if recent_logs:
+            journal_text = "\n\n---\n\n".join(
+                entry["content"] if isinstance(entry, dict) else str(entry)
+                for entry in recent_logs
+            )
             context_parts.append(
-                "\nYou have past session logs on file. Do not reference their contents unless your companion brings up a relevant topic."
+                "Recent session summaries (your memory of past conversations):\n\n"
+                f"{journal_text}\n\n"
+                "Use these to maintain conversational continuity. You remember these sessions."
             )
 
         return "\n\n".join(context_parts)
