@@ -1251,6 +1251,98 @@
             margin-top: 2px;
         }
 
+        /* ========== SETTINGS PANEL ========== */
+
+        .settings-section {
+            margin-bottom: 20px;
+        }
+
+        .settings-section-title {
+            font-family: var(--font-display);
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--lcars-purple-3);
+            margin-bottom: 10px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid var(--lcars-grey-1);
+        }
+
+        .setting-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+        }
+
+        .setting-label {
+            font-size: 12px;
+            color: var(--lcars-text);
+            flex: 1;
+        }
+
+        .setting-label .setting-desc {
+            font-size: 10px;
+            color: var(--lcars-text-dim);
+            margin-top: 2px;
+        }
+
+        .setting-control {
+            flex-shrink: 0;
+            margin-left: 12px;
+        }
+
+        .setting-control input[type="number"] {
+            width: 60px;
+            background: var(--lcars-surface);
+            border: 1px solid var(--lcars-grey-1);
+            border-radius: 4px;
+            color: var(--lcars-text);
+            font-family: var(--font-mono);
+            font-size: 12px;
+            padding: 4px 6px;
+            text-align: right;
+            outline: none;
+        }
+
+        .setting-control input[type="number"]:focus {
+            border-color: var(--lcars-blue-1);
+        }
+
+        .setting-control input[type="range"] {
+            width: 80px;
+            accent-color: var(--lcars-blue-1);
+        }
+
+        .setting-control select {
+            background: var(--lcars-surface);
+            border: 1px solid var(--lcars-grey-1);
+            border-radius: 4px;
+            color: var(--lcars-text);
+            font-family: var(--font-display);
+            font-size: 10px;
+            text-transform: uppercase;
+            padding: 4px 8px;
+            cursor: pointer;
+        }
+
+        .setting-saved {
+            font-family: var(--font-display);
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--lcars-success);
+            opacity: 0;
+            transition: opacity 0.2s;
+            margin-left: 8px;
+        }
+
+        .setting-saved.show {
+            opacity: 1;
+        }
+
         /* ========== SYSTEM PANEL ========== */
 
         .sys-detail-section {
@@ -1552,6 +1644,11 @@
             </div>
 
             <div class="sidebar-section">
+                <div class="sidebar-section-title">Settings</div>
+                <button class="sidebar-action-btn" onclick="openSettingsPanel()" aria-label="Configuration settings">CONFIG</button>
+            </div>
+
+            <div class="sidebar-section">
                 <div class="sidebar-section-title">GPU</div>
                 <div id="gpuInfo">
                     <div class="data-row"><span class="label">Status</span><span class="value">--</span></div>
@@ -1678,6 +1775,18 @@
     </div>
     <div class="panel-body">
         <div id="systemDetailContent"></div>
+    </div>
+</div>
+
+<!-- Settings Panel -->
+<div class="panel-overlay" id="settingsPanelOverlay" onclick="closeSettingsPanel()"></div>
+<div class="panel" id="settingsPanel" role="dialog" aria-label="Settings">
+    <div class="panel-header">
+        <span>Configuration</span>
+        <button class="panel-close-btn" onclick="closeSettingsPanel()" aria-label="Close">&times;</button>
+    </div>
+    <div class="panel-body">
+        <div id="settingsContent"></div>
     </div>
 </div>
 
@@ -2811,6 +2920,112 @@ async function switchVoice(packName) {
     }
 }
 
+// ========== SETTINGS PANEL ==========
+
+function openSettingsPanel() {
+    document.getElementById('settingsPanelOverlay').classList.add('open');
+    document.getElementById('settingsPanel').classList.add('open');
+    loadSettings();
+}
+
+function closeSettingsPanel() {
+    document.getElementById('settingsPanelOverlay').classList.remove('open');
+    document.getElementById('settingsPanel').classList.remove('open');
+}
+
+async function loadSettings() {
+    const container = document.getElementById('settingsContent');
+    try {
+        const res = await fetch(API + '/settings');
+        const settings = await res.json();
+        renderSettings(settings);
+    } catch (e) {
+        container.innerHTML = '<div class="task-empty">Could not load settings</div>';
+    }
+}
+
+function renderSettings(settings) {
+    const container = document.getElementById('settingsContent');
+    var html = '';
+
+    // Memory settings
+    html += '<div class="settings-section">';
+    html += '<div class="settings-section-title">Memory</div>';
+    html += settingToggle('memory', 'auto_extract_facts', 'Auto Fact Extraction', 'Extract facts from conversations automatically', settings.memory.auto_extract_facts);
+    html += settingToggle('memory', 'auto_summarize', 'Auto Summarize', 'Generate session summaries on end', settings.memory.auto_summarize);
+    html += settingNumber('memory', 'max_context_messages', 'Context Window', 'Messages kept in conversation history', settings.memory.max_context_messages, 5, 100);
+    html += settingNumber('memory', 'max_search_results', 'Search Results', 'Memory search results per query', settings.memory.max_search_results, 1, 20);
+    html += '</div>';
+
+    // Voice settings
+    html += '<div class="settings-section">';
+    html += '<div class="settings-section-title">Voice</div>';
+    html += settingToggle('voice.tts', 'enabled', 'Text-to-Speech', 'Agent speaks responses aloud', settings.voice.tts_enabled);
+    html += settingToggle('voice.stt', 'enabled', 'Speech-to-Text', 'Voice input transcription', settings.voice.stt_enabled);
+    html += '</div>';
+
+    // Emotion settings
+    html += '<div class="settings-section">';
+    html += '<div class="settings-section-title">Emotion Detection</div>';
+    html += settingToggle('emotion', 'enabled', 'Enabled', 'Detect emotional tone in messages', settings.emotion.enabled);
+    html += settingNumber('emotion', 'threshold', 'Threshold', 'Confidence threshold (0.0 - 1.0)', settings.emotion.threshold, 0.1, 1.0, 0.05);
+    html += '</div>';
+
+    container.innerHTML = html;
+}
+
+function settingToggle(section, key, label, desc, value) {
+    var id = 'setting-' + section.replace('.', '-') + '-' + key;
+    var checked = value ? ' checked' : '';
+    return '<div class="setting-row">' +
+        '<div class="setting-label">' + escapeHtml(label) +
+            '<div class="setting-desc">' + escapeHtml(desc) + '</div>' +
+        '</div>' +
+        '<div class="setting-control">' +
+            '<label class="proto-toggle">' +
+                '<input type="checkbox" id="' + id + '"' + checked +
+                ' onchange="saveSetting(\'' + section + '\', \'' + key + '\', this.checked, this)">' +
+                '<span class="toggle-slider"></span>' +
+            '</label>' +
+            '<span class="setting-saved" id="' + id + '-saved">SAVED</span>' +
+        '</div>' +
+    '</div>';
+}
+
+function settingNumber(section, key, label, desc, value, min, max, step) {
+    var id = 'setting-' + section.replace('.', '-') + '-' + key;
+    step = step || 1;
+    return '<div class="setting-row">' +
+        '<div class="setting-label">' + escapeHtml(label) +
+            '<div class="setting-desc">' + escapeHtml(desc) + '</div>' +
+        '</div>' +
+        '<div class="setting-control">' +
+            '<input type="number" id="' + id + '" value="' + value + '" min="' + min + '" max="' + max + '" step="' + step + '"' +
+            ' onchange="saveSetting(\'' + section + '\', \'' + key + '\', parseFloat(this.value), this)">' +
+            '<span class="setting-saved" id="' + id + '-saved">SAVED</span>' +
+        '</div>' +
+    '</div>';
+}
+
+async function saveSetting(section, key, value, inputEl) {
+    var id = 'setting-' + section.replace('.', '-') + '-' + key;
+    var savedEl = document.getElementById(id + '-saved');
+    try {
+        const res = await fetch(API + '/settings', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({section: section, key: key, value: value}),
+        });
+        const data = await res.json();
+        if (data.success && savedEl) {
+            savedEl.classList.add('show');
+            setTimeout(function() { savedEl.classList.remove('show'); }, 1500);
+        }
+    } catch (e) {
+        console.error('Setting save failed:', e);
+    }
+}
+
 // ========== SESSION PERSISTENCE ==========
 
 window.addEventListener('beforeunload', function() {
@@ -2850,6 +3065,13 @@ async function init() {
         if (lbl) lbl.style.display = 'block';
         var hamburger = document.querySelector('.hamburger');
         if (hamburger) hamburger.style.display = 'none';
+    }
+
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js').catch(function(err) {
+            console.log('SW registration skipped:', err.message);
+        });
     }
 
     // Connection polling every 30s

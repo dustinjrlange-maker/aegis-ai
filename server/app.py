@@ -132,6 +132,12 @@ class PackSwitchRequest(BaseModel):
     pack_name: str
 
 
+class SettingsUpdateRequest(BaseModel):
+    section: str  # memory, voice, emotion
+    key: str
+    value: object
+
+
 # --- Routes ---
 
 @app.get("/", response_class=HTMLResponse)
@@ -601,6 +607,103 @@ async def get_system_info():
         },
     }
     return info
+
+
+@app.get("/api/settings")
+async def get_settings():
+    """Get current configurable settings."""
+    return {
+        "memory": {
+            "max_context_messages": CONFIG["memory"]["max_context_messages"],
+            "summary_after_messages": CONFIG["memory"].get("summary_after_messages", 30),
+            "max_search_results": CONFIG["memory"]["max_search_results"],
+            "auto_extract_facts": CONFIG["memory"]["auto_extract_facts"],
+            "auto_summarize": CONFIG["memory"]["auto_summarize"],
+        },
+        "voice": {
+            "tts_enabled": CONFIG.get("voice", {}).get("tts", {}).get("enabled", False),
+            "stt_enabled": CONFIG.get("voice", {}).get("stt", {}).get("enabled", False),
+            "input_mode": CONFIG.get("voice", {}).get("stt", {}).get("input_mode", "text"),
+        },
+        "emotion": {
+            "enabled": CONFIG.get("emotion", {}).get("enabled", False),
+            "threshold": CONFIG.get("emotion", {}).get("threshold", 0.75),
+        },
+    }
+
+
+@app.post("/api/settings")
+async def update_settings(req: SettingsUpdateRequest):
+    """Update a configuration setting at runtime."""
+    allowed_settings = {
+        "memory": {
+            "max_context_messages": int,
+            "summary_after_messages": int,
+            "max_search_results": int,
+            "auto_extract_facts": bool,
+            "auto_summarize": bool,
+        },
+        "voice.tts": {"enabled": bool},
+        "voice.stt": {"enabled": bool, "input_mode": str},
+        "emotion": {"enabled": bool, "threshold": float},
+    }
+
+    section_map = allowed_settings.get(req.section)
+    if not section_map or req.key not in section_map:
+        return {"error": f"Setting '{req.section}.{req.key}' is not configurable"}
+
+    expected_type = section_map[req.key]
+    try:
+        typed_value = expected_type(req.value)
+    except (ValueError, TypeError):
+        return {"error": f"Invalid value type for {req.key}, expected {expected_type.__name__}"}
+
+    # Apply to in-memory config
+    if req.section == "memory":
+        CONFIG["memory"][req.key] = typed_value
+        # Sync to memory manager
+        if req.key == "auto_extract_facts":
+            memory.auto_extract = typed_value
+        elif req.key == "auto_summarize":
+            memory.auto_summarize = typed_value
+    elif req.section == "voice.tts":
+        CONFIG.setdefault("voice", {}).setdefault("tts", {})[req.key] = typed_value
+    elif req.section == "voice.stt":
+        CONFIG.setdefault("voice", {}).setdefault("stt", {})[req.key] = typed_value
+    elif req.section == "emotion":
+        CONFIG.setdefault("emotion", {})[req.key] = typed_value
+
+    # Persist to disk
+    try:
+        config_path = PROJECT_ROOT / "core" / "config" / "core_config.json"
+        config_data = json.loads(config_path.read_text(encoding="utf-8"))
+        if req.section == "memory":
+            config_data.setdefault("memory", {})[req.key] = typed_value
+        elif req.section == "voice.tts":
+            config_data.setdefault("voice", {}).setdefault("tts", {})[req.key] = typed_value
+        elif req.section == "voice.stt":
+            config_data.setdefault("voice", {}).setdefault("stt", {})[req.key] = typed_value
+        elif req.section == "emotion":
+            config_data.setdefault("emotion", {})[req.key] = typed_value
+        config_path.write_text(json.dumps(config_data, indent=4), encoding="utf-8")
+    except Exception as e:
+        logger.warning(f"Could not persist setting to config: {e}")
+
+    return {"success": True, "section": req.section, "key": req.key, "value": typed_value}
+
+
+@app.get("/sw.js")
+async def service_worker():
+    """Serve the service worker from root path (required for scope)."""
+    sw_path = ui_dir / "static" / "sw.js"
+    from fastapi.responses import Response
+    if sw_path.exists():
+        return Response(
+            content=sw_path.read_text(encoding="utf-8"),
+            media_type="application/javascript",
+            headers={"Service-Worker-Allowed": "/"},
+        )
+    return Response(status_code=404)
 
 
 @app.get("/manifest.json")
