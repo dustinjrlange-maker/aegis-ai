@@ -10,16 +10,17 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Antonio:wght@400;600;700&family=Chakra+Petch:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <title>Aegis AI</title>
     <style>
         /* ============================================
-           LCARS THEME — Aegis AI
+           AEGIS AI — Themeable UI
            ============================================ */
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         :root {
-            /* LCARS color tokens */
+            /* Color tokens — overridden by theme */
             --lcars-bg: #000000;
             --lcars-surface: #0a0a0a;
             --lcars-text: #D1D5DB;
@@ -145,6 +146,11 @@
             animation: statusPulse 2s ease-in-out infinite;
         }
 
+        .lcars-top-bar .title-area .status-indicator.offline {
+            background: var(--lcars-error);
+            animation: none;
+        }
+
         .lcars-top-bar .bar-seg-4 { width: 60px; background: var(--lcars-purple-1); }
         .lcars-top-bar .bar-seg-5 { width: 40px; background: var(--lcars-blue-1); }
 
@@ -251,6 +257,56 @@
         .data-row .dot-indicator.on { background: var(--lcars-success); }
         .data-row .dot-indicator.off { background: var(--lcars-error); }
 
+        /* Sidebar action button */
+        .sidebar-action-btn {
+            background: var(--lcars-grey-1);
+            border: none;
+            border-radius: 4px;
+            color: var(--lcars-text);
+            font-family: var(--font-display);
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            padding: 5px 10px;
+            cursor: pointer;
+            transition: background 0.15s;
+            margin-top: 6px;
+            width: 100%;
+        }
+
+        .sidebar-action-btn:hover {
+            background: var(--lcars-grey-2);
+        }
+
+        .sidebar-task-count {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: var(--lcars-warning);
+            margin-left: 4px;
+        }
+
+        /* Theme selector */
+        .theme-select {
+            width: 100%;
+            margin-top: 6px;
+            background: var(--lcars-grey-1);
+            border: 1px solid var(--lcars-grey-2);
+            border-radius: 4px;
+            color: var(--lcars-text);
+            font-family: var(--font-display);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 4px 6px;
+            cursor: pointer;
+        }
+
+        .theme-select option {
+            background: var(--lcars-bg);
+            color: var(--lcars-text);
+        }
+
         /* GPU gauge */
         .gpu-gauge {
             margin-top: 4px;
@@ -312,6 +368,7 @@
             word-wrap: break-word;
             animation: msgSlideIn 0.25s ease-out;
             border-radius: 2px;
+            position: relative;
         }
 
         @keyframes msgSlideIn {
@@ -345,6 +402,41 @@
             border-radius: 12px;
         }
 
+        .msg.error-msg {
+            align-self: center;
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid var(--lcars-error);
+            font-family: var(--font-display);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--lcars-error);
+            padding: 8px 16px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .msg.error-msg .retry-btn {
+            background: var(--lcars-error);
+            border: none;
+            border-radius: 4px;
+            color: #000;
+            font-family: var(--font-display);
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 4px 10px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .msg.error-msg .retry-btn:hover {
+            background: var(--lcars-pink-3);
+        }
+
         .msg .sender {
             font-family: var(--font-display);
             font-size: 10px;
@@ -361,6 +453,117 @@
         .msg.wellness {
             border-left: 3px solid var(--lcars-warning);
         }
+
+        /* Copy button on agent messages */
+        .msg-copy-btn {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            background: var(--lcars-grey-1);
+            border: none;
+            border-radius: 3px;
+            color: var(--lcars-text-dim);
+            font-family: var(--font-display);
+            font-size: 9px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 3px 6px;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.15s;
+        }
+
+        .msg.agent:hover .msg-copy-btn {
+            opacity: 0.7;
+        }
+
+        .msg-copy-btn:hover {
+            opacity: 1 !important;
+            background: var(--lcars-grey-2);
+        }
+
+        .msg-copy-btn.copied {
+            background: var(--lcars-success);
+            color: #000;
+            opacity: 1 !important;
+        }
+
+        /* Markdown content inside messages */
+        .msg-content p { margin: 0.4em 0; }
+        .msg-content p:first-child { margin-top: 0; }
+        .msg-content p:last-child { margin-bottom: 0; }
+
+        .msg-content code {
+            background: rgba(255, 255, 255, 0.08);
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-family: var(--font-mono);
+            font-size: 0.9em;
+        }
+
+        .msg-content pre {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--lcars-grey-1);
+            border-radius: 4px;
+            padding: 10px 12px;
+            overflow-x: auto;
+            margin: 8px 0;
+        }
+
+        .msg-content pre > code {
+            background: none;
+            padding: 0;
+            font-size: 0.85em;
+            line-height: 1.5;
+        }
+
+        .msg-content a {
+            color: var(--lcars-blue-3);
+            text-decoration: underline;
+        }
+
+        .msg-content ul, .msg-content ol {
+            margin: 6px 0;
+            padding-left: 20px;
+        }
+
+        .msg-content li { margin: 2px 0; }
+
+        .msg-content blockquote {
+            border-left: 3px solid var(--lcars-grey-2);
+            padding-left: 12px;
+            color: var(--lcars-text-dim);
+            margin: 6px 0;
+        }
+
+        .msg-content table {
+            border-collapse: collapse;
+            margin: 8px 0;
+            font-size: 0.9em;
+        }
+
+        .msg-content th, .msg-content td {
+            border: 1px solid var(--lcars-grey-1);
+            padding: 4px 8px;
+            text-align: left;
+        }
+
+        .msg-content th {
+            background: rgba(255, 255, 255, 0.05);
+            font-weight: 600;
+        }
+
+        .msg-content h1, .msg-content h2, .msg-content h3,
+        .msg-content h4, .msg-content h5, .msg-content h6 {
+            margin: 0.6em 0 0.3em 0;
+            font-family: var(--font-display);
+            color: var(--lcars-blue-3);
+        }
+
+        .msg-content h1 { font-size: 1.3em; }
+        .msg-content h2 { font-size: 1.15em; }
+        .msg-content h3 { font-size: 1.05em; }
 
         /* Typing indicator */
         .typing {
@@ -439,6 +642,7 @@
             padding: 6px 12px;
             background: var(--lcars-bg);
             border-top: 3px solid var(--lcars-purple-1);
+            position: relative;
         }
 
         .lcars-bottom-bar .input-wrapper textarea {
@@ -468,6 +672,44 @@
             letter-spacing: 1px;
             color: var(--lcars-grey-2);
             font-size: 12px;
+        }
+
+        /* Mic button */
+        .mic-btn {
+            background: var(--lcars-grey-1);
+            border: none;
+            border-radius: 4px;
+            color: var(--lcars-text);
+            font-family: var(--font-display);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 10px 12px;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .mic-btn:hover {
+            background: var(--lcars-grey-2);
+        }
+
+        .mic-btn.recording {
+            background: var(--lcars-error);
+            color: #000;
+            animation: micPulse 1s ease-in-out infinite;
+        }
+
+        .mic-btn.transcribing {
+            background: var(--lcars-warning);
+            color: #000;
+            cursor: wait;
+        }
+
+        @keyframes micPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
         }
 
         .transmit-btn {
@@ -501,6 +743,294 @@
             background: var(--lcars-blue-1);
             flex-shrink: 0;
             border-radius: 0 0 24px 0;
+        }
+
+        /* ========== COMMAND POPUP ========== */
+
+        .cmd-popup {
+            position: absolute;
+            bottom: 100%;
+            left: 12px;
+            right: 12px;
+            background: var(--lcars-surface);
+            border: 1px solid var(--lcars-grey-1);
+            border-radius: 6px;
+            max-height: 240px;
+            overflow-y: auto;
+            display: none;
+            z-index: 50;
+            box-shadow: 0 -4px 16px rgba(0,0,0,0.5);
+        }
+
+        .cmd-popup.open {
+            display: block;
+        }
+
+        .cmd-popup-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            display: flex;
+            gap: 10px;
+            align-items: baseline;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+
+        .cmd-popup-item:last-child {
+            border-bottom: none;
+        }
+
+        .cmd-popup-item:hover, .cmd-popup-item.active {
+            background: rgba(59, 130, 246, 0.15);
+        }
+
+        .cmd-popup-item .cmd-name {
+            font-family: var(--font-mono);
+            font-size: 13px;
+            color: var(--lcars-blue-3);
+            flex-shrink: 0;
+        }
+
+        .cmd-popup-item .cmd-desc {
+            font-size: 11px;
+            color: var(--lcars-text-dim);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* ========== PANEL OVERLAY ========== */
+
+        .panel-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 299;
+            display: none;
+            backdrop-filter: blur(2px);
+        }
+
+        .panel-overlay.open {
+            display: block;
+        }
+
+        .panel {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: min(600px, 92vw);
+            max-height: 80vh;
+            background: var(--lcars-bg);
+            border: 2px solid var(--lcars-blue-1);
+            border-radius: 8px;
+            z-index: 300;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .panel.open {
+            display: flex;
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: var(--lcars-blue-1);
+            color: #000;
+            font-family: var(--font-display);
+            font-size: 14px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            flex-shrink: 0;
+        }
+
+        .panel-header .panel-close-btn {
+            background: none;
+            border: none;
+            color: #000;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 0 4px;
+            line-height: 1;
+        }
+
+        .panel-header .panel-back-btn {
+            background: none;
+            border: none;
+            color: #000;
+            font-family: var(--font-display);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            padding: 2px 8px;
+        }
+
+        .panel-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--lcars-grey-1) transparent;
+        }
+
+        /* ========== TASK PANEL ========== */
+
+        .task-add-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .task-add-row input {
+            flex: 1;
+            background: var(--lcars-surface);
+            border: 1px solid var(--lcars-grey-1);
+            border-radius: 4px;
+            color: var(--lcars-text);
+            padding: 8px 10px;
+            font-family: var(--font-body);
+            font-size: 13px;
+            outline: none;
+        }
+
+        .task-add-row input:focus {
+            border-color: var(--lcars-blue-1);
+        }
+
+        .task-add-row select {
+            background: var(--lcars-surface);
+            border: 1px solid var(--lcars-grey-1);
+            border-radius: 4px;
+            color: var(--lcars-text);
+            padding: 4px 8px;
+            font-family: var(--font-display);
+            font-size: 11px;
+            text-transform: uppercase;
+            cursor: pointer;
+        }
+
+        .task-add-row button {
+            background: var(--lcars-blue-1);
+            border: none;
+            border-radius: 4px;
+            color: #000;
+            font-family: var(--font-display);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 8px 14px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .task-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .task-item .task-priority {
+            width: 4px;
+            height: 24px;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+
+        .task-item .task-priority.high { background: var(--lcars-warning); }
+        .task-item .task-priority.normal { background: var(--lcars-text-dim); }
+        .task-item .task-priority.low { background: var(--lcars-grey-2); }
+
+        .task-item .task-text {
+            flex: 1;
+            font-size: 13px;
+        }
+
+        .task-item .task-actions {
+            display: flex;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .task-item .task-actions button {
+            background: var(--lcars-grey-1);
+            border: none;
+            border-radius: 3px;
+            color: var(--lcars-text-dim);
+            font-family: var(--font-display);
+            font-size: 9px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 3px 8px;
+            cursor: pointer;
+        }
+
+        .task-item .task-actions button:hover {
+            background: var(--lcars-grey-2);
+        }
+
+        .task-item .task-actions .done-btn:hover {
+            background: var(--lcars-success);
+            color: #000;
+        }
+
+        .task-empty {
+            text-align: center;
+            color: var(--lcars-text-dim);
+            font-size: 12px;
+            padding: 24px;
+        }
+
+        /* ========== HISTORY PANEL ========== */
+
+        .history-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            transition: background 0.1s;
+        }
+
+        .history-item:hover {
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        .history-item .history-date {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--lcars-blue-3);
+            flex-shrink: 0;
+        }
+
+        .history-item .history-id {
+            font-size: 11px;
+            color: var(--lcars-text-dim);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .history-transcript {
+            font-size: 13px;
+            line-height: 1.7;
+        }
+
+        .history-empty {
+            text-align: center;
+            color: var(--lcars-text-dim);
+            font-size: 12px;
+            padding: 24px;
         }
 
         /* ========== SCAN LINE ========== */
@@ -559,6 +1089,17 @@
         }
 
         .sidebar-overlay.open { display: block; }
+
+        /* ========== PREFERS REDUCED MOTION ========== */
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+            .lcars-scan-line { display: none !important; }
+        }
 
         /* ========== RESPONSIVE: TABLET (768-1023px) ========== */
 
@@ -663,6 +1204,11 @@
             }
 
             .msg { max-width: 90%; }
+
+            /* Copy button always slightly visible on mobile */
+            .msg.agent .msg-copy-btn {
+                opacity: 0.4;
+            }
         }
 
         /* ========== SAFE AREA (notched phones) ========== */
@@ -701,9 +1247,9 @@
 <div class="lcars-frame">
 
     <!-- ===== TOP BAR ===== -->
-    <div class="lcars-top-bar">
+    <div class="lcars-top-bar" role="banner">
         <div class="endcap-left">
-            <button class="hamburger" onclick="toggleSidebar()">&#9776;</button>
+            <button class="hamburger" onclick="toggleSidebar()" aria-label="Toggle sidebar">&#9776;</button>
             <span class="top-endcap-label" style="font-family:var(--font-display);font-size:13px;font-weight:700;color:#000;letter-spacing:1px;display:none;">AEGIS</span>
         </div>
         <div class="bar-segment bar-seg-1 shimmer"></div>
@@ -711,7 +1257,7 @@
         <div class="bar-segment bar-seg-3"></div>
         <div class="title-area">
             <span class="agent-name" id="agentName">AEGIS</span>
-            <div class="status-indicator" id="statusDot"></div>
+            <div class="status-indicator" id="statusDot" aria-label="Connection status: online"></div>
         </div>
         <div class="bar-segment bar-seg-4"></div>
         <div class="bar-segment bar-seg-5 shimmer"></div>
@@ -719,8 +1265,8 @@
     </div>
 
     <!-- ===== SIDEBAR ===== -->
-    <div class="lcars-sidebar" id="sidebar">
-        <button class="sidebar-close" onclick="toggleSidebar()">&times;</button>
+    <div class="lcars-sidebar" id="sidebar" role="complementary" aria-label="System information">
+        <button class="sidebar-close" onclick="toggleSidebar()" aria-label="Close sidebar">&times;</button>
 
         <div class="sidebar-bars">
             <div class="sidebar-bar sb-1"></div>
@@ -745,6 +1291,19 @@
             <div class="sidebar-section">
                 <div class="sidebar-section-title">Packs</div>
                 <div id="packList"></div>
+                <select class="theme-select" id="themeSelect" aria-label="Select theme" onchange="switchTheme(this.value)">
+                    <option value="">-- theme --</option>
+                </select>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">Tasks <span class="sidebar-task-count" id="taskCount"></span></div>
+                <button class="sidebar-action-btn" onclick="openTaskPanel()" aria-label="Manage tasks">MANAGE</button>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">History</div>
+                <button class="sidebar-action-btn" onclick="openHistoryPanel()" aria-label="Browse session history">BROWSE</button>
             </div>
 
             <div class="sidebar-section">
@@ -757,8 +1316,8 @@
     </div>
 
     <!-- ===== CONTENT AREA ===== -->
-    <div class="lcars-content">
-        <div class="messages" id="messages">
+    <div class="lcars-content" role="main">
+        <div class="messages" id="messages" role="log" aria-live="polite" aria-label="Chat messages">
             <div class="msg system" id="connectMsg">CHANNEL OPEN</div>
         </div>
     </div>
@@ -771,9 +1330,11 @@
         </div>
         <div class="bar-seg-b1"></div>
         <div class="input-wrapper">
-            <textarea id="input" placeholder="ENTER QUERY..." rows="1"
-                      onkeydown="handleKey(event)" oninput="autoGrow(this)"></textarea>
-            <button class="transmit-btn" id="sendBtn" onclick="sendMessage()">TRANSMIT</button>
+            <div class="cmd-popup" id="cmdPopup" role="listbox" aria-label="Command suggestions"></div>
+            <textarea id="input" placeholder="ENTER QUERY..." rows="1" aria-label="Message input"
+                      onkeydown="handleKey(event)" oninput="handleInput(this)"></textarea>
+            <button class="mic-btn" id="micBtn" onclick="toggleMic()" aria-label="Voice input">MIC</button>
+            <button class="transmit-btn" id="sendBtn" onclick="sendMessage()" aria-label="Send message">TRANSMIT</button>
         </div>
         <div class="bar-seg-b2 shimmer"></div>
     </div>
@@ -786,10 +1347,58 @@
 <!-- Sidebar overlay for mobile -->
 <div class="sidebar-overlay" id="overlay" onclick="toggleSidebar()"></div>
 
+<!-- Task Panel -->
+<div class="panel-overlay" id="taskPanelOverlay" onclick="closeTaskPanel()"></div>
+<div class="panel" id="taskPanel" role="dialog" aria-label="Task manager">
+    <div class="panel-header">
+        <span>Task Manager</span>
+        <button class="panel-close-btn" onclick="closeTaskPanel()" aria-label="Close">&times;</button>
+    </div>
+    <div class="panel-body">
+        <div class="task-add-row">
+            <input type="text" id="taskInput" placeholder="New task..." aria-label="New task text"
+                   onkeydown="if(event.key==='Enter'){addTask();}">
+            <select id="taskPriority" aria-label="Task priority">
+                <option value="normal">Normal</option>
+                <option value="high">High</option>
+                <option value="low">Low</option>
+            </select>
+            <button onclick="addTask()">ADD</button>
+        </div>
+        <div id="taskList"></div>
+    </div>
+</div>
+
+<!-- History Panel -->
+<div class="panel-overlay" id="historyPanelOverlay" onclick="closeHistoryPanel()"></div>
+<div class="panel" id="historyPanel" role="dialog" aria-label="Session history">
+    <div class="panel-header">
+        <span id="historyTitle">Session History</span>
+        <div>
+            <button class="panel-back-btn" id="historyBackBtn" onclick="historyBack()" style="display:none;" aria-label="Back to list">BACK</button>
+            <button class="panel-close-btn" onclick="closeHistoryPanel()" aria-label="Close">&times;</button>
+        </div>
+    </div>
+    <div class="panel-body">
+        <div id="historyContent"></div>
+    </div>
+</div>
+
 <script>
+// ========== CONFIG ==========
+
 const API = window.location.origin + '/api';
 let sending = false;
 let currentTheme = null;
+let serverOnline = true;
+let commands = [];
+let cmdPopupIndex = -1;
+let lastFailedMessage = null;
+
+// Configure marked
+if (typeof marked !== 'undefined') {
+    marked.setOptions({ breaks: true, gfm: true });
+}
 
 // ========== THEME LOADING ==========
 
@@ -800,7 +1409,7 @@ async function loadTheme() {
         currentTheme = theme;
         applyTheme(theme);
     } catch (e) {
-        // Theme load failed — defaults are already in CSS
+        // Theme load failed -- defaults are already in CSS
     }
 }
 
@@ -837,6 +1446,20 @@ function applyTheme(theme) {
         if (colors[key]) root.style.setProperty(prop, colors[key]);
     }
 
+    // Apply layout as CSS variables
+    const layout = theme.layout || {};
+    const layoutMap = {
+        'sidebar_width': '--sidebar-width',
+        'top_bar_height': '--top-bar-height',
+        'bottom_bar_height': '--bottom-bar-height',
+        'elbow_radius': '--elbow-radius',
+        'bar_gap': '--bar-gap',
+    };
+
+    for (const [key, prop] of Object.entries(layoutMap)) {
+        if (layout[key]) root.style.setProperty(prop, layout[key]);
+    }
+
     // Apply fonts
     const fonts = theme.fonts || {};
     if (fonts.display) root.style.setProperty('--font-display', fonts.display);
@@ -868,21 +1491,33 @@ function applyTheme(theme) {
             scanLine.style.animationDuration = anims.scan_speed;
         }
     }
+
+    // Shimmer
+    document.querySelectorAll('.shimmer').forEach(function(el) {
+        if (anims.bar_shimmer === false) {
+            el.style.animationName = 'none';
+        } else {
+            el.style.animationName = '';
+        }
+    });
 }
 
 // ========== MESSAGING ==========
 
-async function sendMessage() {
+async function sendMessage(retryText) {
     const input = document.getElementById('input');
-    const text = input.value.trim();
+    const text = retryText || input.value.trim();
     if (!text || sending) return;
 
     sending = true;
     document.getElementById('sendBtn').disabled = true;
+    closeCmdPopup();
 
-    addMessage(text, 'user');
-    input.value = '';
-    input.style.height = '38px';
+    if (!retryText) {
+        addMessage(text, 'user');
+        input.value = '';
+        input.style.height = '38px';
+    }
 
     const typing = showTyping();
 
@@ -895,9 +1530,11 @@ async function sendMessage() {
         const data = await res.json();
         removeTyping(typing);
         addMessage(data.response, 'agent', data.agent_name, data.wellness_flag);
+        lastFailedMessage = null;
     } catch (e) {
         removeTyping(typing);
-        addMessage('SIGNAL LOST -- VERIFY SERVER STATUS', 'system');
+        lastFailedMessage = text;
+        addErrorMessage('SIGNAL LOST -- VERIFY SERVER STATUS', text);
     }
 
     sending = false;
@@ -910,10 +1547,68 @@ function addMessage(text, type, sender, wellness) {
     const div = document.createElement('div');
     div.className = 'msg ' + type + (wellness ? ' wellness' : '');
 
-    if (sender && type === 'agent') {
-        div.innerHTML = '<div class="sender">' + escapeHtml(sender).toUpperCase() + '</div>' + escapeHtml(text);
+    if (type === 'agent' && sender) {
+        const senderDiv = document.createElement('div');
+        senderDiv.className = 'sender';
+        senderDiv.textContent = sender.toUpperCase();
+        div.appendChild(senderDiv);
+
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'msg-content';
+        if (typeof marked !== 'undefined') {
+            contentDiv.innerHTML = marked.parse(text);
+        } else {
+            contentDiv.innerHTML = escapeHtml(text);
+        }
+        div.appendChild(contentDiv);
+
+        // Copy button
+        const rawText = text;
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'msg-copy-btn';
+        copyBtn.textContent = 'COPY';
+        copyBtn.setAttribute('aria-label', 'Copy message');
+        copyBtn.onclick = function() {
+            navigator.clipboard.writeText(rawText).then(function() {
+                copyBtn.textContent = 'COPIED';
+                copyBtn.classList.add('copied');
+                setTimeout(function() {
+                    copyBtn.textContent = 'COPY';
+                    copyBtn.classList.remove('copied');
+                }, 1500);
+            });
+        };
+        div.appendChild(copyBtn);
+
+        // Store raw text for copy
+        div.dataset.rawText = rawText;
     } else {
         div.textContent = text;
+    }
+
+    msgs.appendChild(div);
+    msgs.scrollTop = msgs.scrollHeight;
+}
+
+function addErrorMessage(text, failedMsg) {
+    const msgs = document.getElementById('messages');
+    const div = document.createElement('div');
+    div.className = 'msg error-msg';
+
+    const span = document.createElement('span');
+    span.textContent = text;
+    div.appendChild(span);
+
+    if (failedMsg) {
+        const retryBtn = document.createElement('button');
+        retryBtn.className = 'retry-btn';
+        retryBtn.textContent = 'RETRY';
+        retryBtn.setAttribute('aria-label', 'Retry sending message');
+        retryBtn.onclick = function() {
+            div.remove();
+            sendMessage(failedMsg);
+        };
+        div.appendChild(retryBtn);
     }
 
     msgs.appendChild(div);
@@ -924,6 +1619,7 @@ function showTyping() {
     const msgs = document.getElementById('messages');
     const div = document.createElement('div');
     div.className = 'typing';
+    div.setAttribute('aria-label', 'Agent is typing');
     div.innerHTML = '<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>';
     msgs.appendChild(div);
     msgs.scrollTop = msgs.scrollHeight;
@@ -939,15 +1635,201 @@ function escapeHtml(s) {
 }
 
 function handleKey(e) {
+    // Command popup keyboard nav
+    const popup = document.getElementById('cmdPopup');
+    if (popup.classList.contains('open')) {
+        const items = popup.querySelectorAll('.cmd-popup-item');
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            cmdPopupIndex = Math.min(cmdPopupIndex + 1, items.length - 1);
+            updateCmdPopupActive(items);
+            return;
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            cmdPopupIndex = Math.max(cmdPopupIndex - 1, 0);
+            updateCmdPopupActive(items);
+            return;
+        } else if (e.key === 'Enter' && cmdPopupIndex >= 0 && items[cmdPopupIndex]) {
+            e.preventDefault();
+            items[cmdPopupIndex].click();
+            return;
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            closeCmdPopup();
+            return;
+        }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         sendMessage();
     }
 }
 
+function handleInput(el) {
+    autoGrow(el);
+    checkSlashCommand(el.value);
+}
+
 function autoGrow(el) {
     el.style.height = '38px';
     el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+}
+
+// ========== SLASH COMMAND HINTS ==========
+
+async function loadCommands() {
+    try {
+        const res = await fetch(API + '/commands');
+        if (res.ok) {
+            commands = await res.json();
+        }
+    } catch (e) {
+        commands = [];
+    }
+}
+
+function checkSlashCommand(value) {
+    if (!value.startsWith('/') || value.includes(' ')) {
+        closeCmdPopup();
+        return;
+    }
+
+    const query = value.substring(1).toLowerCase();
+    const matches = commands.filter(function(c) {
+        return c.command.toLowerCase().startsWith(query);
+    });
+
+    if (matches.length === 0) {
+        closeCmdPopup();
+        return;
+    }
+
+    const popup = document.getElementById('cmdPopup');
+    popup.innerHTML = '';
+    cmdPopupIndex = -1;
+
+    matches.forEach(function(cmd) {
+        const item = document.createElement('div');
+        item.className = 'cmd-popup-item';
+        item.setAttribute('role', 'option');
+        item.innerHTML = '<span class="cmd-name">/' + escapeHtml(cmd.command) + '</span>' +
+                         '<span class="cmd-desc">' + escapeHtml(cmd.description || '') + '</span>';
+        item.onclick = function() {
+            document.getElementById('input').value = '/' + cmd.command + ' ';
+            document.getElementById('input').focus();
+            closeCmdPopup();
+        };
+        popup.appendChild(item);
+    });
+
+    popup.classList.add('open');
+}
+
+function updateCmdPopupActive(items) {
+    items.forEach(function(item, i) {
+        item.classList.toggle('active', i === cmdPopupIndex);
+    });
+    if (items[cmdPopupIndex]) {
+        items[cmdPopupIndex].scrollIntoView({ block: 'nearest' });
+    }
+}
+
+function closeCmdPopup() {
+    document.getElementById('cmdPopup').classList.remove('open');
+    cmdPopupIndex = -1;
+}
+
+// ========== VOICE INPUT ==========
+
+let mediaRecorder = null;
+let audioChunks = [];
+
+function toggleMic() {
+    const btn = document.getElementById('micBtn');
+
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        // Stop recording
+        mediaRecorder.stop();
+        return;
+    }
+
+    if (btn.classList.contains('transcribing')) return;
+
+    // Start recording
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
+        audioChunks = [];
+        mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+
+        mediaRecorder.ondataavailable = function(e) {
+            if (e.data.size > 0) audioChunks.push(e.data);
+        };
+
+        mediaRecorder.onstop = function() {
+            stream.getTracks().forEach(function(t) { t.stop(); });
+            btn.classList.remove('recording');
+            btn.textContent = '...';
+            btn.classList.add('transcribing');
+
+            const blob = new Blob(audioChunks, { type: 'audio/webm' });
+            const form = new FormData();
+            form.append('audio', blob, 'recording.webm');
+
+            fetch(API + '/stt', { method: 'POST', body: form })
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    btn.classList.remove('transcribing');
+                    btn.textContent = 'MIC';
+                    if (data.text) {
+                        const input = document.getElementById('input');
+                        input.value = (input.value ? input.value + ' ' : '') + data.text;
+                        input.focus();
+                        autoGrow(input);
+                    }
+                })
+                .catch(function() {
+                    btn.classList.remove('transcribing');
+                    btn.textContent = 'MIC';
+                });
+        };
+
+        mediaRecorder.start();
+        btn.classList.add('recording');
+        btn.textContent = 'REC';
+    }).catch(function(err) {
+        console.error('Microphone access denied:', err);
+    });
+}
+
+// ========== CONNECTION POLLING ==========
+
+async function checkConnection() {
+    try {
+        const res = await fetch(API + '/status', { signal: AbortSignal.timeout(5000) });
+        if (res.ok) {
+            setOnlineStatus(true);
+        } else {
+            setOnlineStatus(false);
+        }
+    } catch (e) {
+        setOnlineStatus(false);
+    }
+}
+
+function setOnlineStatus(online) {
+    const dot = document.getElementById('statusDot');
+    const sendBtn = document.getElementById('sendBtn');
+    serverOnline = online;
+
+    if (online) {
+        dot.classList.remove('offline');
+        dot.setAttribute('aria-label', 'Connection status: online');
+        sendBtn.disabled = sending;
+    } else {
+        dot.classList.add('offline');
+        dot.setAttribute('aria-label', 'Connection status: offline');
+        sendBtn.disabled = true;
+    }
 }
 
 // ========== SIDEBAR ==========
@@ -983,7 +1865,7 @@ async function loadStatus() {
         const [statusRes, packsRes, gpuRes] = await Promise.all([
             fetch(API + '/status'),
             fetch(API + '/packs'),
-            fetch(API + '/gpu').catch(() => null),
+            fetch(API + '/gpu').catch(function() { return null; }),
         ]);
         const status = await statusRes.json();
         const packs = await packsRes.json();
@@ -1011,6 +1893,23 @@ async function loadStatus() {
             lcarsDataRow('VOICE', (active.voice || '--').toUpperCase()) +
             lcarsDataRow('THEME', (active.theme || '--').toUpperCase());
 
+        // Populate theme selector
+        const themeSelect = document.getElementById('themeSelect');
+        const themes = packs.themes || [];
+        const currentActiveTheme = active.theme || 'default';
+
+        // Only repopulate if needed
+        if (themeSelect.options.length <= 1) {
+            themeSelect.innerHTML = '';
+            themes.forEach(function(t) {
+                const opt = document.createElement('option');
+                opt.value = t;
+                opt.textContent = t.toUpperCase();
+                if (t === currentActiveTheme) opt.selected = true;
+                themeSelect.appendChild(opt);
+            });
+        }
+
         // GPU info
         if (gpuRes && gpuRes.ok) {
             const gpu = await gpuRes.json();
@@ -1029,14 +1928,201 @@ async function loadStatus() {
             }
         }
     } catch (e) {
-        // Status load failed — keep defaults
+        // Status load failed -- keep defaults
+    }
+}
+
+// ========== TASK PANEL ==========
+
+function openTaskPanel() {
+    document.getElementById('taskPanelOverlay').classList.add('open');
+    document.getElementById('taskPanel').classList.add('open');
+    loadTasks();
+}
+
+function closeTaskPanel() {
+    document.getElementById('taskPanelOverlay').classList.remove('open');
+    document.getElementById('taskPanel').classList.remove('open');
+}
+
+async function loadTasks() {
+    try {
+        const res = await fetch(API + '/tasks', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({action: 'list'}),
+        });
+        const data = await res.json();
+        renderTasks(data.tasks || []);
+        updateTaskCount(data.tasks || []);
+    } catch (e) {
+        document.getElementById('taskList').innerHTML = '<div class="task-empty">Could not load tasks</div>';
+    }
+}
+
+function renderTasks(tasks) {
+    const container = document.getElementById('taskList');
+    if (tasks.length === 0) {
+        container.innerHTML = '<div class="task-empty">No pending tasks</div>';
+        return;
+    }
+
+    container.innerHTML = tasks.map(function(t) {
+        const pClass = (t.priority || 'normal').toLowerCase();
+        return '<div class="task-item">' +
+            '<div class="task-priority ' + escapeHtml(pClass) + '"></div>' +
+            '<div class="task-text">' + escapeHtml(t.text || t.description || '') + '</div>' +
+            '<div class="task-actions">' +
+                '<button class="done-btn" onclick="completeTask(' + t.id + ')" aria-label="Complete task">DONE</button>' +
+                '<button onclick="removeTask(' + t.id + ')" aria-label="Remove task">X</button>' +
+            '</div>' +
+        '</div>';
+    }).join('');
+}
+
+function updateTaskCount(tasks) {
+    const el = document.getElementById('taskCount');
+    el.textContent = tasks.length > 0 ? '(' + tasks.length + ')' : '';
+}
+
+async function addTask() {
+    const input = document.getElementById('taskInput');
+    const text = input.value.trim();
+    if (!text) return;
+
+    const priority = document.getElementById('taskPriority').value;
+
+    try {
+        await fetch(API + '/tasks', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({action: 'add', text: text, priority: priority}),
+        });
+        input.value = '';
+        loadTasks();
+    } catch (e) {}
+}
+
+async function completeTask(id) {
+    try {
+        await fetch(API + '/tasks', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({action: 'done', task_id: id}),
+        });
+        loadTasks();
+    } catch (e) {}
+}
+
+async function removeTask(id) {
+    try {
+        await fetch(API + '/tasks', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({action: 'remove', task_id: id}),
+        });
+        loadTasks();
+    } catch (e) {}
+}
+
+// ========== HISTORY PANEL ==========
+
+let historyViewingTranscript = false;
+
+function openHistoryPanel() {
+    document.getElementById('historyPanelOverlay').classList.add('open');
+    document.getElementById('historyPanel').classList.add('open');
+    historyViewingTranscript = false;
+    document.getElementById('historyBackBtn').style.display = 'none';
+    document.getElementById('historyTitle').textContent = 'Session History';
+    loadSessions();
+}
+
+function closeHistoryPanel() {
+    document.getElementById('historyPanelOverlay').classList.remove('open');
+    document.getElementById('historyPanel').classList.remove('open');
+}
+
+function historyBack() {
+    historyViewingTranscript = false;
+    document.getElementById('historyBackBtn').style.display = 'none';
+    document.getElementById('historyTitle').textContent = 'Session History';
+    loadSessions();
+}
+
+async function loadSessions() {
+    const container = document.getElementById('historyContent');
+    try {
+        const res = await fetch(API + '/transcripts');
+        const data = await res.json();
+        const sessions = data.sessions || [];
+
+        if (sessions.length === 0) {
+            container.innerHTML = '<div class="history-empty">No session history</div>';
+            return;
+        }
+
+        container.innerHTML = sessions.map(function(s) {
+            const sid = s.session_id || s;
+            const dateStr = sid.replace(/_/g, ' ').substring(0, 16);
+            return '<div class="history-item" onclick="loadTranscript(\'' + escapeHtml(sid) + '\')">' +
+                '<span class="history-date">' + escapeHtml(dateStr) + '</span>' +
+                '<span class="history-id">' + escapeHtml(sid) + '</span>' +
+            '</div>';
+        }).join('');
+    } catch (e) {
+        container.innerHTML = '<div class="history-empty">Could not load history</div>';
+    }
+}
+
+async function loadTranscript(sessionId) {
+    const container = document.getElementById('historyContent');
+    container.innerHTML = '<div class="history-empty">Loading...</div>';
+
+    try {
+        const res = await fetch(API + '/transcripts/' + encodeURIComponent(sessionId));
+        const data = await res.json();
+
+        historyViewingTranscript = true;
+        document.getElementById('historyBackBtn').style.display = '';
+        document.getElementById('historyTitle').textContent = 'Session: ' + sessionId.substring(0, 16);
+
+        if (data.content) {
+            const rendered = (typeof marked !== 'undefined') ? marked.parse(data.content) : escapeHtml(data.content);
+            container.innerHTML = '<div class="history-transcript msg-content">' + rendered + '</div>';
+        } else {
+            container.innerHTML = '<div class="history-empty">Transcript not found</div>';
+        }
+    } catch (e) {
+        container.innerHTML = '<div class="history-empty">Could not load transcript</div>';
+    }
+}
+
+// ========== THEME SWITCHING ==========
+
+async function switchTheme(themeName) {
+    if (!themeName) return;
+
+    try {
+        const res = await fetch(API + '/theme/switch', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({theme_name: themeName}),
+        });
+        const data = await res.json();
+        if (data.theme) {
+            applyTheme(data.theme);
+            currentTheme = data.theme;
+        }
+    } catch (e) {
+        console.error('Theme switch failed:', e);
     }
 }
 
 // ========== SESSION PERSISTENCE ==========
 
-window.addEventListener('beforeunload', () => {
-    const blob = new Blob(['{}'], {type: 'application/json'});
+window.addEventListener('beforeunload', function() {
+    var blob = new Blob(['{}'], {type: 'application/json'});
     navigator.sendBeacon(API + '/end-session', blob);
 });
 
@@ -1045,8 +2131,20 @@ window.addEventListener('beforeunload', () => {
 async function init() {
     await loadTheme();
     loadStatus();
+    loadCommands();
 
-    // Also fetch agent name for top bar
+    // Load initial task count
+    try {
+        const res = await fetch(API + '/tasks', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({action: 'list'}),
+        });
+        const data = await res.json();
+        updateTaskCount(data.tasks || []);
+    } catch (e) {}
+
+    // Fetch agent name for top bar
     try {
         const res = await fetch(API + '/status');
         const data = await res.json();
@@ -1056,11 +2154,19 @@ async function init() {
 
     // Show desktop top-endcap label on wider screens
     if (window.innerWidth >= 768) {
-        const lbl = document.querySelector('.top-endcap-label');
+        var lbl = document.querySelector('.top-endcap-label');
         if (lbl) lbl.style.display = 'block';
-        const hamburger = document.querySelector('.hamburger');
+        var hamburger = document.querySelector('.hamburger');
         if (hamburger) hamburger.style.display = 'none';
     }
+
+    // Connection polling every 30s
+    setInterval(checkConnection, 30000);
+
+    // Task count refresh every 60s
+    setInterval(function() {
+        loadTasks().catch(function() {});
+    }, 60000);
 }
 
 init();

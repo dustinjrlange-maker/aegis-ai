@@ -1,23 +1,87 @@
 {
-    "name": "Aegis Default",
+    "layout": {
+        "variant": "default",
+        "sidebar_width": "200px",
+        "elbow_radius": "40px",
+        "bar_thickness": "32px",
+        "bar_gap": "2px",
+        "top_bar_height": "48px",
+        "bottom_bar_height": "56px",
+        "endcap_radius": "20px"
+    },
+
     "colors": {
-        "primary": "#2563eb",
-        "secondary": "#1e40af",
         "background": "#0f172a",
         "surface": "#1e293b",
         "text": "#f1f5f9",
-        "accent": "#38bdf8",
+        "text_dim": "#94a3b8",
+
+        "blue_1": "#2563eb",
+        "blue_2": "#1e40af",
+        "blue_3": "#93c5fd",
+
+        "purple_1": "#6366f1",
+        "purple_2": "#4f46e5",
+        "purple_3": "#c7d2fe",
+
+        "pink_1": "#38bdf8",
+        "pink_2": "#0284c7",
+        "pink_3": "#bae6fd",
+
+        "grey_1": "#334155",
+        "grey_2": "#64748b",
+        "grey_3": "#cbd5e1",
+        "grey_4": "#94a3b8",
+
         "success": "#22c55e",
         "warning": "#f59e0b",
-        "error": "#ef4444"
+        "error": "#ef4444",
+
+        "bar_top": "#2563eb",
+        "bar_sidebar_1": "#1e40af",
+        "bar_sidebar_2": "#6366f1",
+        "bar_sidebar_3": "#4f46e5",
+        "bar_bottom": "#6366f1",
+        "elbow": "#6366f1",
+        "endcap_left": "#2563eb",
+        "endcap_right": "#38bdf8",
+
+        "msg_agent_border": "#2563eb",
+        "msg_agent_bg": "rgba(37, 99, 235, 0.08)",
+        "msg_user_border": "#6366f1",
+        "msg_user_bg": "rgba(99, 102, 241, 0.08)",
+        "msg_system_bg": "rgba(100, 116, 139, 0.2)",
+
+        "input_bg": "#0f172a",
+        "input_border": "#334155",
+        "input_focus_border": "#2563eb",
+        "send_button": "#2563eb",
+        "send_button_hover": "#93c5fd",
+
+        "scan_line": "rgba(37, 99, 235, 0.06)"
     },
+
     "fonts": {
-        "primary": "Inter, system-ui, sans-serif",
+        "display": "Inter, system-ui, sans-serif",
+        "body": "Inter, system-ui, sans-serif",
         "mono": "JetBrains Mono, Consolas, monospace"
     },
+
     "terminology": {
-        "agent_label": "Aegis",
-        "companion_label": "You",
-        "status_header": "AEGIS SYSTEMS STATUS"
+        "title": "Aegis AI",
+        "input_placeholder": "Type a message...",
+        "send_label": "SEND",
+        "thinking_label": "Thinking...",
+        "connected_label": "Connected",
+        "status_online": "Online",
+        "status_offline": "Offline"
+    },
+
+    "animations": {
+        "scan_line": false,
+        "scan_speed": "8s",
+        "status_pulse": true,
+        "bar_shimmer": false,
+        "message_slide": true
     }
 }

@@ -14,11 +14,13 @@ from contextlib import asynccontextmanager
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, UploadFile, File
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse
 from pydantic import BaseModel
 from typing import Optional
+import json
+import tempfile
 
 import ollama
 from core.config import CONFIG, get_path
@@ -37,6 +39,7 @@ from core.protocols.operations import OperationsProtocol
 from core.protocols.command import CommandProtocol
 from core.protocols.creative import CreativeProtocol
 from core.voice import emotion
+from core.memory.transcript import list_transcripts, load_transcript
 
 
 # --- Initialize Agent State ---
@@ -113,6 +116,10 @@ class TaskRequest(BaseModel):
     text: Optional[str] = None
     task_id: Optional[int] = None
     priority: Optional[str] = "normal"
+
+
+class ThemeSwitchRequest(BaseModel):
+    theme_name: str
 
 
 # --- Routes ---
@@ -288,6 +295,120 @@ async def get_gpu():
     if cmd:
         return cmd.get_gpu_info() or {"error": "GPU info unavailable"}
     return {"error": "Command protocol not available"}
+
+
+@app.post("/api/stt")
+async def speech_to_text(audio: UploadFile = File(...)):
+    """Transcribe uploaded audio via STT engine."""
+    try:
+        from pydub import AudioSegment
+        from core.voice.stt_engine import transcribe
+
+        # Save uploaded file to temp
+        with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as tmp:
+            content = await audio.read()
+            tmp.write(content)
+            tmp_path = tmp.name
+
+        # Convert webm to wav PCM 16kHz mono
+        audio_seg = AudioSegment.from_file(tmp_path)
+        audio_seg = audio_seg.set_frame_rate(16000).set_channels(1)
+        wav_path = tmp_path.replace(".webm", ".wav")
+        audio_seg.export(wav_path, format="wav")
+
+        # Load as numpy array for STT engine
+        import numpy as np
+        import wave
+        with wave.open(wav_path, "rb") as wf:
+            frames = wf.readframes(wf.getnframes())
+            audio_np = np.frombuffer(frames, dtype=np.int16).astype(np.float32) / 32768.0
+
+        # Transcribe
+        text = transcribe(audio_np)
+
+        # Clean up temp files
+        Path(tmp_path).unlink(missing_ok=True)
+        Path(wav_path).unlink(missing_ok=True)
+
+        return {"text": text or ""}
+    except ImportError as e:
+        logger.warning(f"STT dependencies not available: {e}")
+        return {"text": "", "error": f"STT not available: {e}"}
+    except Exception as e:
+        logger.error(f"STT error: {e}")
+        return {"text": "", "error": str(e)}
+
+
+@app.get("/api/commands")
+async def get_commands():
+    """List all available slash commands from protocols."""
+    all_commands = []
+    for proto_name in protocol_registry.list_protocols():
+        proto = protocol_registry.get(proto_name)
+        if not proto:
+            continue
+        try:
+            cmds = proto.get_commands()
+            for cmd in cmds:
+                all_commands.append({
+                    "command": cmd.get("command", ""),
+                    "description": cmd.get("description", ""),
+                    "protocol": proto.name,
+                })
+        except Exception:
+            pass
+    return all_commands
+
+
+@app.get("/api/transcripts")
+async def get_transcripts():
+    """List available session transcripts."""
+    session_ids = list_transcripts()[:50]
+    sessions = []
+    for sid in session_ids:
+        sessions.append({"session_id": sid})
+    return {"sessions": sessions}
+
+
+@app.get("/api/transcripts/{session_id}")
+async def get_transcript(session_id: str):
+    """Load a specific session transcript."""
+    # Path traversal guard
+    if ".." in session_id or "/" in session_id or "\\" in session_id:
+        return {"error": "Invalid session ID"}
+
+    content = load_transcript(session_id)
+    if content is not None:
+        return {"session_id": session_id, "content": content}
+    return {"error": "Transcript not found"}
+
+
+@app.post("/api/theme/switch")
+async def switch_theme(req: ThemeSwitchRequest):
+    """Switch active theme at runtime."""
+    available_themes = list_packs("themes")
+    if req.theme_name not in available_themes:
+        return {"error": f"Theme '{req.theme_name}' not found"}
+
+    # Update config in memory
+    if "packs" not in CONFIG:
+        CONFIG["packs"] = {}
+    CONFIG["packs"]["active_theme"] = req.theme_name
+
+    # Write updated config to disk
+    try:
+        config_path = PROJECT_ROOT / "core" / "config" / "core_config.json"
+        config_data = json.loads(config_path.read_text(encoding="utf-8"))
+        if "packs" not in config_data:
+            config_data["packs"] = {}
+        config_data["packs"]["active_theme"] = req.theme_name
+        config_path.write_text(json.dumps(config_data, indent=4), encoding="utf-8")
+    except Exception as e:
+        logger.warning(f"Could not persist theme to config: {e}")
+
+    # Load and return the new theme
+    theme_pack = load_theme_pack()
+    return {"success": True, "theme": theme_pack.get("theme", {})}
 
 
 @app.get("/manifest.json")
