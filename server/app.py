@@ -128,6 +128,10 @@ class ProtocolToggleRequest(BaseModel):
     enabled: bool
 
 
+class PackSwitchRequest(BaseModel):
+    pack_name: str
+
+
 # --- Routes ---
 
 @app.get("/", response_class=HTMLResponse)
@@ -424,6 +428,85 @@ async def switch_theme(req: ThemeSwitchRequest):
     # Load and return the new theme
     theme_pack = load_theme_pack()
     return {"success": True, "theme": theme_pack.get("theme", {})}
+
+
+@app.post("/api/personality/switch")
+async def switch_personality(req: PackSwitchRequest):
+    """Switch active personality pack at runtime."""
+    global agent_name, personality_pack, char_memory, full_prompt, clean_reply, messages
+
+    available = list_packs("personalities")
+    if req.pack_name not in available:
+        return {"error": f"Personality '{req.pack_name}' not found"}
+
+    # Update config
+    if "packs" not in CONFIG:
+        CONFIG["packs"] = {}
+    CONFIG["packs"]["active_personality"] = req.pack_name
+
+    # Persist to disk
+    try:
+        config_path = PROJECT_ROOT / "core" / "config" / "core_config.json"
+        config_data = json.loads(config_path.read_text(encoding="utf-8"))
+        if "packs" not in config_data:
+            config_data["packs"] = {}
+        config_data["packs"]["active_personality"] = req.pack_name
+        config_path.write_text(json.dumps(config_data, indent=4), encoding="utf-8")
+    except Exception as e:
+        logger.warning(f"Could not persist personality to config: {e}")
+
+    # Reload personality
+    personality_pack = load_personality_pack(req.pack_name)
+    agent_name = get_agent_display_name(personality_pack)
+    char_memory = CharacterMemory(personality_pack.get("memories", {}))
+    memory.set_names(agent_name)
+    clean_reply = build_filler_cleaner(personality_pack)
+
+    # Rebuild system prompt
+    system_prompt = build_system_prompt(core_directives, personality_pack)
+    char_context = char_memory.get_core_context()
+    session_context = memory.build_session_context()
+    full_prompt = "\n\n".join([p for p in [system_prompt, char_context, session_context] if p])
+    messages[0] = {"role": "system", "content": full_prompt}
+
+    return {
+        "success": True,
+        "agent_name": agent_name,
+        "pack": req.pack_name,
+    }
+
+
+@app.post("/api/voice/switch")
+async def switch_voice(req: PackSwitchRequest):
+    """Switch active voice pack at runtime."""
+    available = list_packs("voices")
+    if req.pack_name not in available:
+        return {"error": f"Voice '{req.pack_name}' not found"}
+
+    # Update config
+    if "packs" not in CONFIG:
+        CONFIG["packs"] = {}
+    CONFIG["packs"]["active_voice"] = req.pack_name
+
+    # Persist to disk
+    try:
+        config_path = PROJECT_ROOT / "core" / "config" / "core_config.json"
+        config_data = json.loads(config_path.read_text(encoding="utf-8"))
+        if "packs" not in config_data:
+            config_data["packs"] = {}
+        config_data["packs"]["active_voice"] = req.pack_name
+        config_path.write_text(json.dumps(config_data, indent=4), encoding="utf-8")
+    except Exception as e:
+        logger.warning(f"Could not persist voice to config: {e}")
+
+    # Reload voice pack (TTS will pick it up on next synthesis)
+    voice_pack = load_voice_pack(req.pack_name)
+
+    return {
+        "success": True,
+        "pack": req.pack_name,
+        "reference_path": voice_pack.get("reference_path"),
+    }
 
 
 @app.post("/api/protocol/toggle")

@@ -50,13 +50,53 @@ class OperationsProtocol(Protocol):
             json.dump(self._tasks, f, indent=2, ensure_ascii=False)
 
     def process_input(self, user_input, context):
-        """Operations doesn't intercept — it adds context about pending tasks."""
+        """Detect task intent from natural language and inject pending task context."""
         result = {
             "input": user_input,
             "context_injection": "",
             "intercept": False,
             "response": "",
         }
+
+        # NLP task detection — auto-create tasks from conversation
+        lower = user_input.lower().strip()
+        for pattern in self.TASK_PATTERNS:
+            match = re.search(pattern, lower, re.IGNORECASE)
+            if match:
+                task_text = match.group(1).strip().rstrip(".!,")
+                if len(task_text) > 3:
+                    task = self.add_task(task_text)
+                    result["context_injection"] = (
+                        f"[System: A task was auto-detected and saved: "
+                        f"'#{task['id']}: {task['text']}'. "
+                        f"Acknowledge this naturally in your response.]"
+                    )
+                break
+
+        # Inject pending tasks as context so the agent is aware of them
+        pending = self.get_pending_tasks()
+        overdue = self.get_overdue_tasks()
+        if pending:
+            task_summary = []
+            if overdue:
+                task_summary.append(
+                    f"OVERDUE tasks ({len(overdue)}): " +
+                    ", ".join(f"#{t['id']}: {t['text']}" for t in overdue[:3])
+                )
+            high = [t for t in pending if t.get("priority") == "high"]
+            if high:
+                task_summary.append(
+                    f"High priority ({len(high)}): " +
+                    ", ".join(f"#{t['id']}: {t['text']}" for t in high[:3])
+                )
+            task_summary.append(f"Total pending tasks: {len(pending)}")
+            if not result["context_injection"]:
+                result["context_injection"] = (
+                    "[Companion's pending tasks: " +
+                    "; ".join(task_summary) +
+                    ". Only mention these if relevant to the conversation.]"
+                )
+
         return result
 
     def process_output(self, response, context):

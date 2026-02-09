@@ -1529,6 +1529,12 @@
             <div class="sidebar-section">
                 <div class="sidebar-section-title">Packs</div>
                 <div id="packList"></div>
+                <select class="theme-select" id="personalitySelect" aria-label="Select personality" onchange="switchPersonality(this.value)">
+                    <option value="">-- personality --</option>
+                </select>
+                <select class="theme-select" id="voiceSelect" aria-label="Select voice" onchange="switchVoice(this.value)">
+                    <option value="">-- voice --</option>
+                </select>
                 <select class="theme-select" id="themeSelect" aria-label="Select theme" onchange="switchTheme(this.value)">
                     <option value="">-- theme --</option>
                 </select>
@@ -2184,22 +2190,10 @@ async function loadStatus() {
             lcarsDataRow('VOICE', (active.voice || '--').toUpperCase()) +
             lcarsDataRow('THEME', (active.theme || '--').toUpperCase());
 
-        // Populate theme selector
-        const themeSelect = document.getElementById('themeSelect');
-        const themes = packs.themes || [];
-        const currentActiveTheme = active.theme || 'default';
-
-        // Only repopulate if needed
-        if (themeSelect.options.length <= 1) {
-            themeSelect.innerHTML = '';
-            themes.forEach(function(t) {
-                const opt = document.createElement('option');
-                opt.value = t;
-                opt.textContent = t.toUpperCase();
-                if (t === currentActiveTheme) opt.selected = true;
-                themeSelect.appendChild(opt);
-            });
-        }
+        // Populate pack selectors
+        populatePackSelect('personalitySelect', packs.personalities || [], active.personality || 'default');
+        populatePackSelect('voiceSelect', packs.voices || [], active.voice || 'default');
+        populatePackSelect('themeSelect', packs.themes || [], active.theme || 'default');
 
         // GPU info
         if (gpuRes && gpuRes.ok) {
@@ -2741,11 +2735,24 @@ async function loadSystemDetails() {
     }
 }
 
-// ========== THEME SWITCHING ==========
+// ========== PACK SWITCHING ==========
+
+function populatePackSelect(selectId, packs, activePack) {
+    var sel = document.getElementById(selectId);
+    if (!sel || sel.dataset.populated === 'true') return;
+    sel.innerHTML = '';
+    packs.forEach(function(p) {
+        var opt = document.createElement('option');
+        opt.value = p;
+        opt.textContent = p.toUpperCase();
+        if (p === activePack) opt.selected = true;
+        sel.appendChild(opt);
+    });
+    sel.dataset.populated = 'true';
+}
 
 async function switchTheme(themeName) {
     if (!themeName) return;
-
     try {
         const res = await fetch(API + '/theme/switch', {
             method: 'POST',
@@ -2759,6 +2766,48 @@ async function switchTheme(themeName) {
         }
     } catch (e) {
         console.error('Theme switch failed:', e);
+    }
+}
+
+async function switchPersonality(packName) {
+    if (!packName) return;
+    try {
+        const res = await fetch(API + '/personality/switch', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({pack_name: packName}),
+        });
+        const data = await res.json();
+        if (data.success) {
+            document.getElementById('agentName').textContent = (data.agent_name || 'AEGIS').toUpperCase();
+            addMessage('Personality switched to ' + packName.toUpperCase(), 'system');
+            // Reset pack selector populated flags to refresh on next loadStatus
+            var sel = document.getElementById('personalitySelect');
+            if (sel) sel.dataset.populated = '';
+            loadStatus();
+        }
+    } catch (e) {
+        console.error('Personality switch failed:', e);
+    }
+}
+
+async function switchVoice(packName) {
+    if (!packName) return;
+    try {
+        const res = await fetch(API + '/voice/switch', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({pack_name: packName}),
+        });
+        const data = await res.json();
+        if (data.success) {
+            addMessage('Voice switched to ' + packName.toUpperCase(), 'system');
+            var sel = document.getElementById('voiceSelect');
+            if (sel) sel.dataset.populated = '';
+            loadStatus();
+        }
+    } catch (e) {
+        console.error('Voice switch failed:', e);
     }
 }
 
