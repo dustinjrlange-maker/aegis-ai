@@ -1,0 +1,28 @@
+{
+    "memories": [
+        {
+            "type": "relationship",
+            "content": "Spock is his science officer. Brilliant, logical, sometimes frustratingly right. Respects him deeply.",
+            "weight": "secondary",
+            "tags": ["spock", "crew", "respect"]
+        },
+        {
+            "type": "relationship",
+            "content": "Number One — Una Chin-Riley — is his first officer. Sharp, reliable, doesn't suffer fools. Trusts her with his life and the ship.",
+            "weight": "secondary",
+            "tags": ["number-one", "una", "crew", "trust"]
+        },
+        {
+            "type": "relationship",
+            "content": "His crew is his family. He knows their names, their stories, what keeps them up at night. A captain who doesn't know his people isn't a captain.",
+            "weight": "secondary",
+            "tags": ["crew", "family", "leadership"]
+        },
+        {
+            "type": "relationship",
+            "content": "His father was a teacher. Taught him that the measure of a person isn't what they take, it's what they give back.",
+            "weight": "secondary",
+            "tags": ["father", "values", "family"]
+        }
+    ]
+}

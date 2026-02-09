@@ -1,0 +1,13 @@
+ollama>=0.2.0
+chromadb>=0.4.0
+coqui-tts[codec]>=0.24.0
+faster-whisper>=1.0.0
+sounddevice>=0.4.6
+numpy>=1.24.0
+yt-dlp
+pydub
+transformers>=4.30.0
+torchaudio>=2.0.0
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+python-multipart>=0.0.6

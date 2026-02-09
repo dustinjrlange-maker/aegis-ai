@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="/manifest.json">
+    <title>Aegis AI</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --surface-2: #334155;
+            --text: #f1f5f9;
+            --text-dim: #94a3b8;
+            --accent: #2563eb;
+            --accent-glow: #3b82f6;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --radius: 12px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Header */
+        .header {
+            background: var(--surface);
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid var(--surface-2);
+            flex-shrink: 0;
+        }
+
+        .header .shield {
+            width: 32px;
+            height: 32px;
+            background: var(--accent);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .header .info {
+            flex: 1;
+        }
+
+        .header .name {
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .header .status {
+            font-size: 11px;
+            color: var(--success);
+        }
+
+        .header .menu-btn {
+            background: none;
+            border: none;
+            color: var(--text-dim);
+            font-size: 20px;
+            cursor: pointer;
+            padding: 8px;
+        }
+
+        /* Messages */
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            scroll-behavior: smooth;
+        }
+
+        .msg {
+            max-width: 85%;
+            padding: 10px 14px;
+            border-radius: var(--radius);
+            font-size: 15px;
+            line-height: 1.5;
+            word-wrap: break-word;
+            animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .msg.agent {
+            background: var(--surface);
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+        }
+
+        .msg.user {
+            background: var(--accent);
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+
+        .msg.system {
+            background: var(--surface-2);
+            align-self: center;
+            font-size: 12px;
+            color: var(--text-dim);
+            padding: 6px 12px;
+            border-radius: 20px;
+        }
+
+        .msg .sender {
+            font-size: 11px;
+            color: var(--text-dim);
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+
+        .msg.user .sender {
+            color: rgba(255,255,255,0.7);
+        }
+
+        .msg.wellness {
+            border-left: 3px solid var(--warning);
+        }
+
+        .typing {
+            align-self: flex-start;
+            color: var(--text-dim);
+            font-size: 13px;
+            padding: 8px 0;
+        }
+
+        .typing::after {
+            content: '';
+            animation: dots 1.5s infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+
+        /* Input */
+        .input-area {
+            background: var(--surface);
+            padding: 12px 16px;
+            border-top: 1px solid var(--surface-2);
+            display: flex;
+            gap: 8px;
+            align-items: flex-end;
+            flex-shrink: 0;
+        }
+
+        .input-area textarea {
+            flex: 1;
+            background: var(--bg);
+            border: 1px solid var(--surface-2);
+            border-radius: var(--radius);
+            color: var(--text);
+            padding: 10px 14px;
+            font-size: 15px;
+            font-family: inherit;
+            resize: none;
+            max-height: 120px;
+            min-height: 42px;
+            line-height: 1.4;
+            outline: none;
+        }
+
+        .input-area textarea:focus {
+            border-color: var(--accent);
+        }
+
+        .input-area textarea::placeholder {
+            color: var(--text-dim);
+        }
+
+        .send-btn {
+            background: var(--accent);
+            border: none;
+            border-radius: 50%;
+            width: 42px;
+            height: 42px;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: background 0.15s;
+        }
+
+        .send-btn:hover { background: var(--accent-glow); }
+        .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* Sidebar */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            right: -300px;
+            width: 300px;
+            height: 100%;
+            background: var(--surface);
+            z-index: 100;
+            transition: right 0.25s ease;
+            padding: 16px;
+            overflow-y: auto;
+        }
+
+        .sidebar.open { right: 0; }
+
+        .sidebar-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 99;
+            display: none;
+        }
+
+        .sidebar-overlay.open { display: block; }
+
+        .sidebar h3 {
+            font-size: 14px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 16px 0 8px;
+        }
+
+        .sidebar h3:first-child { margin-top: 0; }
+
+        .sidebar .proto {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            font-size: 14px;
+            border-bottom: 1px solid var(--surface-2);
+        }
+
+        .sidebar .proto .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+        }
+
+        .sidebar .proto .dot.off { background: var(--error); }
+
+        .sidebar .close-btn {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: none;
+            border: none;
+            color: var(--text-dim);
+            font-size: 22px;
+            cursor: pointer;
+        }
+
+        /* Safe area for notched phones */
+        @supports (padding: env(safe-area-inset-bottom)) {
+            .input-area { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+            .header { padding-top: calc(12px + env(safe-area-inset-top)); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="shield" id="shield">A</div>
+    <div class="info">
+        <div class="name" id="agentName">Aegis</div>
+        <div class="status" id="statusDot">Online</div>
+    </div>
+    <button class="menu-btn" onclick="toggleSidebar()">&#9776;</button>
+</div>
+
+<div class="messages" id="messages">
+    <div class="msg system">Connected to Aegis AI</div>
+</div>
+
+<div class="input-area">
+    <textarea id="input" placeholder="Message..." rows="1"
+              onkeydown="handleKey(event)" oninput="autoGrow(this)"></textarea>
+    <button class="send-btn" id="sendBtn" onclick="sendMessage()">&#9654;</button>
+</div>
+
+<div class="sidebar-overlay" id="overlay" onclick="toggleSidebar()"></div>
+<div class="sidebar" id="sidebar">
+    <button class="close-btn" onclick="toggleSidebar()">&times;</button>
+    <h3>System</h3>
+    <div id="sysInfo"></div>
+    <h3>Protocols</h3>
+    <div id="protoList"></div>
+    <h3>Packs</h3>
+    <div id="packList"></div>
+</div>
+
+<script>
+const API = window.location.origin + '/api';
+let sending = false;
+
+async function sendMessage() {
+    const input = document.getElementById('input');
+    const text = input.value.trim();
+    if (!text || sending) return;
+
+    sending = true;
+    document.getElementById('sendBtn').disabled = true;
+
+    addMessage(text, 'user');
+    input.value = '';
+    input.style.height = '42px';
+
+    const typing = showTyping();
+
+    try {
+        const res = await fetch(API + '/chat', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({message: text}),
+        });
+        const data = await res.json();
+        removeTyping(typing);
+        addMessage(data.response, 'agent', data.agent_name, data.wellness_flag);
+    } catch (e) {
+        removeTyping(typing);
+        addMessage('Connection error. Is the server running?', 'system');
+    }
+
+    sending = false;
+    document.getElementById('sendBtn').disabled = false;
+    input.focus();
+}
+
+function addMessage(text, type, sender, wellness) {
+    const msgs = document.getElementById('messages');
+    const div = document.createElement('div');
+    div.className = 'msg ' + type + (wellness ? ' wellness' : '');
+
+    if (sender && type === 'agent') {
+        div.innerHTML = '<div class="sender">' + sender + '</div>' + escapeHtml(text);
+    } else {
+        div.textContent = text;
+    }
+
+    msgs.appendChild(div);
+    msgs.scrollTop = msgs.scrollHeight;
+}
+
+function showTyping() {
+    const msgs = document.getElementById('messages');
+    const div = document.createElement('div');
+    div.className = 'typing';
+    div.textContent = 'Thinking';
+    msgs.appendChild(div);
+    msgs.scrollTop = msgs.scrollHeight;
+    return div;
+}
+
+function removeTyping(el) { if (el && el.parentNode) el.parentNode.removeChild(el); }
+
+function escapeHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+}
+
+function handleKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+    }
+}
+
+function autoGrow(el) {
+    el.style.height = '42px';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('overlay').classList.toggle('open');
+    if (document.getElementById('sidebar').classList.contains('open')) loadStatus();
+}
+
+async function loadStatus() {
+    try {
+        const [statusRes, packsRes] = await Promise.all([
+            fetch(API + '/status'), fetch(API + '/packs')
+        ]);
+        const status = await statusRes.json();
+        const packs = await packsRes.json();
+
+        document.getElementById('agentName').textContent = status.agent_name;
+        document.getElementById('shield').textContent = status.agent_name[0];
+
+        document.getElementById('sysInfo').innerHTML =
+            '<div class="proto">Model <span>' + status.model + '</span></div>' +
+            '<div class="proto">Session <span>' + status.session_id + '</span></div>' +
+            '<div class="proto">Messages <span>' + status.message_count + '</span></div>';
+
+        document.getElementById('protoList').innerHTML = status.protocols.map(p =>
+            '<div class="proto"><span>' + p.name + '</span><div class="dot' + (p.enabled ? '' : ' off') + '"></div></div>'
+        ).join('');
+
+        document.getElementById('packList').innerHTML =
+            '<div class="proto">Personality <span>' + packs.active.personality + '</span></div>' +
+            '<div class="proto">Voice <span>' + packs.active.voice + '</span></div>' +
+            '<div class="proto">Theme <span>' + packs.active.theme + '</span></div>';
+    } catch (e) {}
+}
+
+// Load agent name on startup
+fetch(API + '/status').then(r => r.json()).then(data => {
+    document.getElementById('agentName').textContent = data.agent_name;
+    document.getElementById('shield').textContent = data.agent_name[0];
+}).catch(() => {});
+</script>
+
+</body>
+</html>

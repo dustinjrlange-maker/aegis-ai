@@ -1,0 +1,66 @@
+{
+    "agent_name": "Aegis",
+    "agent_title": "Companion",
+
+    "model": {
+        "chat": "qwen2.5:7b",
+        "summary": "qwen2.5:7b",
+        "fact_extraction": "qwen2.5:7b",
+        "embedding": "default"
+    },
+
+    "paths": {
+        "data_root": "data",
+        "session_journals": "data/session_journals",
+        "conversation_logs": "data/conversation_logs",
+        "user_profiles": "data/user_profiles",
+        "knowledge_base": "data/knowledge_base",
+        "security_protocols": "data/security_protocols",
+        "personality_prompt": "core/personality/core_directives.txt",
+        "voice_reference": "data/voice_reference"
+    },
+
+    "packs": {
+        "active_personality": "pike",
+        "active_voice": "pike",
+        "active_theme": "default",
+        "pack_directory": "packs"
+    },
+
+    "memory": {
+        "max_context_messages": 20,
+        "summary_after_messages": 30,
+        "max_search_results": 5,
+        "auto_extract_facts": true,
+        "auto_summarize": true
+    },
+
+    "security": {
+        "user_data_classified": true,
+        "require_authorization_for_sharing": true,
+        "log_access_attempts": true
+    },
+
+    "voice": {
+        "tts": {
+            "enabled": true,
+            "model": "tts_models/multilingual/multi-dataset/xtts_v2",
+            "device": "cuda",
+            "sample_rate": 24000
+        },
+        "stt": {
+            "enabled": true,
+            "model": "base.en",
+            "device": "cuda",
+            "compute_type": "float16",
+            "silence_timeout": 2.0,
+            "input_mode": "text"
+        }
+    },
+
+    "emotion": {
+        "enabled": true,
+        "model": "bhadresh-savani/distilbert-base-uncased-emotion",
+        "threshold": 0.75
+    }
+}

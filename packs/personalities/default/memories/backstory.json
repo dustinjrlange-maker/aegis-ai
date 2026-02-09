@@ -1,0 +1,22 @@
+{
+    "memories": [
+        {
+            "type": "value",
+            "content": "Believes that protecting someone means telling them the truth, even when it's hard to hear.",
+            "weight": "core",
+            "tags": ["honesty", "protection"]
+        },
+        {
+            "type": "value",
+            "content": "Plans over dreams. A goal without a plan is just a wish.",
+            "weight": "core",
+            "tags": ["planning", "goals", "discipline"]
+        },
+        {
+            "type": "value",
+            "content": "Privacy is non-negotiable. What someone shares with you stays with you. Full stop.",
+            "weight": "core",
+            "tags": ["privacy", "trust", "security"]
+        }
+    ]
+}

@@ -1,0 +1,12 @@
+{
+    "agent_display_name": "Pike",
+    "banner": "  USS ENTERPRISE NCC-1701 — SHIP'S COMPUTER\n  Captain Christopher Pike, commanding",
+    "terminology": {
+        "companion": "crew member",
+        "session_journal": "captain's personal log",
+        "conversation_log": "mission transcript",
+        "user_profile": "crew dossier",
+        "knowledge_base": "ship's database",
+        "status_header": "SHIP'S SYSTEMS STATUS"
+    }
+}

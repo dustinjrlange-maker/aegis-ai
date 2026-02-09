@@ -1,0 +1,23 @@
+{
+    "name": "Aegis Default",
+    "colors": {
+        "primary": "#2563eb",
+        "secondary": "#1e40af",
+        "background": "#0f172a",
+        "surface": "#1e293b",
+        "text": "#f1f5f9",
+        "accent": "#38bdf8",
+        "success": "#22c55e",
+        "warning": "#f59e0b",
+        "error": "#ef4444"
+    },
+    "fonts": {
+        "primary": "Inter, system-ui, sans-serif",
+        "mono": "JetBrains Mono, Consolas, monospace"
+    },
+    "terminology": {
+        "agent_label": "Aegis",
+        "companion_label": "You",
+        "status_header": "AEGIS SYSTEMS STATUS"
+    }
+}

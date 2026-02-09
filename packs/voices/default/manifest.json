@@ -1,0 +1,7 @@
+{
+    "name": "Default Voice",
+    "author": "Aegis AI",
+    "version": "1.0.0",
+    "description": "Default Aegis voice. Requires a reference.wav to be placed in this directory.",
+    "compatibility": ">=1.0.0"
+}

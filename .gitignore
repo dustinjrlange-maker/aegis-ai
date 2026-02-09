@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Data (all runtime/user data, not committed)
+data/
+
+# Voice pack references (large binary files)
+packs/voices/*/reference.wav
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Autonomous session logs
+autonomous-logs/
+
+# Environment
+.env
+*.env
