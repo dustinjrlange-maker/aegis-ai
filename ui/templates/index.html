@@ -1033,6 +1033,242 @@
             padding: 24px;
         }
 
+        /* ========== PROTOCOL PANEL ========== */
+
+        .proto-detail-item {
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            padding: 12px 0;
+        }
+
+        .proto-detail-item:last-child {
+            border-bottom: none;
+        }
+
+        .proto-detail-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 6px;
+        }
+
+        .proto-detail-name {
+            font-family: var(--font-display);
+            font-size: 14px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--lcars-blue-3);
+        }
+
+        .proto-toggle {
+            position: relative;
+            width: 40px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .proto-toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .proto-toggle .toggle-slider {
+            position: absolute;
+            inset: 0;
+            background: var(--lcars-grey-1);
+            border-radius: 10px;
+            transition: background 0.2s;
+        }
+
+        .proto-toggle .toggle-slider::before {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            left: 2px;
+            top: 2px;
+            background: var(--lcars-text);
+            border-radius: 50%;
+            transition: transform 0.2s;
+        }
+
+        .proto-toggle input:checked + .toggle-slider {
+            background: var(--lcars-success);
+        }
+
+        .proto-toggle input:checked + .toggle-slider::before {
+            transform: translateX(20px);
+        }
+
+        .proto-toggle.locked {
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .proto-detail-desc {
+            font-size: 12px;
+            color: var(--lcars-text-dim);
+            margin-bottom: 8px;
+        }
+
+        .proto-detail-stats {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px 16px;
+        }
+
+        .proto-stat {
+            font-size: 11px;
+        }
+
+        .proto-stat .stat-label {
+            font-family: var(--font-display);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--lcars-grey-4);
+            font-size: 9px;
+        }
+
+        .proto-stat .stat-value {
+            font-family: var(--font-mono);
+            color: var(--lcars-blue-3);
+        }
+
+        .proto-commands {
+            margin-top: 8px;
+        }
+
+        .proto-cmd {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--lcars-purple-3);
+            padding: 2px 0;
+        }
+
+        .proto-cmd .cmd-slash {
+            color: var(--lcars-grey-4);
+        }
+
+        /* ========== GPU PANEL ========== */
+
+        .gpu-detail-section {
+            margin-bottom: 16px;
+        }
+
+        .gpu-detail-title {
+            font-family: var(--font-display);
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--lcars-purple-3);
+            margin-bottom: 8px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid var(--lcars-grey-1);
+        }
+
+        .gpu-big-gauge {
+            height: 12px;
+            background: var(--lcars-grey-1);
+            border-radius: 6px;
+            overflow: hidden;
+            margin: 8px 0;
+        }
+
+        .gpu-big-gauge .fill {
+            height: 100%;
+            border-radius: 6px;
+            transition: width 0.5s ease;
+        }
+
+        /* ========== PACK PANEL ========== */
+
+        .pack-type-section {
+            margin-bottom: 20px;
+        }
+
+        .pack-type-title {
+            font-family: var(--font-display);
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--lcars-purple-3);
+            margin-bottom: 8px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid var(--lcars-grey-1);
+        }
+
+        .pack-list-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 10px;
+            cursor: pointer;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            transition: background 0.1s;
+        }
+
+        .pack-list-item:hover {
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        .pack-list-item .pack-name {
+            font-family: var(--font-display);
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--lcars-text);
+        }
+
+        .pack-list-item .pack-active {
+            font-family: var(--font-mono);
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--lcars-success);
+            background: rgba(34, 197, 94, 0.15);
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
+        .pack-detail-field {
+            padding: 4px 0;
+            font-size: 12px;
+        }
+
+        .pack-detail-field .field-label {
+            font-family: var(--font-display);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--lcars-grey-4);
+            font-size: 10px;
+        }
+
+        .pack-detail-field .field-value {
+            color: var(--lcars-text);
+            margin-top: 2px;
+        }
+
+        /* ========== SYSTEM PANEL ========== */
+
+        .sys-detail-section {
+            margin-bottom: 16px;
+        }
+
+        .sys-detail-title {
+            font-family: var(--font-display);
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--lcars-purple-3);
+            margin-bottom: 8px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid var(--lcars-grey-1);
+        }
+
         /* ========== SCAN LINE ========== */
 
         .lcars-scan-line {
@@ -1281,11 +1517,13 @@
                 <div id="sysInfo">
                     <div class="data-row"><span class="label">Status</span><span class="value">Loading...</span></div>
                 </div>
+                <button class="sidebar-action-btn" onclick="openSystemPanel()" aria-label="System details">DETAILS</button>
             </div>
 
             <div class="sidebar-section">
                 <div class="sidebar-section-title">Protocols</div>
                 <div id="protoList"></div>
+                <button class="sidebar-action-btn" onclick="openProtocolPanel()" aria-label="Protocol controls">CONTROLS</button>
             </div>
 
             <div class="sidebar-section">
@@ -1294,6 +1532,7 @@
                 <select class="theme-select" id="themeSelect" aria-label="Select theme" onchange="switchTheme(this.value)">
                     <option value="">-- theme --</option>
                 </select>
+                <button class="sidebar-action-btn" onclick="openPackPanel()" aria-label="Pack details">INSPECT</button>
             </div>
 
             <div class="sidebar-section">
@@ -1311,6 +1550,7 @@
                 <div id="gpuInfo">
                     <div class="data-row"><span class="label">Status</span><span class="value">--</span></div>
                 </div>
+                <button class="sidebar-action-btn" onclick="openGpuPanel()" aria-label="GPU monitor">MONITOR</button>
             </div>
         </div>
     </div>
@@ -1381,6 +1621,57 @@
     </div>
     <div class="panel-body">
         <div id="historyContent"></div>
+    </div>
+</div>
+
+<!-- Protocol Controls Panel -->
+<div class="panel-overlay" id="protoPanelOverlay" onclick="closeProtocolPanel()"></div>
+<div class="panel" id="protoPanel" role="dialog" aria-label="Protocol controls">
+    <div class="panel-header">
+        <span>Protocol Controls</span>
+        <button class="panel-close-btn" onclick="closeProtocolPanel()" aria-label="Close">&times;</button>
+    </div>
+    <div class="panel-body">
+        <div id="protoDetailList"></div>
+    </div>
+</div>
+
+<!-- GPU Monitor Panel -->
+<div class="panel-overlay" id="gpuPanelOverlay" onclick="closeGpuPanel()"></div>
+<div class="panel" id="gpuPanel" role="dialog" aria-label="GPU monitor">
+    <div class="panel-header">
+        <span>GPU Monitor</span>
+        <button class="panel-close-btn" onclick="closeGpuPanel()" aria-label="Close">&times;</button>
+    </div>
+    <div class="panel-body">
+        <div id="gpuDetailContent"></div>
+    </div>
+</div>
+
+<!-- Pack Manager Panel -->
+<div class="panel-overlay" id="packPanelOverlay" onclick="closePackPanel()"></div>
+<div class="panel" id="packPanel" role="dialog" aria-label="Pack manager">
+    <div class="panel-header">
+        <span id="packPanelTitle">Pack Manager</span>
+        <div>
+            <button class="panel-back-btn" id="packBackBtn" onclick="packBack()" style="display:none;" aria-label="Back to list">BACK</button>
+            <button class="panel-close-btn" onclick="closePackPanel()" aria-label="Close">&times;</button>
+        </div>
+    </div>
+    <div class="panel-body">
+        <div id="packDetailContent"></div>
+    </div>
+</div>
+
+<!-- System Info Panel -->
+<div class="panel-overlay" id="systemPanelOverlay" onclick="closeSystemPanel()"></div>
+<div class="panel" id="systemPanel" role="dialog" aria-label="System information">
+    <div class="panel-header">
+        <span>System Information</span>
+        <button class="panel-close-btn" onclick="closeSystemPanel()" aria-label="Close">&times;</button>
+    </div>
+    <div class="panel-body">
+        <div id="systemDetailContent"></div>
     </div>
 </div>
 
@@ -2095,6 +2386,358 @@ async function loadTranscript(sessionId) {
         }
     } catch (e) {
         container.innerHTML = '<div class="history-empty">Could not load transcript</div>';
+    }
+}
+
+// ========== PROTOCOL PANEL ==========
+
+function openProtocolPanel() {
+    document.getElementById('protoPanelOverlay').classList.add('open');
+    document.getElementById('protoPanel').classList.add('open');
+    loadProtocolDetails();
+}
+
+function closeProtocolPanel() {
+    document.getElementById('protoPanelOverlay').classList.remove('open');
+    document.getElementById('protoPanel').classList.remove('open');
+}
+
+async function loadProtocolDetails() {
+    const container = document.getElementById('protoDetailList');
+    try {
+        const res = await fetch(API + '/status');
+        const data = await res.json();
+        const protocols = data.protocols || [];
+
+        container.innerHTML = protocols.map(function(p) {
+            const isLocked = p.name === 'security';
+            const lockedClass = isLocked ? ' locked' : '';
+            const checkedAttr = p.enabled ? ' checked' : '';
+            const disabledAttr = isLocked ? ' disabled' : '';
+
+            // Build stats from known fields
+            var statsHtml = '';
+            var knownKeys = ['name','enabled','initialized','priority','description','commands'];
+            Object.keys(p).forEach(function(key) {
+                if (knownKeys.indexOf(key) === -1) {
+                    statsHtml += '<div class="proto-stat"><span class="stat-label">' +
+                        escapeHtml(key.replace(/_/g, ' ')) + '</span> <span class="stat-value">' +
+                        escapeHtml(String(p[key])) + '</span></div>';
+                }
+            });
+
+            return '<div class="proto-detail-item">' +
+                '<div class="proto-detail-header">' +
+                    '<span class="proto-detail-name">' + escapeHtml(p.name) + '</span>' +
+                    '<label class="proto-toggle' + lockedClass + '">' +
+                        '<input type="checkbox"' + checkedAttr + disabledAttr +
+                        ' onchange="toggleProtocol(\'' + escapeHtml(p.name) + '\', this.checked)">' +
+                        '<span class="toggle-slider"></span>' +
+                    '</label>' +
+                '</div>' +
+                '<div class="proto-detail-desc">' + escapeHtml(p.description || '') + '</div>' +
+                '<div class="proto-detail-stats">' +
+                    '<div class="proto-stat"><span class="stat-label">Priority</span> <span class="stat-value">' + p.priority + '</span></div>' +
+                    statsHtml +
+                '</div>' +
+            '</div>';
+        }).join('');
+
+        // Load commands for each protocol
+        protocols.forEach(function(p) {
+            loadProtocolCommands(p.name);
+        });
+    } catch (e) {
+        container.innerHTML = '<div class="task-empty">Could not load protocols</div>';
+    }
+}
+
+async function loadProtocolCommands(protoName) {
+    try {
+        const res = await fetch(API + '/protocol/' + encodeURIComponent(protoName));
+        const data = await res.json();
+        if (data.commands && data.commands.length > 0) {
+            // Find the matching proto-detail-item and append commands
+            var items = document.querySelectorAll('.proto-detail-item');
+            items.forEach(function(item) {
+                var nameEl = item.querySelector('.proto-detail-name');
+                if (nameEl && nameEl.textContent.toLowerCase() === protoName.toLowerCase()) {
+                    var cmdHtml = '<div class="proto-commands">';
+                    data.commands.forEach(function(cmd) {
+                        cmdHtml += '<div class="proto-cmd"><span class="cmd-slash">/</span>' +
+                            escapeHtml(cmd.command) + ' <span style="color:var(--lcars-text-dim);font-size:10px">' +
+                            escapeHtml(cmd.description || '') + '</span></div>';
+                    });
+                    cmdHtml += '</div>';
+                    item.insertAdjacentHTML('beforeend', cmdHtml);
+                }
+            });
+        }
+    } catch (e) {}
+}
+
+async function toggleProtocol(name, enabled) {
+    try {
+        await fetch(API + '/protocol/toggle', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({protocol_name: name, enabled: enabled}),
+        });
+        loadStatus();
+    } catch (e) {}
+}
+
+// ========== GPU PANEL ==========
+
+function openGpuPanel() {
+    document.getElementById('gpuPanelOverlay').classList.add('open');
+    document.getElementById('gpuPanel').classList.add('open');
+    loadGpuDetails();
+}
+
+function closeGpuPanel() {
+    document.getElementById('gpuPanelOverlay').classList.remove('open');
+    document.getElementById('gpuPanel').classList.remove('open');
+}
+
+async function loadGpuDetails() {
+    const container = document.getElementById('gpuDetailContent');
+    try {
+        const res = await fetch(API + '/gpu');
+        const gpu = await res.json();
+
+        if (gpu.error) {
+            container.innerHTML = '<div class="task-empty">' + escapeHtml(gpu.error) + '</div>';
+            return;
+        }
+
+        var html = '<div class="gpu-detail-section">';
+        html += '<div class="gpu-detail-title">Device</div>';
+        html += lcarsDataRow('GPU', gpu.name || 'N/A');
+        if (gpu.driver_version) html += lcarsDataRow('DRIVER', gpu.driver_version);
+        html += '</div>';
+
+        if (gpu.memory_used_mb && gpu.memory_total_mb) {
+            var pct = Math.round((gpu.memory_used_mb / gpu.memory_total_mb) * 100);
+            var free = gpu.memory_total_mb - gpu.memory_used_mb;
+            var color = pct > 80 ? 'pink' : pct > 50 ? 'purple' : 'blue';
+
+            html += '<div class="gpu-detail-section">';
+            html += '<div class="gpu-detail-title">VRAM</div>';
+            html += lcarsDataRow('USED', gpu.memory_used_mb + ' MB');
+            html += lcarsDataRow('FREE', free + ' MB');
+            html += lcarsDataRow('TOTAL', gpu.memory_total_mb + ' MB');
+            html += lcarsDataRow('USAGE', pct + '%');
+            html += '<div class="gpu-big-gauge"><div class="fill ' + color + '" style="width:' + pct + '%"></div></div>';
+            html += '</div>';
+        }
+
+        if (gpu.temperature || gpu.utilization !== undefined) {
+            html += '<div class="gpu-detail-section">';
+            html += '<div class="gpu-detail-title">Status</div>';
+            if (gpu.temperature) html += lcarsDataRow('TEMP', gpu.temperature + ' C');
+            if (gpu.utilization !== undefined) html += lcarsDataRow('UTIL', gpu.utilization + '%');
+            if (gpu.power_draw) html += lcarsDataRow('POWER', gpu.power_draw + ' W');
+            if (gpu.fan_speed !== undefined) html += lcarsDataRow('FAN', gpu.fan_speed + '%');
+            html += '</div>';
+        }
+
+        container.innerHTML = html;
+    } catch (e) {
+        container.innerHTML = '<div class="task-empty">Could not load GPU info</div>';
+    }
+}
+
+// ========== PACK PANEL ==========
+
+let packViewingDetail = false;
+
+function openPackPanel() {
+    document.getElementById('packPanelOverlay').classList.add('open');
+    document.getElementById('packPanel').classList.add('open');
+    packViewingDetail = false;
+    document.getElementById('packBackBtn').style.display = 'none';
+    document.getElementById('packPanelTitle').textContent = 'Pack Manager';
+    loadPackList();
+}
+
+function closePackPanel() {
+    document.getElementById('packPanelOverlay').classList.remove('open');
+    document.getElementById('packPanel').classList.remove('open');
+}
+
+function packBack() {
+    packViewingDetail = false;
+    document.getElementById('packBackBtn').style.display = 'none';
+    document.getElementById('packPanelTitle').textContent = 'Pack Manager';
+    loadPackList();
+}
+
+async function loadPackList() {
+    const container = document.getElementById('packDetailContent');
+    try {
+        const res = await fetch(API + '/packs');
+        const data = await res.json();
+        const active = data.active || {};
+
+        var html = '';
+        var types = [
+            {key: 'personalities', label: 'Personalities', activeKey: 'personality'},
+            {key: 'voices', label: 'Voices', activeKey: 'voice'},
+            {key: 'themes', label: 'Themes', activeKey: 'theme'},
+        ];
+
+        types.forEach(function(t) {
+            var packs = data[t.key] || [];
+            html += '<div class="pack-type-section">';
+            html += '<div class="pack-type-title">' + t.label + '</div>';
+            packs.forEach(function(p) {
+                var isActive = (p === active[t.activeKey]);
+                var activeTag = isActive ? '<span class="pack-active">ACTIVE</span>' : '';
+                html += '<div class="pack-list-item" onclick="loadPackDetail(\'' +
+                    escapeHtml(t.key) + '\', \'' + escapeHtml(p) + '\')">' +
+                    '<span class="pack-name">' + escapeHtml(p) + '</span>' +
+                    activeTag + '</div>';
+            });
+            html += '</div>';
+        });
+
+        container.innerHTML = html;
+    } catch (e) {
+        container.innerHTML = '<div class="task-empty">Could not load packs</div>';
+    }
+}
+
+async function loadPackDetail(packType, packName) {
+    const container = document.getElementById('packDetailContent');
+    container.innerHTML = '<div class="task-empty">Loading...</div>';
+
+    try {
+        const res = await fetch(API + '/packs/' + encodeURIComponent(packType) + '/' + encodeURIComponent(packName));
+        const data = await res.json();
+
+        if (data.error) {
+            container.innerHTML = '<div class="task-empty">' + escapeHtml(data.error) + '</div>';
+            return;
+        }
+
+        packViewingDetail = true;
+        document.getElementById('packBackBtn').style.display = '';
+        document.getElementById('packPanelTitle').textContent = packName.toUpperCase();
+
+        var manifest = data.manifest || {};
+        var html = '<div class="gpu-detail-section">';
+        html += '<div class="gpu-detail-title">Manifest</div>';
+
+        var fields = ['name', 'character_name', 'author', 'version', 'description', 'disclaimer', 'compatibility'];
+        fields.forEach(function(f) {
+            if (manifest[f]) {
+                html += '<div class="pack-detail-field"><div class="field-label">' +
+                    escapeHtml(f.replace(/_/g, ' ')) + '</div><div class="field-value">' +
+                    escapeHtml(String(manifest[f])) + '</div></div>';
+            }
+        });
+
+        if (manifest.tags && manifest.tags.length > 0) {
+            html += '<div class="pack-detail-field"><div class="field-label">Tags</div><div class="field-value">' +
+                manifest.tags.map(function(t) { return escapeHtml(t); }).join(', ') + '</div></div>';
+        }
+
+        html += '</div>';
+
+        if (data.files && data.files.length > 0) {
+            html += '<div class="gpu-detail-section">';
+            html += '<div class="gpu-detail-title">Files</div>';
+            data.files.forEach(function(f) {
+                html += '<div class="data-row"><span class="value" style="max-width:none">' + escapeHtml(f) + '</span></div>';
+            });
+            html += '</div>';
+        }
+
+        container.innerHTML = html;
+    } catch (e) {
+        container.innerHTML = '<div class="task-empty">Could not load pack details</div>';
+    }
+}
+
+// ========== SYSTEM PANEL ==========
+
+function openSystemPanel() {
+    document.getElementById('systemPanelOverlay').classList.add('open');
+    document.getElementById('systemPanel').classList.add('open');
+    loadSystemDetails();
+}
+
+function closeSystemPanel() {
+    document.getElementById('systemPanelOverlay').classList.remove('open');
+    document.getElementById('systemPanel').classList.remove('open');
+}
+
+async function loadSystemDetails() {
+    const container = document.getElementById('systemDetailContent');
+    try {
+        const res = await fetch(API + '/system/info');
+        const info = await res.json();
+
+        var html = '';
+
+        // Identity
+        html += '<div class="sys-detail-section">';
+        html += '<div class="sys-detail-title">Identity</div>';
+        html += lcarsDataRow('AGENT', info.agent_name || '--');
+        html += lcarsDataRow('COMPANION', info.companion_name || '--');
+        html += lcarsDataRow('SESSION', info.session_id || '--');
+        html += '</div>';
+
+        // Model
+        html += '<div class="sys-detail-section">';
+        html += '<div class="sys-detail-title">Models</div>';
+        html += lcarsDataRow('CHAT', info.model || '--');
+        html += lcarsDataRow('SUMMARY', info.summary_model || '--');
+        html += '</div>';
+
+        // Platform
+        html += '<div class="sys-detail-section">';
+        html += '<div class="sys-detail-title">Platform</div>';
+        html += lcarsDataRow('OS', info.platform || '--');
+        html += lcarsDataRow('PYTHON', info.python_version || '--');
+        html += lcarsDataRow('MESSAGES', info.message_count || 0);
+        html += '</div>';
+
+        // Memory config
+        if (info.memory) {
+            html += '<div class="sys-detail-section">';
+            html += '<div class="sys-detail-title">Memory</div>';
+            html += lcarsDataRow('AUTO FACTS', info.memory.auto_extract_facts ? 'ON' : 'OFF');
+            html += lcarsDataRow('AUTO SUMMARY', info.memory.auto_summarize ? 'ON' : 'OFF');
+            html += lcarsDataRow('CONTEXT', info.memory.max_context + ' msgs');
+            html += lcarsDataRow('SEARCH', info.memory.max_search_results + ' results');
+            html += '</div>';
+        }
+
+        // Voice
+        if (info.voice) {
+            html += '<div class="sys-detail-section">';
+            html += '<div class="sys-detail-title">Voice</div>';
+            html += lcarsDataRow('TTS', info.voice.tts_enabled ? 'ON' : 'OFF');
+            html += lcarsDataRow('STT', info.voice.stt_enabled ? 'ON' : 'OFF');
+            html += lcarsDataRow('INPUT', info.voice.input_mode || 'text');
+            html += '</div>';
+        }
+
+        // Active packs
+        if (info.packs) {
+            html += '<div class="sys-detail-section">';
+            html += '<div class="sys-detail-title">Active Packs</div>';
+            html += lcarsDataRow('PERSONA', (info.packs.personality || '--').toUpperCase());
+            html += lcarsDataRow('VOICE', (info.packs.voice || '--').toUpperCase());
+            html += lcarsDataRow('THEME', (info.packs.theme || '--').toUpperCase());
+            html += '</div>';
+        }
+
+        container.innerHTML = html;
+    } catch (e) {
+        container.innerHTML = '<div class="task-empty">Could not load system info</div>';
     }
 }
 

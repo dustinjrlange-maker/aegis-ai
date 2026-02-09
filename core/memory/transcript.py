@@ -16,7 +16,7 @@ def get_transcript_path(session_id=None):
     return transcript_dir / f"session_{session_id}.md"
 
 
-def save_transcript(messages, session_id=None):
+def save_transcript(messages, session_id=None, agent_name=None, companion_name=None):
     """Save a full conversation transcript as a markdown file."""
     transcript_dir = get_path(CONFIG, "conversation_logs")
     transcript_dir.mkdir(parents=True, exist_ok=True)
@@ -27,12 +27,16 @@ def save_transcript(messages, session_id=None):
     filepath = transcript_dir / f"session_{session_id}.md"
     now = datetime.now()
 
-    agent_name = CONFIG.get("agent_name", "Aegis")
+    if agent_name is None:
+        agent_name = CONFIG.get("agent_name", "Aegis")
+    if companion_name is None:
+        companion_name = "Companion"
 
     lines = []
     lines.append(f"# Conversation Log — Session {session_id}")
     lines.append(f"**Date:** {now.strftime('%Y-%m-%d %H:%M')}")
     lines.append(f"**Agent:** {agent_name}")
+    lines.append(f"**Companion:** {companion_name}")
     lines.append("")
     lines.append("---")
     lines.append("")
@@ -44,7 +48,7 @@ def save_transcript(messages, session_id=None):
         if role == "system":
             continue
         elif role == "user":
-            lines.append(f"**Companion:** {content}")
+            lines.append(f"**{companion_name}:** {content}")
             lines.append("")
         elif role == "assistant":
             lines.append(f"**{agent_name}:** {content}")

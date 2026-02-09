@@ -20,6 +20,46 @@ class MemoryManager:
         self.session_id = datetime.now().strftime("%Y-%m-%d_%H%M%S")
         self.auto_extract = CONFIG["memory"]["auto_extract_facts"]
         self.auto_summarize = CONFIG["memory"]["auto_summarize"]
+        self.agent_name = None
+        self.companion_name = None
+
+    def set_names(self, agent_name, companion_name=None):
+        """Set the display names used in transcripts."""
+        self.agent_name = agent_name
+        if companion_name is None:
+            companion_name = self._extract_companion_name()
+        self.companion_name = companion_name
+
+    def _extract_companion_name(self):
+        """Extract companion's preferred name from profile."""
+        profile = get_profile_summary()
+        if not profile or profile == "No user profile on file.":
+            return "Companion"
+
+        # Check for preferred name first (e.g., "Prefers to go by the name")
+        import re
+        prefer_match = re.search(
+            r'(?:prefers?\s+(?:to\s+)?(?:go\s+)?(?:by\s+)?(?:the\s+)?name\s+["\']?)(\w+)',
+            profile, re.IGNORECASE
+        )
+        if prefer_match:
+            return prefer_match.group(1)
+
+        # Fall back to NAME field
+        for line in profile.split("\n"):
+            if "**NAME:**" in line.upper() or line.strip().startswith("- **NAME:"):
+                name = line.split(":")[-1].strip().strip("*").strip()
+                if name:
+                    return name
+
+        # Fall back to profile header
+        for line in profile.split("\n"):
+            if ("# User Profile" in line or "# Crew Dossier" in line) and "\u2014" in line:
+                name = line.split("\u2014")[-1].strip()
+                if name:
+                    return name
+
+        return "Companion"
 
     def build_session_context(self):
         """Build context for the agent at the start of a session.
@@ -88,7 +128,9 @@ class MemoryManager:
         print("Aegis: Processing session records...")
 
         # 1. Save full transcript
-        save_transcript(messages, self.session_id)
+        save_transcript(messages, self.session_id,
+                        agent_name=self.agent_name,
+                        companion_name=self.companion_name)
         print("  — Conversation log archived.")
 
         # 2. Generate and save summary
@@ -120,7 +162,9 @@ class MemoryManager:
         chat_messages = [m for m in messages if m["role"] != "system"]
         if len(chat_messages) < 2:
             return
-        save_transcript(messages, self.session_id)
+        save_transcript(messages, self.session_id,
+                        agent_name=self.agent_name,
+                        companion_name=self.companion_name)
 
     def extract_recent_facts(self, messages, since_index=0):
         """Extract facts from only recent messages (since last extraction)."""
@@ -141,7 +185,9 @@ class MemoryManager:
         chat_messages = [m for m in messages if m["role"] != "system"]
         if len(chat_messages) < 2:
             return
-        save_transcript(messages, self.session_id)
+        save_transcript(messages, self.session_id,
+                        agent_name=self.agent_name,
+                        companion_name=self.companion_name)
         if self.auto_summarize:
             try:
                 _, summary_text = generate_summary(messages, self.session_id)

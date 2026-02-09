@@ -48,6 +48,7 @@ personality_pack = load_personality_pack()
 agent_name = get_agent_display_name(personality_pack)
 char_memory = CharacterMemory(personality_pack.get("memories", {}))
 memory = MemoryManager()
+memory.set_names(agent_name)
 
 with open(get_path(CONFIG, "personality_prompt"), "r", encoding="utf-8") as f:
     core_directives = f.read()
@@ -120,6 +121,11 @@ class TaskRequest(BaseModel):
 
 class ThemeSwitchRequest(BaseModel):
     theme_name: str
+
+
+class ProtocolToggleRequest(BaseModel):
+    protocol_name: str
+    enabled: bool
 
 
 # --- Routes ---
@@ -409,6 +415,100 @@ async def switch_theme(req: ThemeSwitchRequest):
     # Load and return the new theme
     theme_pack = load_theme_pack()
     return {"success": True, "theme": theme_pack.get("theme", {})}
+
+
+@app.post("/api/protocol/toggle")
+async def toggle_protocol(req: ProtocolToggleRequest):
+    """Enable or disable a protocol at runtime."""
+    # Security protocol cannot be disabled
+    if req.protocol_name == "security" and not req.enabled:
+        return {"error": "Security protocol cannot be disabled"}
+
+    if req.enabled:
+        success = protocol_registry.enable(req.protocol_name)
+    else:
+        success = protocol_registry.disable(req.protocol_name)
+
+    if success:
+        proto = protocol_registry.get(req.protocol_name)
+        return {"success": True, "status": proto.get_status() if proto else {}}
+    return {"error": f"Protocol '{req.protocol_name}' not found"}
+
+
+@app.get("/api/protocol/{name}")
+async def get_protocol_detail(name: str):
+    """Get detailed status for a single protocol."""
+    proto = protocol_registry.get(name)
+    if proto:
+        status = proto.get_status()
+        status["commands"] = []
+        try:
+            for cmd in proto.get_commands():
+                status["commands"].append({
+                    "command": cmd.get("command", ""),
+                    "description": cmd.get("description", ""),
+                })
+        except Exception:
+            pass
+        return status
+    return {"error": f"Protocol '{name}' not found"}
+
+
+@app.get("/api/packs/{pack_type}/{pack_name}")
+async def get_pack_detail(pack_type: str, pack_name: str):
+    """Get detailed info about a specific pack."""
+    if pack_type not in ("personalities", "voices", "themes"):
+        return {"error": "Invalid pack type"}
+
+    pack_dir = PROJECT_ROOT / "packs" / pack_type / pack_name
+    if not pack_dir.exists():
+        return {"error": f"Pack '{pack_name}' not found"}
+
+    manifest_path = pack_dir / "manifest.json"
+    result = {"name": pack_name, "type": pack_type, "manifest": {}, "files": []}
+
+    if manifest_path.exists():
+        result["manifest"] = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+    for f in pack_dir.iterdir():
+        if f.is_file():
+            result["files"].append(f.name)
+
+    return result
+
+
+@app.get("/api/system/info")
+async def get_system_info():
+    """Get detailed system information."""
+    import platform
+
+    info = {
+        "agent_name": agent_name,
+        "companion_name": memory.companion_name or "Companion",
+        "session_id": memory.session_id,
+        "model": CONFIG["model"]["chat"],
+        "summary_model": CONFIG["model"].get("summary", "--"),
+        "platform": platform.system(),
+        "python_version": platform.python_version(),
+        "message_count": len(messages) - 1,
+        "memory": {
+            "auto_extract_facts": CONFIG["memory"]["auto_extract_facts"],
+            "auto_summarize": CONFIG["memory"]["auto_summarize"],
+            "max_context": CONFIG["memory"]["max_context_messages"],
+            "max_search_results": CONFIG["memory"]["max_search_results"],
+        },
+        "voice": {
+            "tts_enabled": CONFIG.get("voice", {}).get("tts", {}).get("enabled", False),
+            "stt_enabled": CONFIG.get("voice", {}).get("stt", {}).get("enabled", False),
+            "input_mode": CONFIG.get("voice", {}).get("stt", {}).get("input_mode", "text"),
+        },
+        "packs": {
+            "personality": CONFIG.get("packs", {}).get("active_personality", "default"),
+            "voice": CONFIG.get("packs", {}).get("active_voice", "default"),
+            "theme": CONFIG.get("packs", {}).get("active_theme", "default"),
+        },
+    }
+    return info
 
 
 @app.get("/manifest.json")

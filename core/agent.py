@@ -121,6 +121,7 @@ def run():
 
     # Initialize memory
     memory = MemoryManager()
+    memory.set_names(agent_name)
 
     # Load character memories from personality pack
     char_memory = CharacterMemory(personality_pack.get("memories", {}))
