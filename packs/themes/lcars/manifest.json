@@ -1,0 +1,9 @@
+{
+    "name": "LCARS",
+    "author": "Aegis Community",
+    "version": "1.0.0",
+    "description": "LCARS-inspired interface theme with blue/purple/pink palette on black background. Fan-made, not affiliated with CBS/Paramount.",
+    "disclaimer": "This theme is a fan-made homage. LCARS is a trademark of CBS Studios. This theme is not endorsed by or affiliated with CBS or Paramount.",
+    "tags": ["lcars", "sci-fi", "dark", "blue", "purple"],
+    "compatibility": "1.0.0"
+}

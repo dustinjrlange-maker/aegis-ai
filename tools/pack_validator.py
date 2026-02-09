@@ -300,6 +300,31 @@ def _validate_theme(pack_path, result):
             elif not isinstance(theme["colors"], dict):
                 result.error("theme.json 'colors' must be an object")
 
+            # Optional: layout section
+            if "layout" in theme:
+                if not isinstance(theme["layout"], dict):
+                    result.error("theme.json 'layout' must be an object")
+                else:
+                    valid_variants = ["standard", "lcars"]
+                    variant = theme["layout"].get("variant")
+                    if variant and variant not in valid_variants:
+                        result.warn(f"theme.json layout variant '{variant}' not recognized (expected: {', '.join(valid_variants)})")
+
+            # Optional: fonts section
+            if "fonts" in theme:
+                if not isinstance(theme["fonts"], dict):
+                    result.error("theme.json 'fonts' must be an object")
+
+            # Optional: terminology section
+            if "terminology" in theme:
+                if not isinstance(theme["terminology"], dict):
+                    result.error("theme.json 'terminology' must be an object")
+
+            # Optional: animations section
+            if "animations" in theme:
+                if not isinstance(theme["animations"], dict):
+                    result.error("theme.json 'animations' must be an object")
+
         except json.JSONDecodeError as e:
             result.error(f"theme.json is not valid JSON: {e}")
 

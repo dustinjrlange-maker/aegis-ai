@@ -23,7 +23,7 @@
     "packs": {
         "active_personality": "pike",
         "active_voice": "pike",
-        "active_theme": "default",
+        "active_theme": "lcars",
         "pack_directory": "packs"
     },
 
