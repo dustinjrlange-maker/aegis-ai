@@ -385,6 +385,15 @@ async def get_transcript(session_id: str):
 
     content = load_transcript(session_id)
     if content is not None:
+        # Replace generic names with actual names for old transcripts
+        companion = memory.companion_name or "Companion"
+        content = content.replace("**Agent:** Aegis", f"**Agent:** {agent_name}")
+        # Only replace conversation lines (after the --- separator)
+        parts = content.split("---\n", 1)
+        if len(parts) == 2:
+            parts[1] = parts[1].replace("**Companion:**", f"**{companion}:**")
+            parts[1] = parts[1].replace("**Aegis:**", f"**{agent_name}:**")
+            content = parts[0] + "---\n" + parts[1]
         return {"session_id": session_id, "content": content}
     return {"error": "Transcript not found"}
 
