@@ -1036,7 +1036,8 @@ async function loadStatus() {
 // ========== SESSION PERSISTENCE ==========
 
 window.addEventListener('beforeunload', () => {
-    navigator.sendBeacon(API + '/end-session', '{}');
+    const blob = new Blob(['{}'], {type: 'application/json'});
+    navigator.sendBeacon(API + '/end-session', blob);
 });
 
 // ========== STARTUP ==========

@@ -73,6 +73,7 @@ messages = [{"role": "system", "content": full_prompt}]
 # Memory auto-save tracking
 last_fact_extraction_index = 0
 FACT_EXTRACTION_INTERVAL = 15  # messages between LLM-based extractions
+session_ended = False  # guard against double end-session (beacon + shutdown)
 
 logger = logging.getLogger("aegis.server")
 
@@ -82,9 +83,12 @@ logger = logging.getLogger("aegis.server")
 @asynccontextmanager
 async def lifespan(app):
     yield
-    # Server shutting down — save everything
-    logger.info("Server shutdown — saving session memory...")
-    memory.end_session_quiet(messages)
+    # Server shutting down — save everything (skip if already done via /end-session)
+    global session_ended
+    if not session_ended:
+        logger.info("Server shutdown — saving session memory...")
+        memory.end_session_quiet(messages)
+        session_ended = True
 
 app = FastAPI(title="Aegis AI", version="1.0.0", lifespan=lifespan)
 
@@ -226,7 +230,10 @@ async def chat(req: ChatRequest):
 @app.post("/api/end-session")
 async def end_session():
     """End the current session — saves transcript, summary, facts, profile."""
-    memory.end_session_quiet(messages)
+    global session_ended
+    if not session_ended:
+        memory.end_session_quiet(messages)
+        session_ended = True
     return {"success": True}
 
 
