@@ -5,7 +5,6 @@ Run with: uvicorn server.app:app --host 0.0.0.0 --port 8484
 """
 
 import sys
-import re
 import logging
 from pathlib import Path
 from contextlib import asynccontextmanager
@@ -22,35 +21,27 @@ from typing import Optional
 import json
 import tempfile
 
-import ollama
-from core.config import CONFIG, get_path, load_capabilities
+from core.config import CONFIG
 from core.auth import (
     load_users, create_user, verify_user, change_passcode,
     create_session, validate_token, invalidate_token, get_current_user,
     load_user_preferences, save_user_preferences, user_exists,
 )
-from core.session import SessionManager, UserSession
+from core.session import SessionManager
 from core.personality.pack_loader import (
-    load_personality_pack, build_system_prompt,
-    get_agent_display_name, list_packs, load_voice_pack,
-    load_theme_pack,
+    list_packs, load_voice_pack, load_theme_pack,
 )
-from core.voice import emotion
 from core.memory.transcript import list_transcripts, load_transcript
 from core.memory.profile import (
     get_profile_summary, get_profile_facts, update_profile, remove_profile_fact,
 )
-from core.agent import build_filler_cleaner
+from server.chat_pipeline import process_chat
 
 
 # --- Session Manager (replaces global state) ---
 session_manager = SessionManager()
 
 logger = logging.getLogger("aegis.server")
-
-# Load core directives once (shared, immutable)
-with open(get_path(CONFIG, "personality_prompt"), "r", encoding="utf-8") as f:
-    _core_directives = f.read()
 
 
 # --- Auth Dependency ---
@@ -67,8 +58,27 @@ async def require_user(request: Request) -> str:
 
 @asynccontextmanager
 async def lifespan(app):
+    # Startup — try to start Telegram bot
+    telegram_app = None
+    try:
+        from integrations.telegram_bot import start_telegram_bot, stop_telegram_bot
+        telegram_app = await start_telegram_bot(session_manager, process_chat)
+    except ImportError:
+        logger.info("python-telegram-bot not installed — Telegram integration skipped")
+    except Exception as e:
+        logger.warning("Could not start Telegram bot: %s", e)
+
     yield
-    # Server shutting down — save all sessions
+
+    # Shutdown — stop Telegram bot
+    if telegram_app:
+        try:
+            from integrations.telegram_bot import stop_telegram_bot
+            await stop_telegram_bot(telegram_app)
+        except Exception as e:
+            logger.warning("Error stopping Telegram bot: %s", e)
+
+    # Save all sessions
     logger.info("Server shutdown — saving all active sessions...")
     session_manager.end_all()
 
@@ -257,99 +267,8 @@ async def get_status(user_id: str = Depends(require_user)):
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest, user_id: str = Depends(require_user)):
     """Send a message and get a response."""
-    session = session_manager.get_or_create(user_id)
-    user_input = req.message.strip()
-    if not user_input:
-        return ChatResponse(agent_name=session.agent_name, response="")
-
-    # Check for slash commands
-    if user_input.startswith("/"):
-        cmd_parts = user_input[1:].split(None, 1)
-        cmd_name = cmd_parts[0].lower() if cmd_parts else ""
-        cmd_args = cmd_parts[1] if len(cmd_parts) > 1 else ""
-        handled, cmd_response = session.protocol_registry.handle_command(cmd_name, cmd_args)
-        if handled:
-            return ChatResponse(agent_name=session.agent_name, response=cmd_response)
-
-    # Refresh session context
-    session_context = session.memory.build_session_context()
-    msg_count = len([m for m in session.messages if m["role"] != "system"])
-    char_context = session.char_memory.get_core_context(message_count=msg_count)
-    capabilities_prompt = load_capabilities()
-    refreshed_prompt = "\n\n".join([p for p in [session.system_prompt_base, capabilities_prompt, char_context, session_context] if p])
-    session.messages[0] = {"role": "system", "content": refreshed_prompt}
-
-    # Run through protocols
-    proto_context = {"messages": session.messages, "memory": session.memory, "char_memory": session.char_memory}
-    proto_result = session.protocol_registry.process_input(user_input, proto_context)
-
-    if proto_result.get("intercept"):
-        return ChatResponse(
-            agent_name=session.agent_name,
-            response=proto_result["response"],
-        )
-
-    # Emotion detection
-    emotion_result = emotion.detect_emotion(user_input)
-    emotion_tag = emotion.format_emotion_tag(emotion_result)
-
-    # Memory search
-    relevant = session.memory.get_relevant_memories(user_input)
-    char_relevant = session.char_memory.get_relevant_memories(user_input)
-
-    # Build augmented input
-    context_parts = []
-    if relevant:
-        context_parts.append("Relevant memory:\n" + relevant)
-    if char_relevant:
-        context_parts.append(char_relevant)
-    if emotion_tag:
-        context_parts.append(emotion_tag)
-    for injection in proto_result.get("context_injections", []):
-        context_parts.append(injection)
-
-    augmented = proto_result["input"]
-    if context_parts:
-        augmented = "[" + "\n".join(context_parts) + "]\n\n" + augmented
-
-    # Add to history
-    session.messages.append({"role": "user", "content": user_input})
-    messages_to_send = session.messages[:-1] + [{"role": "user", "content": augmented}]
-
-    try:
-        response = ollama.chat(model=CONFIG["model"]["chat"], messages=messages_to_send)
-        reply = session.clean_reply(response["message"]["content"])
-
-        # Run through output protocols
-        output_result = session.protocol_registry.process_output(reply, proto_context)
-        if not output_result.get("suppress"):
-            reply = output_result["response"]
-
-        session.messages.append({"role": "assistant", "content": reply})
-
-        # Auto-save transcript
-        session.memory.periodic_save(session.messages)
-
-        # Periodic fact extraction
-        FACT_EXTRACTION_INTERVAL = 15
-        msg_count = len([m for m in session.messages if m["role"] != "system"])
-        if msg_count - session.last_fact_extraction_index >= FACT_EXTRACTION_INTERVAL:
-            session.memory.extract_recent_facts(session.messages, since_index=session.last_fact_extraction_index)
-            session.last_fact_extraction_index = msg_count
-
-        return ChatResponse(
-            agent_name=session.agent_name,
-            response=reply,
-            emotion=emotion_result,
-            wellness_flag=bool(proto_result.get("context_injections")),
-        )
-
-    except Exception as e:
-        session.messages.pop()
-        return ChatResponse(
-            agent_name=session.agent_name,
-            response=f"Communication error: {e}",
-        )
+    result = await process_chat(session_manager, user_id, req.message.strip())
+    return ChatResponse(**result)
 
 
 @app.post("/api/end-session")
