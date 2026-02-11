@@ -13,10 +13,10 @@ from core.protocols.operations import OperationsProtocol
 
 
 @pytest.fixture(autouse=True)
-def _redirect_task_file(tmp_path, monkeypatch):
-    """Redirect TASK_FILE to a temporary location for every test in this module."""
-    temp_task_file = tmp_path / "tasks.json"
-    monkeypatch.setattr(OperationsProtocol, "TASK_FILE", temp_task_file)
+def _redirect_ops_files(tmp_path, monkeypatch):
+    """Redirect OperationsProtocol default paths to temp directory."""
+    monkeypatch.setattr("core.protocols.operations.PROJECT_ROOT", tmp_path)
+    (tmp_path / "data").mkdir(exist_ok=True)
 
 
 # =============================================================================
@@ -290,7 +290,7 @@ class TestTaskPersistence:
 
     def test_load_handles_corrupt_file(self, tmp_path):
         """If the task file is corrupt JSON, tasks start empty."""
-        task_file = OperationsProtocol.TASK_FILE
+        task_file = tmp_path / "data" / "tasks.json"
         task_file.parent.mkdir(parents=True, exist_ok=True)
         task_file.write_text("NOT VALID JSON {{{{", encoding="utf-8")
         proto = OperationsProtocol()

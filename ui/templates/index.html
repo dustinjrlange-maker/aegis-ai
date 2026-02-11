@@ -1568,11 +1568,250 @@
         @media (max-width: 767px) {
             .sidebar-close { display: block; }
         }
+
+        /* ========== LOGIN SCREEN ========== */
+
+        .login-screen {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: var(--lcars-bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+        .login-screen.hidden { display: none; }
+        .login-box {
+            background: var(--lcars-surface);
+            border: 2px solid var(--lcars-blue-1);
+            border-radius: 12px;
+            padding: 32px 28px;
+            width: 320px;
+            max-width: 90vw;
+        }
+        .login-box h1 {
+            font-family: var(--font-display);
+            color: var(--lcars-blue-3);
+            font-size: 28px;
+            text-align: center;
+            margin-bottom: 6px;
+            letter-spacing: 2px;
+        }
+        .login-box .login-subtitle {
+            color: var(--lcars-text-dim);
+            font-size: 12px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .login-box input {
+            display: block;
+            width: 100%;
+            padding: 10px 12px;
+            margin-bottom: 10px;
+            background: var(--lcars-bg);
+            border: 1px solid var(--lcars-grey-1);
+            border-radius: 6px;
+            color: var(--lcars-text);
+            font-family: var(--font-body);
+            font-size: 14px;
+        }
+        .login-box input:focus {
+            outline: none;
+            border-color: var(--lcars-blue-1);
+        }
+        .login-box button {
+            width: 100%;
+            padding: 10px;
+            background: var(--lcars-blue-1);
+            color: #000;
+            border: none;
+            border-radius: 6px;
+            font-family: var(--font-display);
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            cursor: pointer;
+            margin-top: 6px;
+        }
+        .login-box button:hover { opacity: 0.85; }
+        .login-box .login-error {
+            color: var(--lcars-error);
+            font-size: 12px;
+            text-align: center;
+            margin-top: 8px;
+            min-height: 16px;
+        }
+        .login-box .login-toggle {
+            color: var(--lcars-blue-3);
+            font-size: 12px;
+            text-align: center;
+            margin-top: 12px;
+            cursor: pointer;
+        }
+        .login-box .login-toggle:hover { text-decoration: underline; }
+
+        /* ========== VAULT PANEL ========== */
+
+        .vault-panel .panel-body { padding: 12px 16px; }
+        .vault-tabs {
+            display: flex;
+            gap: 2px;
+            margin-bottom: 12px;
+        }
+        .vault-tab {
+            flex: 1;
+            padding: 8px 4px;
+            background: var(--lcars-grey-1);
+            color: var(--lcars-text-dim);
+            border: none;
+            font-family: var(--font-display);
+            font-size: 12px;
+            letter-spacing: 1px;
+            cursor: pointer;
+            text-align: center;
+        }
+        .vault-tab.active {
+            background: var(--lcars-blue-1);
+            color: #000;
+        }
+        .vault-tab:first-child { border-radius: 6px 0 0 6px; }
+        .vault-tab:last-child { border-radius: 0 6px 6px 0; }
+        .vault-content { min-height: 200px; }
+        .vault-fact-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 0;
+            border-bottom: 1px solid var(--lcars-grey-1);
+            font-size: 13px;
+        }
+        .vault-fact-row .fact-cat {
+            color: var(--lcars-blue-3);
+            font-weight: 600;
+            min-width: 80px;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+        .vault-fact-row .fact-text { flex: 1; color: var(--lcars-text); }
+        .vault-fact-row .fact-del {
+            background: none;
+            border: 1px solid var(--lcars-error);
+            color: var(--lcars-error);
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .vault-add-row {
+            display: flex;
+            gap: 4px;
+            margin-top: 8px;
+        }
+        .vault-add-row input, .vault-add-row select {
+            padding: 6px 8px;
+            background: var(--lcars-bg);
+            border: 1px solid var(--lcars-grey-1);
+            border-radius: 4px;
+            color: var(--lcars-text);
+            font-size: 12px;
+        }
+        .vault-add-row input { flex: 1; }
+        .vault-add-row button {
+            padding: 6px 12px;
+            background: var(--lcars-blue-1);
+            color: #000;
+            border: none;
+            border-radius: 4px;
+            font-family: var(--font-display);
+            font-size: 11px;
+            cursor: pointer;
+        }
+        .vault-summary-stat {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            border-bottom: 1px solid var(--lcars-grey-1);
+            font-size: 13px;
+        }
+        .vault-summary-stat .stat-label { color: var(--lcars-text-dim); }
+        .vault-summary-stat .stat-value { color: var(--lcars-blue-3); font-weight: 600; }
+        .vault-account-field {
+            margin-bottom: 12px;
+        }
+        .vault-account-field label {
+            display: block;
+            color: var(--lcars-text-dim);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+        .vault-account-field input {
+            width: 100%;
+            padding: 8px;
+            background: var(--lcars-bg);
+            border: 1px solid var(--lcars-grey-1);
+            border-radius: 4px;
+            color: var(--lcars-text);
+            font-size: 13px;
+        }
+        .vault-btn {
+            padding: 8px 16px;
+            background: var(--lcars-blue-1);
+            color: #000;
+            border: none;
+            border-radius: 4px;
+            font-family: var(--font-display);
+            font-size: 12px;
+            cursor: pointer;
+            margin-right: 4px;
+        }
+        .vault-btn:hover { opacity: 0.85; }
+        .vault-btn.danger { background: var(--lcars-error); }
+
+        /* Sidebar logout/vault buttons */
+        .sidebar-user-section {
+            padding: 8px 10px;
+            border-top: 1px solid var(--lcars-grey-1);
+            margin-top: auto;
+        }
+        .sidebar-user-name {
+            color: var(--lcars-blue-3);
+            font-family: var(--font-display);
+            font-size: 13px;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+        }
     </style>
 </head>
 <body>
 
-<div class="lcars-frame">
+<!-- ===== LOGIN SCREEN ===== -->
+<div class="login-screen" id="loginScreen">
+    <div class="login-box" id="loginBox">
+        <h1>AEGIS</h1>
+        <div class="login-subtitle">SECURE ACCESS REQUIRED</div>
+        <input type="text" id="loginUsername" placeholder="Username" autocomplete="username" autofocus>
+        <input type="password" id="loginPasscode" placeholder="Passcode" autocomplete="current-password">
+        <button onclick="doLogin()">LOGIN</button>
+        <div class="login-error" id="loginError"></div>
+        <div class="login-toggle" onclick="showRegister()">Create Account</div>
+    </div>
+    <div class="login-box hidden" id="registerBox">
+        <h1>AEGIS</h1>
+        <div class="login-subtitle">NEW PERSONNEL REGISTRATION</div>
+        <input type="text" id="regUsername" placeholder="Username (alphanumeric)" autocomplete="username">
+        <input type="text" id="regDisplayName" placeholder="Display Name (optional)">
+        <input type="password" id="regPasscode" placeholder="Passcode (min 4 chars)" autocomplete="new-password">
+        <input type="password" id="regPasscodeConfirm" placeholder="Confirm Passcode" autocomplete="new-password">
+        <button onclick="doRegister()">CREATE ACCOUNT</button>
+        <div class="login-error" id="registerError"></div>
+        <div class="login-toggle" onclick="showLogin()">Back to Login</div>
+    </div>
+</div>
+
+<div class="lcars-frame" id="mainApp" style="display:none;">
 
     <!-- ===== TOP BAR ===== -->
     <div class="lcars-top-bar" role="banner">
@@ -1655,6 +1894,16 @@
                 </div>
                 <button class="sidebar-action-btn" onclick="openGpuPanel()" aria-label="GPU monitor">MONITOR</button>
             </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">Vault</div>
+                <button class="sidebar-action-btn" onclick="openVaultPanel()" aria-label="Personal vault">PERSONNEL FILE</button>
+            </div>
+
+            <div class="sidebar-user-section">
+                <div class="sidebar-user-name" id="sidebarUserName"></div>
+                <button class="sidebar-action-btn" onclick="doLogout()" aria-label="Logout">LOGOUT</button>
+            </div>
         </div>
     </div>
 
@@ -1682,6 +1931,26 @@
         <div class="bar-seg-b2 shimmer"></div>
     </div>
 
+</div>
+
+<!-- Vault Panel -->
+<div class="panel-overlay" id="vaultPanelOverlay" onclick="closeVaultPanel()"></div>
+<div class="panel vault-panel" id="vaultPanel" role="dialog" aria-label="Personal vault">
+    <div class="panel-header">
+        <span>Personnel File</span>
+        <button class="panel-close-btn" onclick="closeVaultPanel()" aria-label="Close">&times;</button>
+    </div>
+    <div class="panel-body">
+        <div class="vault-tabs">
+            <button class="vault-tab active" onclick="vaultTab('profile',this)">PROFILE</button>
+            <button class="vault-tab" onclick="vaultTab('logs',this)">LOGS</button>
+            <button class="vault-tab" onclick="vaultTab('summary',this)">SUMMARY</button>
+            <button class="vault-tab" onclick="vaultTab('account',this)">ACCOUNT</button>
+        </div>
+        <div class="vault-content" id="vaultContent">
+            <div class="data-row"><span class="label">Loading...</span></div>
+        </div>
+    </div>
 </div>
 
 <!-- Scan line overlay -->
@@ -1800,17 +2069,163 @@ let serverOnline = true;
 let commands = [];
 let cmdPopupIndex = -1;
 let lastFailedMessage = null;
+let authToken = localStorage.getItem('aegis_token');
+let currentUsername = localStorage.getItem('aegis_username');
+let currentDisplayName = localStorage.getItem('aegis_display_name');
+let _authRedirecting = false;
+let _pollIntervals = [];
 
 // Configure marked
 if (typeof marked !== 'undefined') {
     marked.setOptions({ breaks: true, gfm: true });
 }
 
+// ========== AUTH HELPERS ==========
+
+function authHeaders(extra) {
+    const h = {'Content-Type': 'application/json'};
+    if (authToken) h['Authorization'] = 'Bearer ' + authToken;
+    if (extra) Object.assign(h, extra);
+    return h;
+}
+
+function authFetch(url, opts) {
+    opts = opts || {};
+    // Don't set Content-Type for FormData (browser sets it with boundary)
+    if (opts.body instanceof FormData) {
+        opts.headers = Object.assign({}, opts.headers || {});
+        if (authToken) opts.headers['Authorization'] = 'Bearer ' + authToken;
+    } else {
+        opts.headers = authHeaders(opts.headers);
+    }
+    return fetch(url, opts).then(function(res) {
+        if (res.status === 401 && !_authRedirecting) {
+            _authRedirecting = true;
+            clearAuth();
+            showLoginScreen();
+        }
+        return res;
+    });
+}
+
+function clearAuth() {
+    authToken = null;
+    currentUsername = null;
+    currentDisplayName = null;
+    localStorage.removeItem('aegis_token');
+    localStorage.removeItem('aegis_username');
+    localStorage.removeItem('aegis_display_name');
+    // Stop polling intervals so they don't spam 401s
+    _pollIntervals.forEach(function(id) { clearInterval(id); });
+    _pollIntervals = [];
+}
+
+function saveAuth(token, username, displayName) {
+    authToken = token;
+    currentUsername = username;
+    currentDisplayName = displayName;
+    _authRedirecting = false;
+    localStorage.setItem('aegis_token', token);
+    localStorage.setItem('aegis_username', username);
+    localStorage.setItem('aegis_display_name', displayName);
+}
+
+function showLoginScreen() {
+    document.getElementById('loginScreen').classList.remove('hidden');
+    document.getElementById('mainApp').style.display = 'none';
+}
+
+function showMainApp() {
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('mainApp').style.display = '';
+    var nameEl = document.getElementById('sidebarUserName');
+    if (nameEl) nameEl.textContent = (currentDisplayName || currentUsername || '').toUpperCase();
+}
+
+function showLogin() {
+    document.getElementById('loginBox').classList.remove('hidden');
+    document.getElementById('registerBox').classList.add('hidden');
+    document.getElementById('loginError').textContent = '';
+}
+
+function showRegister() {
+    document.getElementById('loginBox').classList.add('hidden');
+    document.getElementById('registerBox').classList.remove('hidden');
+    document.getElementById('registerError').textContent = '';
+}
+
+async function doLogin() {
+    const username = document.getElementById('loginUsername').value.trim();
+    const passcode = document.getElementById('loginPasscode').value;
+    const errEl = document.getElementById('loginError');
+    errEl.textContent = '';
+
+    if (!username || !passcode) { errEl.textContent = 'All fields required'; return; }
+
+    try {
+        const res = await fetch(API + '/auth/login', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({username, passcode}),
+        });
+        const data = await res.json();
+        if (data.success) {
+            saveAuth(data.token, data.username, data.display_name);
+            showMainApp();
+            init();
+        } else {
+            errEl.textContent = data.error || 'Login failed';
+        }
+    } catch (e) {
+        errEl.textContent = 'Cannot connect to server';
+    }
+}
+
+async function doRegister() {
+    const username = document.getElementById('regUsername').value.trim();
+    const displayName = document.getElementById('regDisplayName').value.trim();
+    const passcode = document.getElementById('regPasscode').value;
+    const confirm = document.getElementById('regPasscodeConfirm').value;
+    const errEl = document.getElementById('registerError');
+    errEl.textContent = '';
+
+    if (!username || !passcode) { errEl.textContent = 'Username and passcode required'; return; }
+    if (passcode.length < 4) { errEl.textContent = 'Passcode must be at least 4 characters'; return; }
+    if (passcode !== confirm) { errEl.textContent = 'Passcodes do not match'; return; }
+
+    try {
+        const res = await fetch(API + '/auth/register', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({username, display_name: displayName, passcode}),
+        });
+        const data = await res.json();
+        if (data.success) {
+            saveAuth(data.token, data.username, data.display_name);
+            showMainApp();
+            init();
+        } else {
+            errEl.textContent = data.error || 'Registration failed';
+        }
+    } catch (e) {
+        errEl.textContent = 'Cannot connect to server';
+    }
+}
+
+async function doLogout() {
+    try {
+        await authFetch(API + '/auth/logout', {method: 'POST'});
+    } catch (e) {}
+    clearAuth();
+    showLoginScreen();
+    showLogin();
+}
+
 // ========== THEME LOADING ==========
 
 async function loadTheme() {
     try {
-        const res = await fetch(API + '/theme');
+        const res = await authFetch(API + '/theme');
         const theme = await res.json();
         currentTheme = theme;
         applyTheme(theme);
@@ -1928,7 +2343,7 @@ async function sendMessage(retryText) {
     const typing = showTyping();
 
     try {
-        const res = await fetch(API + '/chat', {
+        const res = await authFetch(API + '/chat', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({message: text}),
@@ -2086,7 +2501,7 @@ function autoGrow(el) {
 
 async function loadCommands() {
     try {
-        const res = await fetch(API + '/commands');
+        const res = await authFetch(API + '/commands');
         if (res.ok) {
             commands = await res.json();
         }
@@ -2181,7 +2596,7 @@ function toggleMic() {
             const form = new FormData();
             form.append('audio', blob, 'recording.webm');
 
-            fetch(API + '/stt', { method: 'POST', body: form })
+            authFetch(API + '/stt', { method: 'POST', body: form })
                 .then(function(res) { return res.json(); })
                 .then(function(data) {
                     btn.classList.remove('transcribing');
@@ -2211,7 +2626,7 @@ function toggleMic() {
 
 async function checkConnection() {
     try {
-        const res = await fetch(API + '/status', { signal: AbortSignal.timeout(5000) });
+        const res = await authFetch(API + '/status', { signal: AbortSignal.timeout(5000) });
         if (res.ok) {
             setOnlineStatus(true);
         } else {
@@ -2269,9 +2684,9 @@ function lcarsProtoRow(name, enabled) {
 async function loadStatus() {
     try {
         const [statusRes, packsRes, gpuRes] = await Promise.all([
-            fetch(API + '/status'),
-            fetch(API + '/packs'),
-            fetch(API + '/gpu').catch(function() { return null; }),
+            authFetch(API + '/status'),
+            authFetch(API + '/packs'),
+            authFetch(API + '/gpu').catch(function() { return null; }),
         ]);
         const status = await statusRes.json();
         const packs = await packsRes.json();
@@ -2341,7 +2756,7 @@ function closeTaskPanel() {
 
 async function loadTasks() {
     try {
-        const res = await fetch(API + '/tasks', {
+        const res = await authFetch(API + '/tasks', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({action: 'list'}),
@@ -2387,7 +2802,7 @@ async function addTask() {
     const priority = document.getElementById('taskPriority').value;
 
     try {
-        await fetch(API + '/tasks', {
+        await authFetch(API + '/tasks', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({action: 'add', text: text, priority: priority}),
@@ -2399,7 +2814,7 @@ async function addTask() {
 
 async function completeTask(id) {
     try {
-        await fetch(API + '/tasks', {
+        await authFetch(API + '/tasks', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({action: 'done', task_id: id}),
@@ -2410,7 +2825,7 @@ async function completeTask(id) {
 
 async function removeTask(id) {
     try {
-        await fetch(API + '/tasks', {
+        await authFetch(API + '/tasks', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({action: 'remove', task_id: id}),
@@ -2447,7 +2862,7 @@ function historyBack() {
 async function loadSessions() {
     const container = document.getElementById('historyContent');
     try {
-        const res = await fetch(API + '/transcripts');
+        const res = await authFetch(API + '/transcripts');
         const data = await res.json();
         const sessions = data.sessions || [];
 
@@ -2474,7 +2889,7 @@ async function loadTranscript(sessionId) {
     container.innerHTML = '<div class="history-empty">Loading...</div>';
 
     try {
-        const res = await fetch(API + '/transcripts/' + encodeURIComponent(sessionId));
+        const res = await authFetch(API + '/transcripts/' + encodeURIComponent(sessionId));
         const data = await res.json();
 
         historyViewingTranscript = true;
@@ -2508,7 +2923,7 @@ function closeProtocolPanel() {
 async function loadProtocolDetails() {
     const container = document.getElementById('protoDetailList');
     try {
-        const res = await fetch(API + '/status');
+        const res = await authFetch(API + '/status');
         const data = await res.json();
         const protocols = data.protocols || [];
 
@@ -2557,7 +2972,7 @@ async function loadProtocolDetails() {
 
 async function loadProtocolCommands(protoName) {
     try {
-        const res = await fetch(API + '/protocol/' + encodeURIComponent(protoName));
+        const res = await authFetch(API + '/protocol/' + encodeURIComponent(protoName));
         const data = await res.json();
         if (data.commands && data.commands.length > 0) {
             // Find the matching proto-detail-item and append commands
@@ -2581,7 +2996,7 @@ async function loadProtocolCommands(protoName) {
 
 async function toggleProtocol(name, enabled) {
     try {
-        await fetch(API + '/protocol/toggle', {
+        await authFetch(API + '/protocol/toggle', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({protocol_name: name, enabled: enabled}),
@@ -2606,7 +3021,7 @@ function closeGpuPanel() {
 async function loadGpuDetails() {
     const container = document.getElementById('gpuDetailContent');
     try {
-        const res = await fetch(API + '/gpu');
+        const res = await authFetch(API + '/gpu');
         const gpu = await res.json();
 
         if (gpu.error) {
@@ -2679,7 +3094,7 @@ function packBack() {
 async function loadPackList() {
     const container = document.getElementById('packDetailContent');
     try {
-        const res = await fetch(API + '/packs');
+        const res = await authFetch(API + '/packs');
         const data = await res.json();
         const active = data.active || {};
 
@@ -2716,7 +3131,7 @@ async function loadPackDetail(packType, packName) {
     container.innerHTML = '<div class="task-empty">Loading...</div>';
 
     try {
-        const res = await fetch(API + '/packs/' + encodeURIComponent(packType) + '/' + encodeURIComponent(packName));
+        const res = await authFetch(API + '/packs/' + encodeURIComponent(packType) + '/' + encodeURIComponent(packName));
         const data = await res.json();
 
         if (data.error) {
@@ -2779,7 +3194,7 @@ function closeSystemPanel() {
 async function loadSystemDetails() {
     const container = document.getElementById('systemDetailContent');
     try {
-        const res = await fetch(API + '/system/info');
+        const res = await authFetch(API + '/system/info');
         const info = await res.json();
 
         var html = '';
@@ -2863,7 +3278,7 @@ function populatePackSelect(selectId, packs, activePack) {
 async function switchTheme(themeName) {
     if (!themeName) return;
     try {
-        const res = await fetch(API + '/theme/switch', {
+        const res = await authFetch(API + '/theme/switch', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({theme_name: themeName}),
@@ -2881,7 +3296,7 @@ async function switchTheme(themeName) {
 async function switchPersonality(packName) {
     if (!packName) return;
     try {
-        const res = await fetch(API + '/personality/switch', {
+        const res = await authFetch(API + '/personality/switch', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({pack_name: packName}),
@@ -2903,7 +3318,7 @@ async function switchPersonality(packName) {
 async function switchVoice(packName) {
     if (!packName) return;
     try {
-        const res = await fetch(API + '/voice/switch', {
+        const res = await authFetch(API + '/voice/switch', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({pack_name: packName}),
@@ -2936,7 +3351,7 @@ function closeSettingsPanel() {
 async function loadSettings() {
     const container = document.getElementById('settingsContent');
     try {
-        const res = await fetch(API + '/settings');
+        const res = await authFetch(API + '/settings');
         const settings = await res.json();
         renderSettings(settings);
     } catch (e) {
@@ -3011,7 +3426,7 @@ async function saveSetting(section, key, value, inputEl) {
     var id = 'setting-' + section.replace('.', '-') + '-' + key;
     var savedEl = document.getElementById(id + '-saved');
     try {
-        const res = await fetch(API + '/settings', {
+        const res = await authFetch(API + '/settings', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({section: section, key: key, value: value}),
@@ -3029,22 +3444,295 @@ async function saveSetting(section, key, value, inputEl) {
 // ========== SESSION PERSISTENCE ==========
 
 window.addEventListener('beforeunload', function() {
-    var blob = new Blob(['{}'], {type: 'application/json'});
-    navigator.sendBeacon(API + '/end-session', blob);
+    if (authToken) {
+        fetch(API + '/end-session', {
+            method: 'POST',
+            headers: authHeaders(),
+            body: '{}',
+            keepalive: true,
+        }).catch(function() {});
+    }
 });
+
+// ========== VAULT PANEL ==========
+
+let currentVaultTab = 'profile';
+
+function openVaultPanel() {
+    document.getElementById('vaultPanelOverlay').classList.add('open');
+    document.getElementById('vaultPanel').classList.add('open');
+    loadVaultTab('profile');
+}
+
+function closeVaultPanel() {
+    document.getElementById('vaultPanelOverlay').classList.remove('open');
+    document.getElementById('vaultPanel').classList.remove('open');
+}
+
+function vaultTab(tab, btn) {
+    currentVaultTab = tab;
+    document.querySelectorAll('.vault-tab').forEach(function(t) { t.classList.remove('active'); });
+    if (btn) btn.classList.add('active');
+    loadVaultTab(tab);
+}
+
+async function loadVaultTab(tab) {
+    const content = document.getElementById('vaultContent');
+    content.innerHTML = '<div class="data-row"><span class="label">Loading...</span></div>';
+
+    try {
+        if (tab === 'profile') {
+            const res = await authFetch(API + '/vault/profile');
+            const data = await res.json();
+            let html = '';
+            const facts = data.facts || [];
+            if (facts.length > 0) {
+                facts.forEach(function(f) {
+                    html += '<div class="vault-fact-row">' +
+                        '<span class="fact-cat">' + escapeHtml(f.category) + '</span>' +
+                        '<span class="fact-text">' + escapeHtml(f.fact) + '</span>' +
+                        '<button class="fact-del" onclick="vaultDeleteFact(\'' + escapeHtml(f.fact).replace(/'/g, "\\'") + '\')">X</button>' +
+                        '</div>';
+                });
+            } else {
+                html += '<div class="data-row"><span class="label">No facts recorded yet</span></div>';
+            }
+            html += '<div class="vault-add-row">' +
+                '<select id="vaultFactCat">' +
+                '<option value="Personal">Personal</option>' +
+                '<option value="Preferences">Preferences</option>' +
+                '<option value="Work">Work</option>' +
+                '<option value="Health">Health</option>' +
+                '<option value="Relationships">Relationships</option>' +
+                '<option value="Interests">Interests</option>' +
+                '<option value="Other">Other</option>' +
+                '</select>' +
+                '<input type="text" id="vaultFactText" placeholder="New fact...">' +
+                '<button onclick="vaultAddFact()">ADD</button>' +
+                '</div>';
+            content.innerHTML = html;
+
+        } else if (tab === 'logs') {
+            const res = await authFetch(API + '/transcripts');
+            const data = await res.json();
+            const sessions = data.sessions || [];
+            if (sessions.length === 0) {
+                content.innerHTML = '<div class="data-row"><span class="label">No logs yet</span></div>';
+                return;
+            }
+            let html = '';
+            sessions.slice(0, 30).forEach(function(s) {
+                html += '<div class="vault-fact-row" style="cursor:pointer" onclick="vaultViewLog(\'' + escapeHtml(s.session_id) + '\')">' +
+                    '<span class="fact-text">' + escapeHtml(s.session_id) + '</span>' +
+                    '</div>';
+            });
+            content.innerHTML = html;
+
+        } else if (tab === 'summary') {
+            const res = await authFetch(API + '/vault/summary');
+            const data = await res.json();
+            let html = '';
+            if (data.key_facts) {
+                html += '<div class="vault-summary-stat"><span class="stat-label">Relationship</span><span class="stat-value">' + escapeHtml(data.relationship_stage || 'unknown') + '</span></div>';
+                html += '<div class="vault-summary-stat"><span class="stat-label">Total Sessions</span><span class="stat-value">' + (data.stats ? data.stats.total_sessions : 0) + '</span></div>';
+                html += '<div class="vault-summary-stat"><span class="stat-label">Total Facts</span><span class="stat-value">' + (data.stats ? data.stats.total_facts : 0) + '</span></div>';
+                if (data.recent_topics && data.recent_topics.length > 0) {
+                    html += '<div class="vault-summary-stat"><span class="stat-label">Recent Topics</span><span class="stat-value">' + escapeHtml(data.recent_topics.slice(0, 5).join(', ')) + '</span></div>';
+                }
+                if (data.key_facts.length > 0) {
+                    html += '<div style="margin-top:10px;color:var(--lcars-text-dim);font-size:11px;text-transform:uppercase;letter-spacing:1px">Key Facts</div>';
+                    data.key_facts.forEach(function(f) {
+                        html += '<div class="vault-fact-row"><span class="fact-text">' + escapeHtml(f) + '</span></div>';
+                    });
+                }
+            } else {
+                html += '<div class="data-row"><span class="label">' + escapeHtml(data.message || 'No summary available') + '</span></div>';
+            }
+            html += '<div style="margin-top:12px"><button class="vault-btn" onclick="vaultRegenSummary()">REGENERATE</button></div>';
+            content.innerHTML = html;
+
+        } else if (tab === 'account') {
+            const res = await authFetch(API + '/vault/account');
+            const data = await res.json();
+            let html = '';
+            html += '<div class="vault-account-field"><label>Username</label><input value="' + escapeHtml(data.username || '') + '" disabled></div>';
+            html += '<div class="vault-account-field"><label>Display Name</label><input id="vaultDisplayName" value="' + escapeHtml(data.display_name || '') + '"></div>';
+            html += '<div style="margin-bottom:16px"><button class="vault-btn" onclick="vaultSaveDisplayName()">SAVE NAME</button></div>';
+            html += '<div class="vault-summary-stat"><span class="stat-label">Created</span><span class="stat-value">' + escapeHtml((data.created || '').substring(0, 10)) + '</span></div>';
+            html += '<div class="vault-summary-stat"><span class="stat-label">Sessions</span><span class="stat-value">' + (data.stats ? data.stats.total_sessions : 0) + '</span></div>';
+            html += '<div class="vault-summary-stat"><span class="stat-label">Facts</span><span class="stat-value">' + (data.stats ? data.stats.total_facts : 0) + '</span></div>';
+            html += '<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--lcars-grey-1)">';
+            html += '<div style="color:var(--lcars-text-dim);font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Change Passcode</div>';
+            html += '<div class="vault-account-field"><label>Current</label><input type="password" id="vaultOldPass"></div>';
+            html += '<div class="vault-account-field"><label>New</label><input type="password" id="vaultNewPass"></div>';
+            html += '<div class="vault-account-field"><label>Confirm</label><input type="password" id="vaultNewPassConfirm"></div>';
+            html += '<button class="vault-btn" onclick="vaultChangePasscode()">CHANGE PASSCODE</button>';
+            html += '<span id="vaultPassMsg" style="margin-left:8px;font-size:12px"></span>';
+            html += '</div>';
+            content.innerHTML = html;
+        }
+    } catch (e) {
+        content.innerHTML = '<div class="data-row"><span class="label">Error loading data</span></div>';
+    }
+}
+
+async function vaultDeleteFact(factText) {
+    try {
+        await authFetch(API + '/vault/profile/fact', {
+            method: 'DELETE',
+            body: JSON.stringify({fact_text: factText}),
+        });
+        loadVaultTab('profile');
+    } catch (e) {}
+}
+
+async function vaultAddFact() {
+    const cat = document.getElementById('vaultFactCat').value;
+    const text = document.getElementById('vaultFactText').value.trim();
+    if (!text) return;
+    try {
+        await authFetch(API + '/vault/profile', {
+            method: 'PUT',
+            body: JSON.stringify({category: cat, fact: text}),
+        });
+        loadVaultTab('profile');
+    } catch (e) {}
+}
+
+async function vaultViewLog(sessionId) {
+    const content = document.getElementById('vaultContent');
+    content.innerHTML = '<div class="data-row"><span class="label">Loading...</span></div>';
+    try {
+        const res = await authFetch(API + '/transcripts/' + encodeURIComponent(sessionId));
+        const data = await res.json();
+        if (data.content) {
+            let html = '<div style="margin-bottom:8px"><button class="vault-btn" onclick="loadVaultTab(\'logs\')">BACK</button></div>';
+            html += '<div style="white-space:pre-wrap;font-size:12px;line-height:1.6;color:var(--lcars-text)">';
+            if (typeof marked !== 'undefined') {
+                html += marked.parse(data.content);
+            } else {
+                html += escapeHtml(data.content);
+            }
+            html += '</div>';
+            content.innerHTML = html;
+        } else {
+            content.innerHTML = '<div class="data-row"><span class="label">Transcript not found</span></div>';
+        }
+    } catch (e) {
+        content.innerHTML = '<div class="data-row"><span class="label">Error loading transcript</span></div>';
+    }
+}
+
+async function vaultRegenSummary() {
+    const content = document.getElementById('vaultContent');
+    content.innerHTML = '<div class="data-row"><span class="label">Regenerating...</span></div>';
+    try {
+        await authFetch(API + '/vault/summary/regenerate', {method: 'POST'});
+        loadVaultTab('summary');
+    } catch (e) {
+        content.innerHTML = '<div class="data-row"><span class="label">Error regenerating</span></div>';
+    }
+}
+
+async function vaultSaveDisplayName() {
+    const name = document.getElementById('vaultDisplayName').value.trim();
+    if (!name) return;
+    try {
+        await authFetch(API + '/vault/account', {
+            method: 'PUT',
+            body: JSON.stringify({display_name: name}),
+        });
+        currentDisplayName = name;
+        localStorage.setItem('aegis_display_name', name);
+        var nameEl = document.getElementById('sidebarUserName');
+        if (nameEl) nameEl.textContent = name.toUpperCase();
+    } catch (e) {}
+}
+
+async function vaultChangePasscode() {
+    const old = document.getElementById('vaultOldPass').value;
+    const newP = document.getElementById('vaultNewPass').value;
+    const confirm = document.getElementById('vaultNewPassConfirm').value;
+    const msgEl = document.getElementById('vaultPassMsg');
+    msgEl.textContent = '';
+    msgEl.style.color = '';
+
+    if (!old || !newP) { msgEl.textContent = 'All fields required'; msgEl.style.color = 'var(--lcars-error)'; return; }
+    if (newP.length < 4) { msgEl.textContent = 'Min 4 characters'; msgEl.style.color = 'var(--lcars-error)'; return; }
+    if (newP !== confirm) { msgEl.textContent = 'Passcodes do not match'; msgEl.style.color = 'var(--lcars-error)'; return; }
+
+    try {
+        const res = await authFetch(API + '/vault/account/passcode', {
+            method: 'PUT',
+            body: JSON.stringify({current_passcode: old, new_passcode: newP}),
+        });
+        const data = await res.json();
+        if (data.success) {
+            msgEl.textContent = 'Changed';
+            msgEl.style.color = 'var(--lcars-success)';
+            document.getElementById('vaultOldPass').value = '';
+            document.getElementById('vaultNewPass').value = '';
+            document.getElementById('vaultNewPassConfirm').value = '';
+        } else {
+            msgEl.textContent = data.error || 'Failed';
+            msgEl.style.color = 'var(--lcars-error)';
+        }
+    } catch (e) {
+        msgEl.textContent = 'Error';
+        msgEl.style.color = 'var(--lcars-error)';
+    }
+}
 
 // ========== STARTUP ==========
 
+async function checkAuth() {
+    // If we have a stored token, validate it with the server
+    if (authToken) {
+        try {
+            const res = await fetch(API + '/auth/check', {
+                headers: {'Authorization': 'Bearer ' + authToken},
+            });
+            const data = await res.json();
+            if (data.authenticated) {
+                currentUsername = data.username;
+                currentDisplayName = data.display_name;
+                return true;
+            }
+        } catch (e) {
+            // Server offline or error — clear stale token, require re-login
+        }
+        // Token was invalid or server unreachable — clear it
+        clearAuth();
+    }
+    return false;
+}
+
 async function init() {
+    // Check if authenticated
+    const authed = await checkAuth();
+    if (!authed) {
+        // Check if any users exist (first-run detection)
+        try {
+            const res = await fetch(API + '/auth/has-users');
+            const data = await res.json();
+            if (!data.has_users) {
+                showRegister();
+            }
+        } catch (e) {}
+        showLoginScreen();
+        return;
+    }
+
+    showMainApp();
+
     await loadTheme();
     loadStatus();
     loadCommands();
 
     // Load initial task count
     try {
-        const res = await fetch(API + '/tasks', {
+        const res = await authFetch(API + '/tasks', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({action: 'list'}),
         });
         const data = await res.json();
@@ -3053,7 +3741,7 @@ async function init() {
 
     // Fetch agent name for top bar
     try {
-        const res = await fetch(API + '/status');
+        const res = await authFetch(API + '/status');
         const data = await res.json();
         const name = data.agent_name || 'AEGIS';
         document.getElementById('agentName').textContent = name.toUpperCase();
@@ -3074,14 +3762,29 @@ async function init() {
         });
     }
 
+    // Clear any old intervals before setting new ones
+    _pollIntervals.forEach(function(id) { clearInterval(id); });
+    _pollIntervals = [];
+
     // Connection polling every 30s
-    setInterval(checkConnection, 30000);
+    _pollIntervals.push(setInterval(checkConnection, 30000));
 
     // Task count refresh every 60s
-    setInterval(function() {
+    _pollIntervals.push(setInterval(function() {
         loadTasks().catch(function() {});
-    }, 60000);
+    }, 60000));
 }
+
+// Handle Enter key on login/register inputs
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+        if (document.activeElement && document.activeElement.closest('#loginBox')) {
+            doLogin();
+        } else if (document.activeElement && document.activeElement.closest('#registerBox')) {
+            doRegister();
+        }
+    }
+});
 
 init();
 </script>

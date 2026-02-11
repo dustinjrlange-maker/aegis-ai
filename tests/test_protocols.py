@@ -292,9 +292,9 @@ class TestOperationsProtocol:
 
     @pytest.fixture(autouse=True)
     def _redirect_task_file(self, tmp_path, monkeypatch):
-        """Redirect TASK_FILE to a temporary location for every test."""
-        temp_task_file = tmp_path / "tasks.json"
-        monkeypatch.setattr(OperationsProtocol, "TASK_FILE", temp_task_file)
+        """Redirect OperationsProtocol default paths to temp directory."""
+        monkeypatch.setattr("core.protocols.operations.PROJECT_ROOT", tmp_path)
+        (tmp_path / "data").mkdir(exist_ok=True)
 
     def test_process_input_returns_correct_shape(self, empty_context):
         proto = OperationsProtocol()

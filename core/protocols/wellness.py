@@ -67,6 +67,16 @@ class WellnessProtocol(Protocol):
             ],
             "context": "burnout",
         },
+        "overwork": {
+            "negative": [
+                r"\b(\d{2,})\s*[-]?\s*hour\s*(day|shift|work)",
+                r"(worked|working)\s+(\d{2,})\s*hours",
+                r"(double|back[\s-]?to[\s-]?back)\s+shift",
+                r"(haven't|didn't|no)\s+(break|lunch|rest)",
+                r"(straight|non[\s-]?stop)\s+(through|working|hours)",
+            ],
+            "context": "work_fatigue",
+        },
     }
 
     def __init__(self):
@@ -106,7 +116,7 @@ class WellnessProtocol(Protocol):
         if triggered_contexts:
             categories = ", ".join(c[0] for c in triggered_contexts)
             result["context_injection"] = (
-                f"[Wellness flag: {categories}. Address this directly.]"
+                f"[Wellness note: {categories}. Show genuine concern -- ask about their situation before giving advice.]"
             )
 
         return result

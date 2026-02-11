@@ -46,24 +46,64 @@ class CharacterMemory:
                         self.by_tag[tag] = []
                     self.by_tag[tag].append(entry)
 
-    def get_core_context(self):
-        """Get all core memories as a context string for the system prompt.
-        These are always available to the agent."""
+    def get_core_context(self, message_count=0):
+        """Get core memories as a context string for the system prompt.
+
+        For the first few exchanges (message_count < 10), include all core
+        memories so the agent has identity grounding. After that, omit them
+        to prevent the model from treating backstory as conversation topics.
+        The relevant memories (secondary, topic-matched) still inject via
+        get_relevant_memories() on every turn.
+
+        Args:
+            message_count: Number of non-system messages in the conversation.
+                           Pass 0 to always include (e.g., initial prompt build).
+        """
         if not self.core_memories:
             return ""
 
-        lines = ["=== CHARACTER MEMORIES (core) ===",
-                 "These are things you remember from your own life. Reference them "
-                 "naturally when relevant — don't recite them, let them color your responses."]
+        # After 10 messages the model has enough context — stop injecting
+        # core memories to prevent them from becoming conversation topics.
+        if message_count > 10:
+            return ""
+
+        lines = [
+            "=== YOUR BACKGROUND ===",
+            "These are your memories. Only reference if the topic comes up naturally.",
+        ]
 
         for mem in self.core_memories:
             lines.append(f"- {mem['content']}")
 
         return "\n".join(lines)
 
-    def get_relevant_memories(self, text, max_results=3):
+    # Common words to exclude from content matching — prevents noise matches
+    COMMON_WORDS = {
+        # Articles, prepositions, conjunctions
+        "the", "a", "an", "is", "are", "was", "were", "and", "or", "but",
+        "to", "in", "on", "at", "for", "of", "it", "that", "this", "with",
+        "from", "by", "as", "if", "not", "no", "so", "up", "out", "about",
+        # Pronouns
+        "you", "i", "my", "your", "his", "her", "we", "they", "me", "him",
+        "them", "our", "its", "who", "what", "which", "their",
+        # Common verbs
+        "do", "did", "does", "done", "have", "has", "had", "been", "be",
+        "get", "got", "go", "went", "going", "come", "came", "make", "made",
+        "take", "took", "know", "knew", "think", "thought", "say", "said",
+        "see", "saw", "want", "need", "can", "could", "would", "should",
+        "will", "just", "like", "really", "very", "much",
+        # Time words
+        "today", "yesterday", "tomorrow", "now", "then", "when", "time",
+        "day", "week", "month", "year", "morning", "night", "hour",
+        # Everyday words
+        "thing", "things", "way", "good", "bad", "new", "old", "long",
+        "right", "well", "back", "still", "here", "there", "how", "all",
+        "some", "any", "more", "also", "than", "too", "only", "even",
+    }
+
+    def get_relevant_memories(self, text, max_results=2):
         """Find character memories relevant to the given text.
-        Uses simple keyword/tag matching. Returns formatted context string.
+        Uses keyword/tag matching with a minimum threshold to prevent noise.
 
         Args:
             text: The user's message to match against.
@@ -85,14 +125,10 @@ class CharacterMemory:
             mem_words = set(mem["content"].lower().split())
             text_words = set(text_lower.split())
             overlap = mem_words & text_words
-            # Filter out very common words
-            common = {"the", "a", "an", "is", "are", "was", "were", "and", "or",
-                      "to", "in", "on", "at", "for", "of", "it", "that", "this",
-                      "you", "i", "my", "your", "his", "her", "we", "they"}
-            meaningful_overlap = overlap - common
+            meaningful_overlap = overlap - self.COMMON_WORDS
             score += len(meaningful_overlap)
 
-            if score > 0:
+            if score >= 4:
                 scored.append((score, mem))
 
         if not scored:
@@ -101,9 +137,12 @@ class CharacterMemory:
         scored.sort(key=lambda x: x[0], reverse=True)
         top = scored[:max_results]
 
-        lines = []
+        lines = [
+            "[Character backstory -- reference ONLY if the companion's message "
+            "directly relates. Do NOT shoehorn into unrelated conversation.]"
+        ]
         for _, mem in top:
-            lines.append(f"[character_memory] {mem['content']}")
+            lines.append(f"[character_memory -- use ONLY if directly relevant] {mem['content']}")
 
         return "\n".join(lines)
 

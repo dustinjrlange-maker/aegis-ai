@@ -4,7 +4,7 @@
  * API calls are network-first (not cached).
  */
 
-const CACHE_NAME = 'aegis-v1';
+const CACHE_NAME = 'aegis-v2';
 const SHELL_ASSETS = [
     '/',
     '/static/icon-192.png',
@@ -69,16 +69,32 @@ self.addEventListener('fetch', function(event) {
         return;
     }
 
-    // Static assets and shell: cache-first with network fallback
+    // Navigation requests (HTML pages): network-first so code updates are always fresh
+    if (event.request.mode === 'navigate') {
+        event.respondWith(
+            fetch(event.request).then(function(response) {
+                if (response.ok) {
+                    var responseClone = response.clone();
+                    caches.open(CACHE_NAME).then(function(cache) {
+                        cache.put(event.request, responseClone);
+                    });
+                }
+                return response;
+            }).catch(function() {
+                return caches.match('/') || new Response('Offline', { status: 503 });
+            })
+        );
+        return;
+    }
+
+    // Static assets: cache-first with network fallback
     event.respondWith(
         caches.match(event.request).then(function(cached) {
             if (cached) return cached;
 
             return fetch(event.request).then(function(response) {
-                // Cache successful responses for static assets
                 if (response.ok && (
                     url.pathname.startsWith('/static/') ||
-                    url.pathname === '/' ||
                     url.pathname === '/manifest.json' ||
                     url.hostname !== self.location.hostname
                 )) {
@@ -89,10 +105,6 @@ self.addEventListener('fetch', function(event) {
                 }
                 return response;
             }).catch(function() {
-                // For navigation requests, return cached index
-                if (event.request.mode === 'navigate') {
-                    return caches.match('/');
-                }
                 return new Response('Offline', { status: 503 });
             });
         })

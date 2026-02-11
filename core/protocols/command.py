@@ -135,6 +135,106 @@ class VRAMArbitrator:
         )
         return [(name, mb) for name, mb in suggestions]
 
+    # Priority order for auto-freeing: lowest priority first.
+    # emotion is CPU-only (trivial), stt is less critical than tts.
+    # Never auto-unload LLM — that's a separate Ollama process.
+    _UNLOAD_PRIORITY = ["emotion", "stt", "tts"]
+
+    def get_loaded_models(self):
+        """Query voice engines to report what's actually in memory.
+
+        Returns:
+            dict mapping model name to {'loaded': bool, 'estimated_mb': int}.
+        """
+        from core.voice import tts_engine, stt_engine, emotion
+
+        return {
+            "tts": {
+                "loaded": tts_engine.is_loaded(),
+                "estimated_mb": self.MODEL_ESTIMATES.get("tts", 0),
+            },
+            "stt": {
+                "loaded": stt_engine.is_loaded(),
+                "estimated_mb": self.MODEL_ESTIMATES.get("stt", 0),
+            },
+            "emotion": {
+                "loaded": emotion.is_loaded(),
+                "estimated_mb": 0,  # CPU-only, negligible VRAM
+            },
+        }
+
+    def unload_model(self, model_type):
+        """Unload a specific voice model.
+
+        Args:
+            model_type: One of 'tts', 'stt', 'emotion'.
+
+        Returns:
+            dict with 'success', 'model', 'freed_mb', 'message'.
+        """
+        from core.voice import tts_engine, stt_engine, emotion
+
+        engines = {
+            "tts": tts_engine,
+            "stt": stt_engine,
+            "emotion": emotion,
+        }
+
+        engine = engines.get(model_type.lower())
+        if engine is None:
+            return {
+                "success": False,
+                "model": model_type,
+                "freed_mb": 0,
+                "message": f"Unknown model type '{model_type}'. Use: tts, stt, emotion",
+            }
+
+        if not engine.is_loaded():
+            return {
+                "success": False,
+                "model": model_type,
+                "freed_mb": 0,
+                "message": f"{model_type.upper()} is not loaded.",
+            }
+
+        estimated = self.MODEL_ESTIMATES.get(model_type.lower(), 0)
+        engine.unload()
+        return {
+            "success": True,
+            "model": model_type,
+            "freed_mb": estimated,
+            "message": f"{model_type.upper()} unloaded, ~{estimated}MB freed.",
+        }
+
+    def auto_free(self, needed_mb):
+        """Unload lowest-priority models until enough VRAM is freed.
+
+        Priority order: emotion (CPU, trivial) > stt > tts.
+        Never unloads LLM (Ollama is a separate process).
+
+        Args:
+            needed_mb: How much VRAM to free.
+
+        Returns:
+            dict with 'freed_mb', 'unloaded' (list of model names), 'enough' (bool).
+        """
+        freed = 0
+        unloaded = []
+
+        for model_type in self._UNLOAD_PRIORITY:
+            if freed >= needed_mb:
+                break
+            result = self.unload_model(model_type)
+            if result["success"]:
+                freed += result["freed_mb"]
+                unloaded.append(model_type)
+
+        return {
+            "freed_mb": freed,
+            "unloaded": unloaded,
+            "enough": freed >= needed_mb,
+        }
+
     def get_budget_report(self):
         """Build a human-readable VRAM budget summary.
 
@@ -224,9 +324,23 @@ class CommandProtocol(Protocol):
                 if status is not None:
                     fit = self.vram.can_fit(model_type)
                     fit_info = fit["status"] if fit else "Could not estimate fit."
+
+                    # Auto-free if the model won't fit
+                    auto_msg = ""
+                    if fit and not fit["fits"]:
+                        shortage = fit["shortage_mb"]
+                        freed = self.vram.auto_free(shortage)
+                        if freed["unloaded"]:
+                            auto_msg = (
+                                f" Auto-freed ~{freed['freed_mb']}MB by unloading "
+                                f"{', '.join(freed['unloaded'])}."
+                            )
+                            if not freed["enough"]:
+                                auto_msg += " Still not enough VRAM."
+
                     context_injection = (
                         f"[VRAM Status: {status['used_mb']}MB/{status['total_mb']}MB used. "
-                        f"{fit_info}]"
+                        f"{fit_info}{auto_msg}]"
                     )
                 else:
                     est = self.vram.estimate_model_vram(model_type)
@@ -361,6 +475,8 @@ class CommandProtocol(Protocol):
             {"command": "processes", "description": "Show running processes", "handler": "cmd_processes"},
             {"command": "gpu", "description": "Show GPU status", "handler": "cmd_gpu"},
             {"command": "vram", "description": "Show VRAM budget report", "handler": "cmd_vram"},
+            {"command": "models", "description": "Show loaded models and VRAM", "handler": "cmd_models"},
+            {"command": "unload", "description": "Unload a model (tts/stt/emotion)", "handler": "cmd_unload"},
         ]
 
     def cmd_processes(self, args=""):
@@ -389,6 +505,36 @@ class CommandProtocol(Protocol):
     def cmd_vram(self, args=""):
         """Show the VRAM budget report."""
         return "\n" + self.vram.get_budget_report()
+
+    def cmd_models(self, args=""):
+        """Show which voice models are loaded and estimated VRAM."""
+        loaded = self.vram.get_loaded_models()
+        lines = ["\n  Loaded Models:"]
+        for name, info in loaded.items():
+            status = "LOADED" if info["loaded"] else "not loaded"
+            vram = f"~{info['estimated_mb']}MB" if info["estimated_mb"] else "CPU"
+            lines.append(f"    {name:10s}  {status:12s}  {vram}")
+
+        # Show VRAM summary if available
+        vram_status = self.vram.get_vram_status()
+        if vram_status:
+            lines.append("")
+            total_loaded = sum(
+                info["estimated_mb"] for info in loaded.values() if info["loaded"]
+            )
+            lines.append(f"  Estimated loaded VRAM: ~{total_loaded}MB")
+            lines.append(
+                f"  GPU VRAM: {vram_status['used_mb']}MB / {vram_status['total_mb']}MB"
+            )
+        return "\n".join(lines)
+
+    def cmd_unload(self, args=""):
+        """Unload a voice model to free VRAM. Usage: /unload <tts|stt|emotion>"""
+        model_type = args.strip().lower()
+        if not model_type:
+            return "  Usage: /unload <tts|stt|emotion>"
+        result = self.vram.unload_model(model_type)
+        return f"  {result['message']}"
 
     def get_status(self):
         status = super().get_status()

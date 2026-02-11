@@ -15,7 +15,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 import ollama
-from core.config import CONFIG, get_path, PROJECT_ROOT as PROJ_ROOT
+from core.config import CONFIG, get_path, PROJECT_ROOT as PROJ_ROOT, load_capabilities
 from core.memory.manager import MemoryManager
 from core.memory.character_memory import CharacterMemory
 from core.voice import tts_engine, stt_engine, input_router, emotion
@@ -69,6 +69,12 @@ def build_filler_cleaner(personality_pack):
 
     def clean_reply(text):
         """Post-process agent response using pack-specific filters."""
+        # Strip qwen3 thinking blocks (chain-of-thought reasoning)
+        text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL).strip()
+
+        # Strip emoji (qwen3 likes to add them, cp1252 console can't handle them)
+        text = re.sub(r'[\U00010000-\U0010ffff]', '', text)
+
         # Normalize curly quotes
         text = text.replace("\u2018", "'").replace("\u2019", "'")
         text = text.replace("\u201c", '"').replace("\u201d", '"')
@@ -97,42 +103,126 @@ def build_filler_cleaner(personality_pack):
         text = text.strip()
         text = re.sub(r'^\.\s*', '', text)
         text = re.sub(r'\.\s*\.', '.', text)
+        text = text.strip()
+
+        # Hard sentence cap — models ignore "keep it short" instructions.
+        # Collapse to single line first, then cap at 3 sentences.
+        # Only allow multi-line for content with actual list markers (1. or -).
+        has_list = bool(re.search(r'(?m)^[\s]*(?:\d+\.|[-*])\s', text))
+        if not has_list:
+            # Collapse newlines to spaces for non-list content
+            text = re.sub(r'\s*\n\s*', ' ', text)
+            # Split on sentence boundaries and cap at 3
+            sentences = re.split(r'(?<=[.?])\s+', text)
+            sentences = [s for s in sentences if s.strip()]
+            if len(sentences) > 3:
+                sentences = sentences[:3]
+            # Drop trailing fragment if it's too short or doesn't end properly
+            # (e.g., "Or.." left over from a cut-off thought)
+            while sentences and (
+                len(sentences[-1].split()) <= 2
+                and not sentences[-1].rstrip('.').endswith(('?', '.'))
+            ):
+                sentences.pop()
+            if sentences:
+                text = ' '.join(sentences)
+                if not text.endswith(('.', '?')):
+                    text += '.'
 
         return text.strip()
 
     return clean_reply
 
 
+def _authenticate():
+    """Authenticate the user at the terminal. Returns username."""
+    from getpass import getpass
+    from core.auth import user_exists, load_users, verify_user, create_user, load_user_preferences
+
+    print()
+    if not user_exists():
+        print("  No user accounts found. Let's create one.")
+        print()
+        while True:
+            username = input("  Username: ").strip().lower()
+            if not username or not username.isalnum():
+                print("  Username must be alphanumeric. Try again.")
+                continue
+            display_name = input(f"  Display name [{username.title()}]: ").strip()
+            if not display_name:
+                display_name = username.title()
+            passcode = getpass("  Passcode (min 4 chars): ")
+            if len(passcode) < 4:
+                print("  Passcode must be at least 4 characters. Try again.")
+                continue
+            passcode_confirm = getpass("  Confirm passcode: ")
+            if passcode != passcode_confirm:
+                print("  Passcodes don't match. Try again.")
+                continue
+            try:
+                create_user(username, display_name, passcode)
+                print(f"  Account '{username}' created.")
+                return username
+            except ValueError as e:
+                print(f"  Error: {e}")
+    else:
+        while True:
+            username = input("  Username: ").strip().lower()
+            passcode = getpass("  Passcode: ")
+            if verify_user(username, passcode):
+                users = load_users()
+                display = users.get(username, {}).get("display_name", username.title())
+                print(f"  Welcome back, {display}.")
+                return username
+            print("  Invalid username or passcode. Try again.")
+
+
 def run():
     """Main chat loop with the Aegis agent."""
     print()
     print("=" * 60)
+    print("  AEGIS AI — SECURE LOGIN")
+    print("=" * 60)
+
+    # Authenticate
+    user_id = _authenticate()
+
+    # Load user preferences for pack selection
+    from core.auth import load_user_preferences
+    prefs = load_user_preferences(user_id)
+    personality_name = prefs.get("active_personality",
+                                 CONFIG.get("packs", {}).get("active_personality", "default"))
 
     # Load packs
-    personality_pack = load_personality_pack()
+    personality_pack = load_personality_pack(personality_name)
     voice_pack = load_voice_pack()
     agent_name = get_agent_display_name(personality_pack)
     banner = get_banner(personality_pack)
 
+    print()
+    print("=" * 60)
     print(banner)
     print("=" * 60)
     print()
     print("  Initializing systems...")
 
-    # Initialize memory
-    memory = MemoryManager()
+    # Initialize memory scoped to this user
+    memory = MemoryManager(user_id=user_id)
     memory.set_names(agent_name)
 
     # Load character memories from personality pack
     char_memory = CharacterMemory(personality_pack.get("memories", {}))
 
-    # Build system prompt: core directives + pack overlay + session context + character memories
+    # Build system prompt: core directives + pack overlay + capabilities + character memories + session
     core_directives = load_core_directives()
     personality_prompt = build_system_prompt(core_directives, personality_pack)
+    capabilities_prompt = load_capabilities()
     session_context = memory.build_session_context()
     char_context = char_memory.get_core_context()
 
     system_prompt_parts = [personality_prompt]
+    if capabilities_prompt:
+        system_prompt_parts.append(capabilities_prompt)
     if char_context:
         system_prompt_parts.append(char_context)
     system_prompt_parts.append(session_context)
@@ -142,11 +232,12 @@ def run():
     clean_reply = build_filler_cleaner(personality_pack)
 
     # Initialize protocol registry
+    user_data_dir = memory.user_data_dir
     protocol_registry = ProtocolRegistry()
     protocol_registry.register(SecurityProtocol())
     protocol_registry.register(WellnessProtocol())
     protocol_registry.register(CommunicationsProtocol())
-    protocol_registry.register(OperationsProtocol())
+    protocol_registry.register(OperationsProtocol(data_dir=user_data_dir))
     protocol_registry.register(CommandProtocol())
     protocol_registry.register(CreativeProtocol())
     print("  Protocols online: " + ", ".join(protocol_registry.list_protocols()))
@@ -222,8 +313,11 @@ def run():
 
         # Refresh session context (picks up new profile facts, updated time)
         refreshed_session = memory.build_session_context()
-        refreshed_char = char_memory.get_core_context()
+        msg_count = len([m for m in messages if m["role"] != "system"])
+        refreshed_char = char_memory.get_core_context(message_count=msg_count)
         refreshed_parts = [personality_prompt]
+        if capabilities_prompt:
+            refreshed_parts.append(capabilities_prompt)
         if refreshed_char:
             refreshed_parts.append(refreshed_char)
         refreshed_parts.append(refreshed_session)

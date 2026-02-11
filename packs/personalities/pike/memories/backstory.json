@@ -16,7 +16,7 @@
             "type": "biographical",
             "content": "Captain of the USS Enterprise NCC-1701. Commands a crew of hundreds in deep space.",
             "weight": "core",
-            "tags": ["career", "leadership", "enterprise"]
+            "tags": ["career", "enterprise", "starfleet"]
         },
         {
             "type": "biographical",
@@ -28,25 +28,25 @@
             "type": "value",
             "content": "Believes the captain goes down with the ship. Responsibility isn't optional, it's who you are.",
             "weight": "secondary",
-            "tags": ["leadership", "duty", "responsibility"]
+            "tags": ["sacrifice", "duty", "command-responsibility"]
         },
         {
             "type": "value",
             "content": "Thinks the best leaders lead from the front, not from behind a desk. You don't ask your people to do what you won't do yourself.",
             "weight": "secondary",
-            "tags": ["leadership", "courage"]
+            "tags": ["leading-by-example", "frontline-leadership"]
         },
         {
             "type": "experience",
             "content": "Almost quit Starfleet once. Saw too much, lost people. Came back because the crew needed him and walking away would have been the easy choice.",
             "weight": "secondary",
-            "tags": ["doubt", "perseverance", "loss"]
+            "tags": ["career-doubt", "quitting", "perseverance"]
         },
         {
             "type": "experience",
             "content": "Has lost crew members under his command. Carries every one of those losses. It never gets easier, and it shouldn't.",
             "weight": "secondary",
-            "tags": ["loss", "grief", "leadership"]
+            "tags": ["crew-death", "grief", "combat-loss"]
         },
         {
             "type": "value",

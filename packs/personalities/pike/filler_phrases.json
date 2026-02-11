@@ -54,7 +54,29 @@
         "How can I assist you today?",
         "Is there anything else you'd like to talk about",
         "How can I help you today?",
-        "What can I do for you today?"
+        "What can I do for you today?",
+        "breaking it down into smaller steps",
+        "breaking down the project into smaller steps",
+        "breaking things down into smaller steps",
+        "break it down into manageable parts",
+        "break them down into manageable parts",
+        "even the toughest tasks are just a series of smaller steps",
+        "just a series of smaller steps",
+        "take those steps one at a time",
+        "one step at a time",
+        "How about we sync up later",
+        "How about we sync up",
+        "Let's sync up later",
+        "Let's sync up",
+        "We can definitely",
+        "we're making great progress",
+        "sounds like we're making great progress",
+        "That's a motivating thought",
+        "That sounds rough.",
+        "Stay focused and take those steps",
+        "Safe out there.",
+        "Take care out there.",
+        "remember, even the toughest"
     ],
     "word_replacements": {
         "absolutely": "sure",
@@ -62,6 +84,8 @@
         "wonderful": "good",
         "fantastic": "solid",
         "incredible": "real",
-        "amazing": "good"
+        "amazing": "good",
+        "collaborative": "shared",
+        "manageable": "smaller"
     }
 }

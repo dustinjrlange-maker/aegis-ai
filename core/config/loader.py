@@ -31,5 +31,27 @@ def get_path(config, name):
     return config["_paths"][name]
 
 
+def load_capabilities():
+    """Load capabilities manifest and return a formatted prompt string."""
+    cap_path = PROJECT_ROOT / "core" / "config" / "capabilities.json"
+    try:
+        with open(cap_path, "r", encoding="utf-8") as f:
+            caps = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return ""
+
+    can_do = ", ".join(caps.get("can_do", []))
+    cannot_do = ", ".join(caps.get("cannot_do", []))
+    directive = caps.get("on_missing_feature", "")
+
+    lines = [
+        "=== SYSTEM CAPABILITIES ===",
+        f"You CAN: {can_do}",
+        f"You CANNOT: {cannot_do}",
+        f"IMPORTANT: {directive}",
+    ]
+    return "\n".join(lines)
+
+
 # Load once at import time
 CONFIG = load_config()

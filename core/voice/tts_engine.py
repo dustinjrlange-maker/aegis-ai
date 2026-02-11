@@ -173,3 +173,32 @@ def stop():
 def is_speaking():
     """Check if speech is currently playing."""
     return _speaking
+
+
+def is_loaded():
+    """Check if the TTS model is currently loaded in memory."""
+    return _model is not None
+
+
+def unload():
+    """Unload the TTS model from VRAM to free GPU memory.
+
+    Thread-safe via _model_lock. Calls torch.cuda.empty_cache()
+    to release the VRAM back to the OS.
+    """
+    global _model
+    with _model_lock:
+        if _model is None:
+            print("  [TTS model not loaded, nothing to unload]")
+            return
+        _model = None
+
+    # Free CUDA memory
+    try:
+        import torch
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except ImportError:
+        pass
+
+    print("  [TTS model unloaded]")

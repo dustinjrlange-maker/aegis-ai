@@ -8,17 +8,26 @@ from pathlib import Path
 from core.config import CONFIG, get_path
 
 
-def get_transcript_path(session_id=None):
+def get_transcript_dir(data_dir=None):
+    """Get the transcript directory, optionally scoped to a user."""
+    if data_dir is not None:
+        d = Path(data_dir) / "conversation_logs"
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+    return get_path(CONFIG, "conversation_logs")
+
+
+def get_transcript_path(session_id=None, data_dir=None):
     """Get the file path for a transcript."""
-    transcript_dir = get_path(CONFIG, "conversation_logs")
+    transcript_dir = get_transcript_dir(data_dir)
     if session_id is None:
         session_id = datetime.now().strftime("%Y-%m-%d_%H%M%S")
     return transcript_dir / f"session_{session_id}.md"
 
 
-def save_transcript(messages, session_id=None, agent_name=None, companion_name=None):
+def save_transcript(messages, session_id=None, agent_name=None, companion_name=None, data_dir=None):
     """Save a full conversation transcript as a markdown file."""
-    transcript_dir = get_path(CONFIG, "conversation_logs")
+    transcript_dir = get_transcript_dir(data_dir)
     transcript_dir.mkdir(parents=True, exist_ok=True)
 
     if session_id is None:
@@ -58,17 +67,18 @@ def save_transcript(messages, session_id=None, agent_name=None, companion_name=N
     return filepath
 
 
-def load_transcript(session_id):
+def load_transcript(session_id, data_dir=None):
     """Load a transcript by session ID."""
-    filepath = get_path(CONFIG, "conversation_logs") / f"session_{session_id}.md"
+    transcript_dir = get_transcript_dir(data_dir)
+    filepath = transcript_dir / f"session_{session_id}.md"
     if filepath.exists():
         return filepath.read_text(encoding="utf-8")
     return None
 
 
-def list_transcripts():
+def list_transcripts(data_dir=None):
     """List all available transcript session IDs, newest first."""
-    transcript_dir = get_path(CONFIG, "conversation_logs")
+    transcript_dir = get_transcript_dir(data_dir)
     if not transcript_dir.exists():
         return []
 

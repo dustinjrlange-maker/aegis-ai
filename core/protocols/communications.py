@@ -4,6 +4,7 @@ The core conversation engine. Handles natural language interaction,
 emotion detection integration, and voice I/O coordination.
 """
 
+import re
 from core.protocols.base import Protocol
 
 
@@ -17,11 +18,32 @@ class CommunicationsProtocol(Protocol):
             priority=Protocol.PRIORITY_NORMAL,
         )
 
+    def _detect_style_violations(self, last_response):
+        """Analyze the last assistant response for structural problems.
+
+        Returns a short correction hint string, or empty string.
+        Kept minimal to avoid overloading the 7B model's context.
+        """
+        stripped = last_response.strip()
+        hints = []
+
+        if stripped.endswith("?"):
+            hints.append("No question this turn.")
+
+        sentences = re.split(r'[.!?]+', stripped)
+        sentences = [s.strip() for s in sentences if s.strip()]
+        if len(sentences) > 2:
+            hints.append("Shorter.")
+
+        return " ".join(hints)
+
     def process_input(self, user_input, context):
-        """Communications protocol passes input through with emotion context.
+        """Communications protocol passes input through with anti-repetition
+        and style enforcement guidance.
 
         The actual LLM call happens in the agent loop, not here.
-        This protocol adds emotion-based context injection.
+        This protocol feeds recent assistant responses back as context
+        hints to prevent repetition and correct structural patterns.
         """
         result = {
             "input": user_input,
@@ -30,8 +52,35 @@ class CommunicationsProtocol(Protocol):
             "response": "",
         }
 
-        # Emotion detection is handled by the agent loop and injected into context
-        # This protocol doesn't modify input, it just ensures it flows through
+        messages = context.get("messages", [])
+        recent_assistant = [
+            m["content"] for m in messages
+            if m.get("role") == "assistant" and m.get("content")
+        ][-5:]  # last 5
+
+        injection_parts = []
+
+        # --- Style enforcement (kept very short to avoid context overload) ---
+        if recent_assistant:
+            hint = self._detect_style_violations(recent_assistant[-1])
+            if hint:
+                injection_parts.append(f"[{hint}]")
+
+        # --- Anti-repetition injection ---
+        if len(recent_assistant) >= 3:
+            # Only include last 3 snippets, truncated short
+            snippets = []
+            for msg in recent_assistant[-3:]:
+                snippet = msg[:40].strip()
+                if len(msg) > 40:
+                    snippet += "..."
+                snippets.append(f'"{snippet}"')
+            injection_parts.append(
+                "[Don't repeat: " + " / ".join(snippets) + "]"
+            )
+
+        if injection_parts:
+            result["context_injection"] = " ".join(injection_parts)
 
         return result
 

@@ -24,7 +24,12 @@ def main():
         run()
     else:
         import uvicorn
-        from server.app import app, agent_name
+        from server.app import app
+        from core.config import CONFIG
+        from core.personality.pack_loader import load_personality_pack, get_agent_display_name
+
+        pack = load_personality_pack(CONFIG.get("active_personality_pack", "default"))
+        agent_name = get_agent_display_name(pack)
 
         print()
         print("=" * 50)

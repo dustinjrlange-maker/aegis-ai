@@ -15,9 +15,6 @@ from core.config import PROJECT_ROOT
 class OperationsProtocol(Protocol):
     """Digital assistant — tasks, scheduling, email, files."""
 
-    TASK_FILE = PROJECT_ROOT / "data" / "tasks.json"
-    RECURRING_FILE = PROJECT_ROOT / "data" / "recurring.json"
-
     # Patterns that suggest task-related intent
     TASK_PATTERNS = [
         r"remind\s+me\s+to\s+(.+)",
@@ -26,12 +23,18 @@ class OperationsProtocol(Protocol):
         r"don'?t\s+let\s+me\s+forget\s+(?:to\s+)?(.+)",
     ]
 
-    def __init__(self):
+    def __init__(self, data_dir=None):
         super().__init__(
             name="operations",
             description="Digital assistant — tasks, calendar, email, file organization",
             priority=Protocol.PRIORITY_NORMAL - 5,  # Just below communications
         )
+        if data_dir is not None:
+            self.TASK_FILE = Path(data_dir) / "tasks.json"
+            self.RECURRING_FILE = Path(data_dir) / "recurring.json"
+        else:
+            self.TASK_FILE = PROJECT_ROOT / "data" / "tasks.json"
+            self.RECURRING_FILE = PROJECT_ROOT / "data" / "recurring.json"
         self._tasks = []
         self._recurring = []
         self._load_tasks()
@@ -168,6 +171,8 @@ class OperationsProtocol(Protocol):
         # Check recurring tasks — generates any due today (cheap date comparisons)
         self.check_recurring()
 
+        injection_parts = []
+
         # NLP task detection — auto-create tasks from conversation
         lower = user_input.lower().strip()
         for pattern in self.TASK_PATTERNS:
@@ -176,36 +181,55 @@ class OperationsProtocol(Protocol):
                 task_text = match.group(1).strip().rstrip(".!,")
                 if len(task_text) > 3:
                     task = self.add_task(task_text)
-                    result["context_injection"] = (
+                    injection_parts.append(
                         f"[System: A task was auto-detected and saved: "
                         f"'#{task['id']}: {task['text']}'. "
                         f"Acknowledge this naturally in your response.]"
                     )
                 break
 
-        # Inject pending tasks as context so the agent is aware of them
+        # Always inject pending tasks — even when a new task was just created
         pending = self.get_pending_tasks()
         overdue = self.get_overdue_tasks()
         if pending:
             task_summary = []
+            now = datetime.now()
+
             if overdue:
                 task_summary.append(
                     f"OVERDUE tasks ({len(overdue)}): " +
                     ", ".join(f"#{t['id']}: {t['text']}" for t in overdue[:3])
                 )
+
             high = [t for t in pending if t.get("priority") == "high"]
             if high:
                 task_summary.append(
                     f"High priority ({len(high)}): " +
                     ", ".join(f"#{t['id']}: {t['text']}" for t in high[:3])
                 )
-            task_summary.append(f"Total pending tasks: {len(pending)}")
-            if not result["context_injection"]:
-                result["context_injection"] = (
-                    "[Companion's pending tasks: " +
-                    "; ".join(task_summary) +
-                    ". Only mention these if relevant to the conversation.]"
-                )
+
+            # Show age for tasks pending > 3 days
+            stale = []
+            for t in pending:
+                try:
+                    created = datetime.fromisoformat(t["created"])
+                    age_days = (now - created).days
+                    if age_days >= 3:
+                        stale.append(f"#{t['id']}: {t['text']} (pending {age_days} days)")
+                except (ValueError, KeyError):
+                    pass
+            if stale:
+                task_summary.append("Aging tasks: " + ", ".join(stale[:3]))
+
+            task_summary.append(f"Total pending: {len(pending)}")
+            injection_parts.append(
+                "[Companion's pending tasks: " +
+                "; ".join(task_summary) +
+                ". Do NOT mention tasks unless they specifically ask about tasks, plans, or to-do items.]"
+            )
+
+        if injection_parts:
+            result["context_injection"] = "\n".join(injection_parts)
 
         return result
 

@@ -1,0 +1,22 @@
+{
+    "can_do": [
+        "Text chat and voice I/O (TTS/STT when enabled)",
+        "Remember facts about companion across sessions",
+        "Track tasks and habits (/task, /habit, /briefing)",
+        "Monitor health and wellness concerns",
+        "Monitor GPU/VRAM and manage system resources",
+        "Process media with ffmpeg (if installed)",
+        "Detect emotions to subtly adjust tone",
+        "Switch personality/voice/theme packs"
+    ],
+    "cannot_do": [
+        "Make phone calls, video calls, or join meetings",
+        "Send emails, texts, or messages outside this chat",
+        "Browse the internet or search the web",
+        "Access calendars or set real alarms",
+        "Run, compile, or test code",
+        "Access files on companion's computer",
+        "Initiate contact — companion must come to you"
+    ],
+    "on_missing_feature": "If asked to do something you cannot, say so directly. If it sounds useful, mention it could be built as a future feature. Never pretend or imply you have capabilities you lack."
+}

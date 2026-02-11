@@ -3,6 +3,7 @@ Session Journals — Aegis AI
 Generates summaries of conversations for quick reference.
 """
 
+import re
 from datetime import datetime
 from pathlib import Path
 import ollama
@@ -11,25 +12,36 @@ from core.config import CONFIG, get_path
 
 SUMMARY_PROMPT = """You are an AI companion's memory system. Analyze this conversation and produce a concise session journal entry.
 
+IMPORTANT: Focus ONLY on what the COMPANION said, did, and felt. Do NOT record what the AI agent said, suggested, or advised -- that is not useful for memory and can reinforce bad patterns. The purpose of this journal is to remember the human, not the AI.
+
 Format your response EXACTLY like this:
 
 SESSION: {session_id}
-TOPICS: [comma-separated list of main topics discussed]
+TOPICS: [comma-separated list of main topics the COMPANION brought up]
 KEY POINTS:
-- [bullet point summaries of important information exchanged]
+- [bullet points about what the COMPANION shared, experienced, or expressed]
 COMPANION MOOD: [brief assessment of companion's emotional state]
-ACTION ITEMS: [any tasks, promises, or follow-ups mentioned, or "None"]
-NOTABLE FACTS: [any new personal facts learned about the companion]
+ACTION ITEMS: [any tasks, promises, or follow-ups the COMPANION mentioned, or "None"]
+NOTABLE FACTS: [any new personal facts learned about the COMPANION]
 
-Keep it concise. This journal is for quick reference, not a full record.
+Keep it concise. Only record facts about the human companion. Do NOT include what the AI said or suggested.
 
 CONVERSATION:
 {conversation}"""
 
 
-def generate_summary(messages, session_id=None):
+def get_journal_dir(data_dir=None):
+    """Get the journal directory, optionally scoped to a user."""
+    if data_dir is not None:
+        d = Path(data_dir) / "session_journals"
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+    return get_path(CONFIG, "session_journals")
+
+
+def generate_summary(messages, session_id=None, data_dir=None):
     """Generate a session journal summary of a conversation and save it."""
-    logs_dir = get_path(CONFIG, "session_journals")
+    logs_dir = get_journal_dir(data_dir)
     logs_dir.mkdir(parents=True, exist_ok=True)
 
     if session_id is None:
@@ -60,7 +72,7 @@ def generate_summary(messages, session_id=None):
         messages=[{"role": "user", "content": prompt}]
     )
 
-    summary_text = response["message"]["content"]
+    summary_text = re.sub(r'<think>.*?</think>', '', response["message"]["content"], flags=re.DOTALL).strip()
 
     # Save as markdown
     filepath = logs_dir / f"session_{session_id}.md"
@@ -74,9 +86,9 @@ def generate_summary(messages, session_id=None):
     return filepath, summary_text
 
 
-def load_recent_summaries(count=5):
+def load_recent_summaries(count=5, data_dir=None):
     """Load the most recent session journal summaries."""
-    logs_dir = get_path(CONFIG, "session_journals")
+    logs_dir = get_journal_dir(data_dir)
     if not logs_dir.exists():
         return []
 

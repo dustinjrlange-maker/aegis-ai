@@ -3,9 +3,9 @@
     "agent_title": "Companion",
 
     "model": {
-        "chat": "qwen2.5:7b",
-        "summary": "qwen2.5:7b",
-        "fact_extraction": "qwen2.5:7b",
+        "chat": "qwen3:8b",
+        "summary": "qwen3:8b",
+        "fact_extraction": "qwen3:8b",
         "embedding": "default"
     },
 

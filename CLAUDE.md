@@ -10,7 +10,7 @@ character, voice, and visual theming are loaded from pluggable "packs."
 
 - **Python**: 3.12.10 (do NOT use features beyond 3.12)
 - **GPU**: NVIDIA RTX 2070 (8GB VRAM), CUDA 12.6
-- **LLM**: Ollama (qwen2.5:7b) — do NOT add OpenAI/Anthropic API calls
+- **LLM**: Ollama (qwen3:8b) — do NOT add OpenAI/Anthropic API calls
 - **TTS**: Coqui XTTS-v2 via `coqui-tts` (IDIAP fork, NOT the `TTS` package)
 - **STT**: Faster-Whisper
 - **Vector DB**: ChromaDB

@@ -3,34 +3,61 @@ Companion Intelligence — Aegis AI
 Extracts facts about the human companion from conversations.
 """
 
+import re
 import ollama
 from core.config import CONFIG
 
 
-EXTRACTION_PROMPT = """You are an AI companion's memory system analyzing a conversation to extract factual information about the human companion.
+EXTRACTION_PROMPT = """You are an AI companion's memory system. Extract facts about the HUMAN COMPANION from this conversation.
 
-Extract ONLY concrete facts stated or strongly implied by the companion. Do NOT invent or assume anything.
+Rules:
+- Extract ONLY what the companion said about themselves
+- Do NOT record what the AI said, suggested, or advised
+- Do NOT extract meta-observations like "companion is not named"
+- Each fact must be a concrete, specific piece of information
 
-Categories to look for:
-- IDENTITY: name, age, location, nationality
-- OCCUPATION: job title, employer, projects, work details
-- RELATIONSHIPS: family, friends, roommates, coworkers mentioned by name
-- PREFERENCES: food, hobbies, interests, dislikes
-- LIFE EVENTS: moves, job changes, milestones, struggles
-- GOALS: ambitions, plans, things they want to do
-- EMOTIONAL STATE: how they're feeling (only if clearly expressed)
+Use this keyed format (one per line):
+identity.name: Their name
+identity.age: Their age
+location.current: Where they live now
+occupation.current: What they do for work
+occupation.project: Current project they mentioned
+relationships.partner: Partner's name and details
+relationships.family: Family members mentioned
+relationships.pets: Pets mentioned
+relationships.roommates: Roommate details
+preferences.food: Food they like
+preferences.hobbies: Hobbies and interests
+preferences.tech: Tech interests
+goals.project: Project goals
+goals.financial: Money-related goals
+goals.relocation: Moving plans
+life_events.current: What's happening in their life now
 
-Format each fact as a single line:
-CATEGORY: fact
-
-Only output facts. If no new facts are found, output: NO NEW FACTS
+Only output facts. If none found, output: NO NEW FACTS
 
 CONVERSATION:
 {conversation}"""
 
 
 def extract_facts(messages):
-    """Extract facts about the companion from a conversation."""
+    """Extract facts about the companion from a conversation.
+
+    Returns legacy format: [{"category": "...", "fact": "..."}]
+    """
+    keyed = extract_keyed_facts(messages)
+    # Convert to legacy format for backward compat
+    return [
+        {"category": k.split(".")[0].upper() if "." in k else k.upper(), "fact": v}
+        for k, v in keyed
+    ]
+
+
+def extract_keyed_facts(messages):
+    """Extract keyed facts from a conversation.
+
+    Returns: list of (key, value) tuples like [("identity.name", "Dustin")]
+    """
     agent_name = CONFIG.get("agent_name", "Aegis")
 
     conversation_lines = []
@@ -43,7 +70,6 @@ def extract_facts(messages):
             conversation_lines.append(f"{agent_name}: {msg['content']}")
 
     conversation_text = "\n".join(conversation_lines)
-
     prompt = EXTRACTION_PROMPT.format(conversation=conversation_text)
 
     response = ollama.chat(
@@ -51,22 +77,26 @@ def extract_facts(messages):
         messages=[{"role": "user", "content": prompt}]
     )
 
-    raw_output = response["message"]["content"].strip()
+    raw_output = re.sub(
+        r'<think>.*?</think>', '',
+        response["message"]["content"],
+        flags=re.DOTALL
+    ).strip()
 
     if "NO NEW FACTS" in raw_output:
         return []
 
-    # Parse facts into structured list
     facts = []
     for line in raw_output.split("\n"):
-        line = line.strip()
+        line = line.strip().lstrip("- ")
         if not line or line.startswith("#"):
             continue
         if ":" in line:
-            category, fact = line.split(":", 1)
-            category = category.strip().upper()
-            fact = fact.strip()
-            if fact:
-                facts.append({"category": category, "fact": fact})
+            key, value = line.split(":", 1)
+            key = key.strip().lower()
+            value = value.strip()
+            # Validate key format (should contain a dot)
+            if value and "." in key and len(key) < 40:
+                facts.append((key, value))
 
     return facts

@@ -166,3 +166,32 @@ def listen_and_transcribe():
         print("  [Could not transcribe audio]")
 
     return text
+
+
+def is_loaded():
+    """Check if the STT model is currently loaded in memory."""
+    return _model is not None
+
+
+def unload():
+    """Unload the STT model from VRAM to free GPU memory.
+
+    Thread-safe via _model_lock. Calls torch.cuda.empty_cache()
+    to release the VRAM back to the OS.
+    """
+    global _model
+    with _model_lock:
+        if _model is None:
+            print("  [STT model not loaded, nothing to unload]")
+            return
+        _model = None
+
+    # Free CUDA memory
+    try:
+        import torch
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except ImportError:
+        pass
+
+    print("  [STT model unloaded]")

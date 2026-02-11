@@ -89,6 +89,26 @@ def detect_emotion(text):
     return None
 
 
+def is_loaded():
+    """Check if the emotion detection pipeline is currently loaded."""
+    return _pipeline is not None
+
+
+def unload():
+    """Unload the emotion detection pipeline from memory.
+
+    Emotion runs on CPU (device=-1) so this frees RAM, not VRAM.
+    Thread-safe via _pipeline_lock.
+    """
+    global _pipeline
+    with _pipeline_lock:
+        if _pipeline is None:
+            print("  [Emotion model not loaded, nothing to unload]")
+            return
+        _pipeline = None
+    print("  [Emotion model unloaded]")
+
+
 def format_emotion_tag(result):
     """
     Format emotion detection result as a context tag for the agent.

@@ -1,0 +1,7 @@
+{
+    "call": "Voice/video calls would need VoIP integration. Not wired up yet.",
+    "email": "Email needs IMAP/SMTP setup. I can help you draft text to copy-paste.",
+    "calendar": "Calendar would need Google Calendar or ICS integration. Use /task add for now.",
+    "alarm": "Can't set system alarms. I track tasks but won't buzz your phone.",
+    "web": "No internet access. Everything I know comes from our conversations."
+}
