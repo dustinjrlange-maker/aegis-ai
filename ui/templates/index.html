@@ -1678,6 +1678,175 @@
         .vault-tab:first-child { border-radius: 6px 0 0 6px; }
         .vault-tab:last-child { border-radius: 0 6px 6px 0; }
         .vault-content { min-height: 200px; }
+
+        /* Vault sub-tabs (Personal Logs / Conversations) */
+        .vault-subtabs {
+            display: flex;
+            gap: 2px;
+            margin-bottom: 10px;
+        }
+        .vault-subtab {
+            flex: 1;
+            padding: 6px 4px;
+            background: var(--lcars-surface);
+            color: var(--lcars-text-dim);
+            border: 1px solid var(--lcars-grey-1);
+            font-family: var(--font-display);
+            font-size: 11px;
+            letter-spacing: 1px;
+            cursor: pointer;
+            text-align: center;
+        }
+        .vault-subtab.active {
+            background: var(--lcars-purple-1);
+            color: #000;
+            border-color: var(--lcars-purple-1);
+        }
+        .vault-subtab:first-child { border-radius: 4px 0 0 4px; }
+        .vault-subtab:last-child { border-radius: 0 4px 4px 0; }
+
+        /* Personal log compose area */
+        .plog-compose {
+            margin-bottom: 12px;
+            padding: 10px;
+            background: var(--lcars-surface);
+            border: 1px solid var(--lcars-grey-1);
+            border-radius: 6px;
+        }
+        .plog-compose textarea {
+            width: 100%;
+            min-height: 60px;
+            padding: 8px;
+            background: var(--lcars-bg);
+            border: 1px solid var(--lcars-grey-1);
+            border-radius: 4px;
+            color: var(--lcars-text);
+            font-family: var(--font-body);
+            font-size: 13px;
+            resize: vertical;
+        }
+        .plog-compose-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .plog-rec-btn {
+            padding: 6px 14px;
+            background: var(--lcars-grey-1);
+            color: var(--lcars-text);
+            border: none;
+            border-radius: 4px;
+            font-family: var(--font-display);
+            font-size: 11px;
+            cursor: pointer;
+        }
+        .plog-rec-btn.recording {
+            background: var(--lcars-error);
+            color: #fff;
+            animation: recPulse 1s ease-in-out infinite;
+        }
+        @keyframes recPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        .plog-rec-info {
+            font-size: 11px;
+            color: var(--lcars-text-dim);
+        }
+        .plog-save-btn {
+            margin-left: auto;
+            padding: 6px 16px;
+            background: var(--lcars-blue-1);
+            color: #000;
+            border: none;
+            border-radius: 4px;
+            font-family: var(--font-display);
+            font-size: 11px;
+            cursor: pointer;
+        }
+
+        /* Personal log cards */
+        .plog-card {
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--lcars-grey-1);
+            cursor: pointer;
+        }
+        .plog-card:hover { background: var(--lcars-surface); }
+        .plog-card-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+        .plog-card-date {
+            font-size: 12px;
+            color: var(--lcars-blue-3);
+            font-weight: 600;
+        }
+        .plog-audio-badge {
+            font-size: 9px;
+            padding: 1px 6px;
+            background: var(--lcars-purple-1);
+            color: #000;
+            border-radius: 3px;
+            font-family: var(--font-display);
+            letter-spacing: 1px;
+        }
+        .plog-card-preview {
+            font-size: 12px;
+            color: var(--lcars-text-dim);
+        }
+
+        /* PIN modal */
+        .pin-modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 3000;
+            align-items: center;
+            justify-content: center;
+        }
+        .pin-modal-overlay.open { display: flex; }
+        .pin-modal {
+            background: var(--lcars-surface);
+            border: 2px solid var(--lcars-blue-1);
+            border-radius: 8px;
+            padding: 24px;
+            min-width: 280px;
+            text-align: center;
+        }
+        .pin-modal h3 {
+            font-family: var(--font-display);
+            color: var(--lcars-blue-3);
+            font-size: 16px;
+            letter-spacing: 2px;
+            margin-bottom: 16px;
+        }
+        .pin-modal input {
+            width: 140px;
+            padding: 10px;
+            text-align: center;
+            font-size: 20px;
+            letter-spacing: 8px;
+            background: var(--lcars-bg);
+            border: 1px solid var(--lcars-grey-1);
+            border-radius: 4px;
+            color: var(--lcars-text);
+        }
+        .pin-modal-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-top: 16px;
+        }
+        .pin-modal-error {
+            color: var(--lcars-error);
+            font-size: 12px;
+            margin-top: 8px;
+            min-height: 16px;
+        }
         .vault-fact-row {
             display: flex;
             align-items: center;
@@ -1953,6 +2122,20 @@
     </div>
 </div>
 
+<!-- Vault PIN Modal -->
+<div class="pin-modal-overlay" id="pinModalOverlay">
+    <div class="pin-modal">
+        <h3>VAULT LOCKED</h3>
+        <input type="password" id="pinInput" maxlength="6" placeholder="----" inputmode="numeric" pattern="[0-9]*"
+               onkeydown="if(event.key==='Enter')pinUnlock()">
+        <div class="pin-modal-error" id="pinError"></div>
+        <div class="pin-modal-actions">
+            <button class="vault-btn" onclick="pinUnlock()">UNLOCK</button>
+            <button class="vault-btn" style="background:var(--lcars-grey-1);color:var(--lcars-text)" onclick="pinCancel()">CANCEL</button>
+        </div>
+    </div>
+</div>
+
 <!-- Scan line overlay -->
 <div class="lcars-scan-line" id="scanLine"></div>
 
@@ -2074,6 +2257,8 @@ let currentUsername = localStorage.getItem('aegis_username');
 let currentDisplayName = localStorage.getItem('aegis_display_name');
 let _authRedirecting = false;
 let _pollIntervals = [];
+let vaultToken = null;
+let _pendingVaultAction = null; // callback after PIN unlock
 
 // Configure marked
 if (typeof marked !== 'undefined') {
@@ -2098,11 +2283,20 @@ function authFetch(url, opts) {
     } else {
         opts.headers = authHeaders(opts.headers);
     }
+    // Attach vault token if available
+    if (vaultToken) {
+        opts.headers = opts.headers || {};
+        opts.headers['X-Vault-Token'] = vaultToken;
+    }
     return fetch(url, opts).then(function(res) {
         if (res.status === 401 && !_authRedirecting) {
             _authRedirecting = true;
             clearAuth();
             showLoginScreen();
+        }
+        if (res.status === 403) {
+            // Vault locked — clear token and show PIN modal
+            vaultToken = null;
         }
         return res;
     });
@@ -2112,6 +2306,8 @@ function clearAuth() {
     authToken = null;
     currentUsername = null;
     currentDisplayName = null;
+    vaultToken = null;
+    _pendingVaultAction = null;
     localStorage.removeItem('aegis_token');
     localStorage.removeItem('aegis_username');
     localStorage.removeItem('aegis_display_name');
@@ -3457,6 +3653,10 @@ window.addEventListener('beforeunload', function() {
 // ========== VAULT PANEL ==========
 
 let currentVaultTab = 'profile';
+let currentLogsSubtab = 'personal';
+let _plogMediaRecorder = null;
+let _plogAudioChunks = [];
+let _plogAudioBlob = null;
 
 function openVaultPanel() {
     document.getElementById('vaultPanelOverlay').classList.add('open');
@@ -3513,20 +3713,20 @@ async function loadVaultTab(tab) {
             content.innerHTML = html;
 
         } else if (tab === 'logs') {
-            const res = await authFetch(API + '/transcripts');
-            const data = await res.json();
-            const sessions = data.sessions || [];
-            if (sessions.length === 0) {
-                content.innerHTML = '<div class="data-row"><span class="label">No logs yet</span></div>';
+            // Check if vault PIN is required
+            const pinRes = await authFetch(API + '/vault/pin/status');
+            const pinData = await pinRes.json();
+            if (pinData.has_pin && !vaultToken) {
+                showPinModal(function() { loadVaultTab('logs'); });
                 return;
             }
-            let html = '';
-            sessions.slice(0, 30).forEach(function(s) {
-                html += '<div class="vault-fact-row" style="cursor:pointer" onclick="vaultViewLog(\'' + escapeHtml(s.session_id) + '\')">' +
-                    '<span class="fact-text">' + escapeHtml(s.session_id) + '</span>' +
-                    '</div>';
-            });
+            let html = '<div class="vault-subtabs">';
+            html += '<button class="vault-subtab' + (currentLogsSubtab === 'personal' ? ' active' : '') + '" onclick="logsSubtab(\'personal\')">PERSONAL LOGS</button>';
+            html += '<button class="vault-subtab' + (currentLogsSubtab === 'conversations' ? ' active' : '') + '" onclick="logsSubtab(\'conversations\')">CONVERSATIONS</button>';
+            html += '</div>';
+            html += '<div id="logsSubContent"></div>';
             content.innerHTML = html;
+            loadLogsSubtab(currentLogsSubtab);
 
         } else if (tab === 'summary') {
             const res = await authFetch(API + '/vault/summary');
@@ -3554,6 +3754,8 @@ async function loadVaultTab(tab) {
         } else if (tab === 'account') {
             const res = await authFetch(API + '/vault/account');
             const data = await res.json();
+            const pinRes = await authFetch(API + '/vault/pin/status');
+            const pinData = await pinRes.json();
             let html = '';
             html += '<div class="vault-account-field"><label>Username</label><input value="' + escapeHtml(data.username || '') + '" disabled></div>';
             html += '<div class="vault-account-field"><label>Display Name</label><input id="vaultDisplayName" value="' + escapeHtml(data.display_name || '') + '"></div>';
@@ -3568,6 +3770,21 @@ async function loadVaultTab(tab) {
             html += '<div class="vault-account-field"><label>Confirm</label><input type="password" id="vaultNewPassConfirm"></div>';
             html += '<button class="vault-btn" onclick="vaultChangePasscode()">CHANGE PASSCODE</button>';
             html += '<span id="vaultPassMsg" style="margin-left:8px;font-size:12px"></span>';
+            html += '</div>';
+            // Vault PIN section
+            html += '<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--lcars-grey-1)">';
+            html += '<div style="color:var(--lcars-text-dim);font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Vault PIN</div>';
+            if (pinData.has_pin) {
+                html += '<div style="font-size:12px;color:var(--lcars-text);margin-bottom:8px">A vault PIN is set. Logs require PIN to access.</div>';
+                html += '<div class="vault-account-field"><label>Current PIN</label><input type="password" id="vaultRemovePin" maxlength="6" inputmode="numeric"></div>';
+                html += '<button class="vault-btn danger" onclick="vaultRemovePin()">REMOVE PIN</button>';
+            } else {
+                html += '<div style="font-size:12px;color:var(--lcars-text);margin-bottom:8px">No vault PIN set. Set one to protect your logs.</div>';
+                html += '<div class="vault-account-field"><label>New PIN (4-6 digits)</label><input type="password" id="vaultNewPin" maxlength="6" inputmode="numeric"></div>';
+                html += '<div class="vault-account-field"><label>Confirm PIN</label><input type="password" id="vaultConfirmPin" maxlength="6" inputmode="numeric"></div>';
+                html += '<button class="vault-btn" onclick="vaultSetPin()">SET PIN</button>';
+            }
+            html += '<span id="vaultPinMsg" style="margin-left:8px;font-size:12px"></span>';
             html += '</div>';
             content.innerHTML = html;
         }
@@ -3620,6 +3837,303 @@ async function vaultViewLog(sessionId) {
         }
     } catch (e) {
         content.innerHTML = '<div class="data-row"><span class="label">Error loading transcript</span></div>';
+    }
+}
+
+// --- Logs Sub-tabs ---
+
+function logsSubtab(sub) {
+    currentLogsSubtab = sub;
+    document.querySelectorAll('.vault-subtab').forEach(function(t) { t.classList.remove('active'); });
+    var btns = document.querySelectorAll('.vault-subtab');
+    if (sub === 'personal' && btns[0]) btns[0].classList.add('active');
+    if (sub === 'conversations' && btns[1]) btns[1].classList.add('active');
+    loadLogsSubtab(sub);
+}
+
+async function loadLogsSubtab(sub) {
+    var el = document.getElementById('logsSubContent');
+    if (!el) return;
+    el.innerHTML = '<div class="data-row"><span class="label">Loading...</span></div>';
+
+    if (sub === 'personal') {
+        try {
+            const res = await authFetch(API + '/personal-logs');
+            if (res.status === 403) {
+                showPinModal(function() { loadVaultTab('logs'); });
+                return;
+            }
+            const data = await res.json();
+            const logs = data.logs || [];
+            let html = '';
+            // Compose area
+            html += '<div class="plog-compose">';
+            html += '<textarea id="plogText" placeholder="Write a personal log entry..."></textarea>';
+            html += '<div class="plog-compose-actions">';
+            html += '<button class="plog-rec-btn" id="plogRecBtn" onclick="plogToggleRecord()">RECORD</button>';
+            html += '<span class="plog-rec-info" id="plogRecInfo"></span>';
+            html += '<button class="plog-save-btn" onclick="plogSave()">SAVE</button>';
+            html += '</div></div>';
+            // Log list
+            if (logs.length > 0) {
+                logs.forEach(function(l) {
+                    html += '<div class="plog-card" onclick="plogView(\'' + escapeHtml(l.id) + '\')">';
+                    html += '<div class="plog-card-header">';
+                    html += '<span class="plog-card-date">' + escapeHtml(l.created.substring(0, 16).replace('T', ' ')) + '</span>';
+                    if (l.has_audio) html += '<span class="plog-audio-badge">AUDIO</span>';
+                    html += '</div>';
+                    html += '<div class="plog-card-preview">' + escapeHtml(l.preview || '(no text)') + '</div>';
+                    html += '</div>';
+                });
+            } else {
+                html += '<div class="data-row" style="margin-top:8px"><span class="label">No personal logs yet</span></div>';
+            }
+            el.innerHTML = html;
+        } catch (e) {
+            el.innerHTML = '<div class="data-row"><span class="label">Error loading logs</span></div>';
+        }
+
+    } else if (sub === 'conversations') {
+        try {
+            const res = await authFetch(API + '/transcripts');
+            if (res.status === 403) {
+                showPinModal(function() { loadVaultTab('logs'); });
+                return;
+            }
+            const data = await res.json();
+            const sessions = data.sessions || [];
+            if (sessions.length === 0) {
+                el.innerHTML = '<div class="data-row"><span class="label">No conversations yet</span></div>';
+                return;
+            }
+            let html = '';
+            sessions.slice(0, 30).forEach(function(s) {
+                html += '<div class="vault-fact-row" style="cursor:pointer" onclick="vaultViewLog(\'' + escapeHtml(s.session_id) + '\')">' +
+                    '<span class="fact-text">' + escapeHtml(s.session_id) + '</span>' +
+                    '</div>';
+            });
+            el.innerHTML = html;
+        } catch (e) {
+            el.innerHTML = '<div class="data-row"><span class="label">Error loading conversations</span></div>';
+        }
+    }
+}
+
+// --- Personal Log Functions ---
+
+function plogToggleRecord() {
+    var btn = document.getElementById('plogRecBtn');
+    var info = document.getElementById('plogRecInfo');
+    if (_plogMediaRecorder && _plogMediaRecorder.state === 'recording') {
+        _plogMediaRecorder.stop();
+        btn.textContent = 'RECORD';
+        btn.classList.remove('recording');
+        return;
+    }
+    _plogAudioChunks = [];
+    _plogAudioBlob = null;
+    info.textContent = '';
+    navigator.mediaDevices.getUserMedia({audio: true}).then(function(stream) {
+        _plogMediaRecorder = new MediaRecorder(stream);
+        _plogMediaRecorder.ondataavailable = function(e) {
+            if (e.data.size > 0) _plogAudioChunks.push(e.data);
+        };
+        _plogMediaRecorder.onstop = function() {
+            _plogAudioBlob = new Blob(_plogAudioChunks, {type: 'audio/webm'});
+            var sizeKB = Math.round(_plogAudioBlob.size / 1024);
+            info.textContent = 'Audio: ' + sizeKB + ' KB';
+            stream.getTracks().forEach(function(t) { t.stop(); });
+        };
+        _plogMediaRecorder.start();
+        btn.textContent = 'REC STOP';
+        btn.classList.add('recording');
+        info.textContent = 'Recording...';
+    }).catch(function(err) {
+        info.textContent = 'Mic access denied';
+    });
+}
+
+async function plogSave() {
+    var text = document.getElementById('plogText').value.trim();
+    if (!text && !_plogAudioBlob) return;
+
+    var saveBtn = document.querySelector('.plog-save-btn');
+    if (saveBtn) saveBtn.textContent = 'SAVING...';
+
+    try {
+        if (_plogAudioBlob) {
+            var fd = new FormData();
+            fd.append('audio', _plogAudioBlob, 'recording.webm');
+            fd.append('text', text);
+            await authFetch(API + '/personal-logs/audio', {method: 'POST', body: fd});
+        } else {
+            await authFetch(API + '/personal-logs', {
+                method: 'POST',
+                body: JSON.stringify({text: text}),
+            });
+        }
+        _plogAudioBlob = null;
+        _plogAudioChunks = [];
+        loadLogsSubtab('personal');
+    } catch (e) {
+        if (saveBtn) saveBtn.textContent = 'SAVE';
+    }
+}
+
+async function plogView(logId) {
+    var el = document.getElementById('logsSubContent');
+    if (!el) return;
+    el.innerHTML = '<div class="data-row"><span class="label">Loading...</span></div>';
+    try {
+        const res = await authFetch(API + '/personal-logs/' + encodeURIComponent(logId));
+        const data = await res.json();
+        if (data.error) {
+            el.innerHTML = '<div class="data-row"><span class="label">' + escapeHtml(data.error) + '</span></div>';
+            return;
+        }
+        let html = '<div style="margin-bottom:8px"><button class="vault-btn" onclick="loadLogsSubtab(\'personal\')">BACK</button></div>';
+        html += '<div class="plog-card-date" style="margin-bottom:8px">' + escapeHtml(data.created.substring(0, 16).replace('T', ' ')) + '</div>';
+        if (data.text) {
+            html += '<div style="white-space:pre-wrap;font-size:13px;line-height:1.6;color:var(--lcars-text);margin-bottom:12px">' + escapeHtml(data.text) + '</div>';
+        }
+        if (data.has_audio) {
+            html += '<div style="margin-bottom:12px">';
+            html += '<div style="color:var(--lcars-text-dim);font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Audio Recording</div>';
+            html += '<audio controls style="width:100%" id="plogAudioPlayer"></audio>';
+            html += '</div>';
+        }
+        if (data.transcription) {
+            html += '<div style="margin-bottom:12px">';
+            html += '<div style="color:var(--lcars-text-dim);font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Transcription</div>';
+            html += '<div style="font-size:12px;color:var(--lcars-text);font-style:italic">' + escapeHtml(data.transcription) + '</div>';
+            html += '</div>';
+        }
+        html += '<div style="margin-top:16px"><button class="vault-btn danger" onclick="plogDelete(\'' + escapeHtml(logId) + '\')">DELETE LOG</button></div>';
+        el.innerHTML = html;
+        // Load audio via authenticated fetch and set as blob URL
+        if (data.has_audio) {
+            try {
+                var audioRes = await authFetch(API + '/personal-logs/' + encodeURIComponent(logId) + '/audio');
+                if (audioRes.ok) {
+                    var audioBlob = await audioRes.blob();
+                    var player = document.getElementById('plogAudioPlayer');
+                    if (player) player.src = URL.createObjectURL(audioBlob);
+                }
+            } catch (ae) {}
+        }
+    } catch (e) {
+        el.innerHTML = '<div class="data-row"><span class="label">Error loading log</span></div>';
+    }
+}
+
+async function plogDelete(logId) {
+    try {
+        await authFetch(API + '/personal-logs/' + encodeURIComponent(logId), {method: 'DELETE'});
+        loadLogsSubtab('personal');
+    } catch (e) {}
+}
+
+// --- PIN Modal ---
+
+function showPinModal(callback) {
+    _pendingVaultAction = callback;
+    document.getElementById('pinInput').value = '';
+    document.getElementById('pinError').textContent = '';
+    document.getElementById('pinModalOverlay').classList.add('open');
+    setTimeout(function() { document.getElementById('pinInput').focus(); }, 100);
+}
+
+function pinCancel() {
+    document.getElementById('pinModalOverlay').classList.remove('open');
+    _pendingVaultAction = null;
+    // Go back to profile tab
+    vaultTab('profile', document.querySelector('.vault-tab'));
+}
+
+async function pinUnlock() {
+    var pin = document.getElementById('pinInput').value;
+    if (!pin) return;
+    try {
+        const res = await authFetch(API + '/vault/pin/verify', {
+            method: 'POST',
+            body: JSON.stringify({pin: pin}),
+        });
+        const data = await res.json();
+        if (data.success) {
+            vaultToken = data.vault_token;
+            document.getElementById('pinModalOverlay').classList.remove('open');
+            if (_pendingVaultAction) {
+                var cb = _pendingVaultAction;
+                _pendingVaultAction = null;
+                cb();
+            }
+        } else {
+            document.getElementById('pinError').textContent = data.error || 'Incorrect PIN';
+        }
+    } catch (e) {
+        document.getElementById('pinError').textContent = 'Error verifying PIN';
+    }
+}
+
+// --- Vault PIN Management (Account tab) ---
+
+async function vaultSetPin() {
+    var newPin = document.getElementById('vaultNewPin').value;
+    var confirmPin = document.getElementById('vaultConfirmPin').value;
+    var msg = document.getElementById('vaultPinMsg');
+    msg.textContent = '';
+    msg.style.color = '';
+
+    if (!newPin) { msg.textContent = 'Enter a PIN'; msg.style.color = 'var(--lcars-error)'; return; }
+    if (!/^\d{4,6}$/.test(newPin)) { msg.textContent = '4-6 digits required'; msg.style.color = 'var(--lcars-error)'; return; }
+    if (newPin !== confirmPin) { msg.textContent = 'PINs do not match'; msg.style.color = 'var(--lcars-error)'; return; }
+
+    try {
+        const res = await authFetch(API + '/vault/pin/set', {
+            method: 'POST',
+            body: JSON.stringify({pin: newPin}),
+        });
+        const data = await res.json();
+        if (data.success) {
+            msg.textContent = 'PIN set';
+            msg.style.color = 'var(--lcars-success)';
+            setTimeout(function() { loadVaultTab('account'); }, 1000);
+        } else {
+            msg.textContent = data.error || 'Failed';
+            msg.style.color = 'var(--lcars-error)';
+        }
+    } catch (e) {
+        msg.textContent = 'Error';
+        msg.style.color = 'var(--lcars-error)';
+    }
+}
+
+async function vaultRemovePin() {
+    var pin = document.getElementById('vaultRemovePin').value;
+    var msg = document.getElementById('vaultPinMsg');
+    msg.textContent = '';
+    msg.style.color = '';
+
+    if (!pin) { msg.textContent = 'Enter current PIN'; msg.style.color = 'var(--lcars-error)'; return; }
+
+    try {
+        const res = await authFetch(API + '/vault/pin/remove', {
+            method: 'POST',
+            body: JSON.stringify({current_pin: pin}),
+        });
+        const data = await res.json();
+        if (data.success) {
+            vaultToken = null;
+            msg.textContent = 'PIN removed';
+            msg.style.color = 'var(--lcars-success)';
+            setTimeout(function() { loadVaultTab('account'); }, 1000);
+        } else {
+            msg.textContent = data.error || 'Failed';
+            msg.style.color = 'var(--lcars-error)';
+        }
+    } catch (e) {
+        msg.textContent = 'Error';
+        msg.style.color = 'var(--lcars-error)';
     }
 }
 

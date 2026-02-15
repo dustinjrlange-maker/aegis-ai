@@ -4,14 +4,18 @@ Orchestrates all memory systems: transcripts, summaries, facts, search, security
 """
 
 import json
+import logging
 from datetime import datetime
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 from core.memory.transcript import save_transcript, list_transcripts
 from core.memory.journal import generate_summary, load_recent_summaries
 from core.memory.fact_extractor import extract_facts, extract_keyed_facts
 from core.memory.profile import update_profile, get_profile_summary
 from core.memory.fact_store import FactStore
 from core.memory.knowledge import KnowledgeStore, store_summary, store_facts, get_relevant_context
+from core.memory.personal_log import load_recent_log_text
 from core.security.privacy import get_security_context
 from core.config import CONFIG, PROJECT_ROOT
 
@@ -158,6 +162,21 @@ class MemoryManager:
                 "Use for continuity only. Do NOT repeat topics, phrases, or details from these logs.\n\n"
                 f"{journal_text}"
             )
+
+        # Personal log snippets (companion's own journal thoughts)
+        if self.user_data_dir:
+            try:
+                log_snippets = load_recent_log_text(count=2, data_dir=self.user_data_dir)
+                if log_snippets:
+                    companion = self.companion_name or "Companion"
+                    snippets_text = "\n---\n".join(log_snippets)
+                    context_parts.append(
+                        f"=== {companion.upper()}'S PERSONAL LOG (private) ===\n"
+                        f"These are {companion}'s own thoughts. Reference only if they bring up the topic.\n"
+                        f"{snippets_text}"
+                    )
+            except Exception as e:
+                logger.warning("Could not load personal log snippets: %s", e)
 
         return "\n\n".join(context_parts)
 

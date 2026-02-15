@@ -13,7 +13,7 @@ from contextlib import asynccontextmanager
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from fastapi import FastAPI, Request, UploadFile, File, Depends, HTTPException
+from fastapi import FastAPI, Request, UploadFile, File, Form, Depends, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse
 from pydantic import BaseModel
@@ -35,6 +35,14 @@ from core.memory.transcript import list_transcripts, load_transcript
 from core.memory.profile import (
     get_profile_summary, get_profile_facts, update_profile, remove_profile_fact,
 )
+from core.vault_pin import (
+    has_vault_pin, set_vault_pin, verify_vault_pin, remove_vault_pin,
+    create_vault_unlock, validate_vault_unlock, invalidate_vault_unlock,
+)
+from core.memory.personal_log import (
+    create_log_entry, list_personal_logs, load_personal_log,
+    delete_personal_log, get_audio_path,
+)
 from server.chat_pipeline import process_chat
 
 
@@ -51,6 +59,19 @@ async def require_user(request: Request) -> str:
     user_id = get_current_user(request)
     if user_id is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
+    return user_id
+
+
+async def require_vault_access(request: Request) -> str:
+    """FastAPI dependency — require auth + vault PIN if set."""
+    user_id = get_current_user(request)
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    if not has_vault_pin(user_id):
+        return user_id
+    vault_token = request.headers.get("X-Vault-Token", "")
+    if not validate_vault_unlock(user_id, vault_token):
+        raise HTTPException(status_code=403, detail="Vault PIN required")
     return user_id
 
 
@@ -157,6 +178,22 @@ class AccountUpdateRequest(BaseModel):
     display_name: str
 
 
+class VaultPinSetRequest(BaseModel):
+    pin: str
+
+
+class VaultPinVerifyRequest(BaseModel):
+    pin: str
+
+
+class VaultPinRemoveRequest(BaseModel):
+    current_pin: str
+
+
+class PersonalLogRequest(BaseModel):
+    text: str
+
+
 # --- Auth Routes (unauthenticated) ---
 
 @app.post("/api/auth/register")
@@ -215,7 +252,7 @@ async def auth_check(request: Request):
 
 @app.post("/api/auth/logout")
 async def auth_logout(request: Request):
-    """Invalidate the current session token."""
+    """Invalidate the current session token and vault unlock."""
     auth = request.headers.get("Authorization", "")
     if auth.startswith("Bearer "):
         token = auth[7:]
@@ -223,6 +260,10 @@ async def auth_logout(request: Request):
         if user_id:
             session_manager.end_session(user_id)
         invalidate_token(token)
+    # Also invalidate vault token if present
+    vault_token = request.headers.get("X-Vault-Token", "")
+    if vault_token:
+        invalidate_vault_unlock(vault_token)
     return {"success": True}
 
 
@@ -399,7 +440,7 @@ async def get_commands(user_id: str = Depends(require_user)):
 
 
 @app.get("/api/transcripts")
-async def get_transcripts(user_id: str = Depends(require_user)):
+async def get_transcripts(user_id: str = Depends(require_vault_access)):
     """List available session transcripts."""
     session = session_manager.get_or_create(user_id)
     session_ids = list_transcripts(data_dir=session.memory.user_data_dir)[:50]
@@ -410,7 +451,7 @@ async def get_transcripts(user_id: str = Depends(require_user)):
 
 
 @app.get("/api/transcripts/{session_id}")
-async def get_transcript(session_id: str, user_id: str = Depends(require_user)):
+async def get_transcript(session_id: str, user_id: str = Depends(require_vault_access)):
     """Load a specific session transcript."""
     if ".." in session_id or "/" in session_id or "\\" in session_id:
         return {"error": "Invalid session ID"}
@@ -789,6 +830,159 @@ async def vault_change_passcode(req: PasscodeChangeRequest, user_id: str = Depen
         return {"success": False, "error": "Current passcode is incorrect"}
     except ValueError as e:
         return {"success": False, "error": str(e)}
+
+
+# --- Vault PIN Routes ---
+
+@app.get("/api/vault/pin/status")
+async def vault_pin_status(user_id: str = Depends(require_user)):
+    """Check if the user has a vault PIN set."""
+    return {"has_pin": has_vault_pin(user_id)}
+
+
+@app.post("/api/vault/pin/set")
+async def vault_pin_set(req: VaultPinSetRequest, user_id: str = Depends(require_user)):
+    """Set or change the vault PIN."""
+    try:
+        set_vault_pin(user_id, req.pin)
+        return {"success": True}
+    except ValueError as e:
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/api/vault/pin/verify")
+async def vault_pin_verify(req: VaultPinVerifyRequest, user_id: str = Depends(require_user)):
+    """Verify vault PIN and get an unlock token."""
+    if verify_vault_pin(user_id, req.pin):
+        token = create_vault_unlock(user_id)
+        return {"success": True, "vault_token": token}
+    return {"success": False, "error": "Incorrect PIN"}
+
+
+@app.post("/api/vault/pin/remove")
+async def vault_pin_remove(req: VaultPinRemoveRequest, user_id: str = Depends(require_user)):
+    """Remove the vault PIN (requires current PIN)."""
+    if remove_vault_pin(user_id, req.current_pin):
+        return {"success": True}
+    return {"success": False, "error": "Incorrect PIN"}
+
+
+# --- Personal Log Routes ---
+
+@app.get("/api/personal-logs")
+async def get_personal_logs(user_id: str = Depends(require_vault_access)):
+    """List personal log entries."""
+    session = session_manager.get_or_create(user_id)
+    data_dir = session.memory.user_data_dir
+    if not data_dir:
+        return {"logs": []}
+    return {"logs": list_personal_logs(data_dir)}
+
+
+@app.post("/api/personal-logs")
+async def create_personal_log(req: PersonalLogRequest, user_id: str = Depends(require_vault_access)):
+    """Create a text-only personal log entry."""
+    session = session_manager.get_or_create(user_id)
+    data_dir = session.memory.user_data_dir
+    if not data_dir:
+        return {"error": "No user data directory"}
+    entry = create_log_entry(text=req.text, data_dir=data_dir)
+    return {"success": True, "entry": entry}
+
+
+@app.post("/api/personal-logs/audio")
+async def create_personal_log_audio(
+    audio: UploadFile = File(...),
+    text: str = Form(""),
+    user_id: str = Depends(require_vault_access),
+):
+    """Create a personal log with audio upload. Transcription is best-effort."""
+    session = session_manager.get_or_create(user_id)
+    data_dir = session.memory.user_data_dir
+    if not data_dir:
+        return {"error": "No user data directory"}
+
+    audio_bytes = await audio.read()
+
+    # Best-effort transcription
+    transcription = ""
+    try:
+        from pydub import AudioSegment
+        from core.voice.stt_engine import transcribe
+
+        with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as tmp:
+            tmp.write(audio_bytes)
+            tmp_path = tmp.name
+
+        audio_seg = AudioSegment.from_file(tmp_path)
+        audio_seg = audio_seg.set_frame_rate(16000).set_channels(1)
+        wav_path = tmp_path.replace(".webm", ".wav")
+        audio_seg.export(wav_path, format="wav")
+
+        import numpy as np
+        import wave
+        with wave.open(wav_path, "rb") as wf:
+            frames = wf.readframes(wf.getnframes())
+            audio_np = np.frombuffer(frames, dtype=np.int16).astype(np.float32) / 32768.0
+
+        transcription = transcribe(audio_np) or ""
+
+        Path(tmp_path).unlink(missing_ok=True)
+        Path(wav_path).unlink(missing_ok=True)
+    except Exception as e:
+        logger.warning("Personal log transcription failed (audio still saved): %s", e)
+
+    entry = create_log_entry(
+        text=text,
+        data_dir=data_dir,
+        audio_bytes=audio_bytes,
+        transcription=transcription,
+    )
+    return {"success": True, "entry": entry}
+
+
+@app.get("/api/personal-logs/{log_id}")
+async def get_personal_log(log_id: str, user_id: str = Depends(require_vault_access)):
+    """Load a specific personal log entry."""
+    if ".." in log_id or "/" in log_id or "\\" in log_id:
+        return {"error": "Invalid log ID"}
+    session = session_manager.get_or_create(user_id)
+    data_dir = session.memory.user_data_dir
+    if not data_dir:
+        return {"error": "No user data directory"}
+    entry = load_personal_log(log_id, data_dir)
+    if entry:
+        return entry
+    return {"error": "Log not found"}
+
+
+@app.delete("/api/personal-logs/{log_id}")
+async def delete_personal_log_endpoint(log_id: str, user_id: str = Depends(require_vault_access)):
+    """Delete a personal log entry."""
+    if ".." in log_id or "/" in log_id or "\\" in log_id:
+        return {"error": "Invalid log ID"}
+    session = session_manager.get_or_create(user_id)
+    data_dir = session.memory.user_data_dir
+    if not data_dir:
+        return {"error": "No user data directory"}
+    if delete_personal_log(log_id, data_dir):
+        return {"success": True}
+    return {"success": False, "error": "Log not found"}
+
+
+@app.get("/api/personal-logs/{log_id}/audio")
+async def get_personal_log_audio(log_id: str, user_id: str = Depends(require_vault_access)):
+    """Stream a personal log's audio file."""
+    if ".." in log_id or "/" in log_id or "\\" in log_id:
+        raise HTTPException(status_code=400, detail="Invalid log ID")
+    session = session_manager.get_or_create(user_id)
+    data_dir = session.memory.user_data_dir
+    if not data_dir:
+        raise HTTPException(status_code=404, detail="No user data directory")
+    audio_path = get_audio_path(log_id, data_dir)
+    if audio_path:
+        return FileResponse(str(audio_path), media_type="audio/webm")
+    raise HTTPException(status_code=404, detail="Audio not found")
 
 
 # --- Static/PWA Routes ---

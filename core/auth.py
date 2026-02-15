@@ -122,6 +122,8 @@ def _create_user_dirs(username: str):
         "session_journals",
         "knowledge_base",
         "security_protocols",
+        "personal_logs",
+        "personal_logs/audio",
     ]
     for subdir in subdirs:
         (user_dir / subdir).mkdir(parents=True, exist_ok=True)
