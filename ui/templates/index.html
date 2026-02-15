@@ -1327,6 +1327,85 @@
             padding: 4px 8px;
             cursor: pointer;
         }
+        .setting-control select.device-select {
+            max-width: 200px;
+            text-transform: none;
+            font-family: var(--font-body);
+            font-size: 11px;
+        }
+
+        /* Device test UI */
+        .device-row-wrap {
+            margin-bottom: 2px;
+        }
+        .device-test-btn {
+            padding: 3px 10px;
+            background: var(--lcars-grey-1);
+            color: var(--lcars-text);
+            border: none;
+            border-radius: 3px;
+            font-family: var(--font-display);
+            font-size: 10px;
+            letter-spacing: 1px;
+            cursor: pointer;
+            margin-left: 4px;
+        }
+        .device-test-btn.active {
+            background: var(--lcars-error);
+            color: #fff;
+        }
+        .device-test-area {
+            margin: 6px 0 10px 0;
+            padding: 8px;
+            background: var(--lcars-bg);
+            border: 1px solid var(--lcars-grey-1);
+            border-radius: 4px;
+            display: none;
+        }
+        .device-test-area.open { display: block; }
+        .mic-level-bar {
+            height: 8px;
+            background: var(--lcars-grey-1);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 6px;
+        }
+        .mic-level-fill {
+            height: 100%;
+            width: 0%;
+            background: var(--lcars-success);
+            border-radius: 4px;
+            transition: width 0.05s linear;
+        }
+        .mic-test-controls {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .mic-test-controls button {
+            padding: 4px 10px;
+            background: var(--lcars-blue-1);
+            color: #000;
+            border: none;
+            border-radius: 3px;
+            font-family: var(--font-display);
+            font-size: 10px;
+            cursor: pointer;
+        }
+        .mic-test-controls button.recording {
+            background: var(--lcars-error);
+            color: #fff;
+        }
+        .mic-test-controls span {
+            font-size: 11px;
+            color: var(--lcars-text-dim);
+        }
+        .video-test-area video {
+            width: 100%;
+            max-width: 320px;
+            border-radius: 4px;
+            background: #000;
+        }
 
         .setting-saved {
             font-family: var(--font-display);
@@ -1724,6 +1803,30 @@
             font-family: var(--font-body);
             font-size: 13px;
             resize: vertical;
+        }
+        .plog-device-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 8px;
+            margin-bottom: 6px;
+        }
+        .plog-device-row label {
+            font-size: 11px;
+            color: var(--lcars-text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            white-space: nowrap;
+        }
+        .plog-device-row select {
+            flex: 1;
+            padding: 5px 8px;
+            background: var(--lcars-bg);
+            border: 1px solid var(--lcars-grey-1);
+            border-radius: 4px;
+            color: var(--lcars-text);
+            font-size: 12px;
+            font-family: var(--font-body);
         }
         .plog-compose-actions {
             display: flex;
@@ -3542,6 +3645,17 @@ function openSettingsPanel() {
 function closeSettingsPanel() {
     document.getElementById('settingsPanelOverlay').classList.remove('open');
     document.getElementById('settingsPanel').classList.remove('open');
+    // Stop any active device tests
+    stopMicTest();
+    stopVideoTest();
+    var micArea = document.getElementById('micTestArea');
+    var micBtn = document.getElementById('micTestBtn');
+    if (micArea) micArea.classList.remove('open');
+    if (micBtn) { micBtn.classList.remove('active'); micBtn.textContent = 'TEST'; }
+    var vidArea = document.getElementById('videoTestArea');
+    var vidBtn = document.getElementById('videoTestBtn');
+    if (vidArea) vidArea.classList.remove('open');
+    if (vidBtn) { vidBtn.classList.remove('active'); vidBtn.textContent = 'TEST'; }
 }
 
 async function loadSettings() {
@@ -3582,7 +3696,43 @@ function renderSettings(settings) {
     html += settingNumber('emotion', 'threshold', 'Threshold', 'Confidence threshold (0.0 - 1.0)', settings.emotion.threshold, 0.1, 1.0, 0.05);
     html += '</div>';
 
+    // Device settings
+    html += '<div class="settings-section">';
+    html += '<div class="settings-section-title">Devices</div>';
+    // Microphone
+    html += '<div class="device-row-wrap"><div class="setting-row">' +
+        '<div class="setting-label">Microphone<div class="setting-desc">Audio input for voice and log recording</div></div>' +
+        '<div class="setting-control"><select class="device-select" id="setting-device-audio" onchange="saveDevicePref(\'audio\', this.value)"><option value="">Default</option></select>' +
+        '<button class="device-test-btn" id="micTestBtn" onclick="toggleMicTest()">TEST</button></div>' +
+    '</div>' +
+    '<div class="device-test-area" id="micTestArea">' +
+        '<div style="font-size:10px;color:var(--lcars-text-dim);margin-bottom:4px;text-transform:uppercase;letter-spacing:1px">Live Level</div>' +
+        '<div class="mic-level-bar"><div class="mic-level-fill" id="micLevelFill"></div></div>' +
+        '<div class="mic-test-controls">' +
+            '<button id="micRecTestBtn" onclick="micRecordTest()">RECORD 5s</button>' +
+            '<span id="micRecTestInfo"></span>' +
+            '<audio id="micRecTestPlayback" controls style="height:28px;display:none"></audio>' +
+        '</div>' +
+    '</div></div>';
+    // Camera
+    html += '<div class="device-row-wrap"><div class="setting-row">' +
+        '<div class="setting-label">Camera<div class="setting-desc">Video input device</div></div>' +
+        '<div class="setting-control"><select class="device-select" id="setting-device-video" onchange="saveDevicePref(\'video\', this.value)"><option value="">Default</option></select>' +
+        '<button class="device-test-btn" id="videoTestBtn" onclick="toggleVideoTest()">TEST</button></div>' +
+    '</div>' +
+    '<div class="device-test-area" id="videoTestArea">' +
+        '<video id="videoTestPreview" autoplay muted playsinline style="width:100%;max-width:320px;border-radius:4px;background:#000"></video>' +
+    '</div></div>';
+    // Audio Output
+    html += '<div class="device-row-wrap"><div class="setting-row">' +
+        '<div class="setting-label">Audio Output<div class="setting-desc">Speaker or headphone output</div></div>' +
+        '<div class="setting-control"><select class="device-select" id="setting-device-output" onchange="saveDevicePref(\'output\', this.value)"><option value="">Default</option></select>' +
+        '<button class="device-test-btn" onclick="testAudioOutput()">TEST</button></div>' +
+    '</div></div>';
+    html += '</div>';
+
     container.innerHTML = html;
+    enumerateSettingsDevices();
 }
 
 function settingToggle(section, key, label, desc, value) {
@@ -3635,6 +3785,241 @@ async function saveSetting(section, key, value, inputEl) {
     } catch (e) {
         console.error('Setting save failed:', e);
     }
+}
+
+// ========== DEVICE INPUT SETTINGS ==========
+
+function enumerateSettingsDevices() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+    // Request both permissions so labels are populated
+    navigator.mediaDevices.getUserMedia({audio: true, video: true}).then(function(stream) {
+        stream.getTracks().forEach(function(t) { t.stop(); });
+        return navigator.mediaDevices.enumerateDevices();
+    }).catch(function() {
+        return navigator.mediaDevices.getUserMedia({audio: true}).then(function(stream) {
+            stream.getTracks().forEach(function(t) { t.stop(); });
+            return navigator.mediaDevices.enumerateDevices();
+        }).catch(function() {
+            return navigator.mediaDevices.enumerateDevices();
+        });
+    }).then(function(devices) {
+        if (!devices) return;
+        var audioSel = document.getElementById('setting-device-audio');
+        var videoSel = document.getElementById('setting-device-video');
+        var outputSel = document.getElementById('setting-device-output');
+        var savedAudio = localStorage.getItem('aegis_device_audio') || '';
+        var savedVideo = localStorage.getItem('aegis_device_video') || '';
+        var savedOutput = localStorage.getItem('aegis_device_output') || '';
+
+        devices.forEach(function(d) {
+            if (d.kind === 'audioinput' && audioSel) {
+                var opt = document.createElement('option');
+                opt.value = d.deviceId;
+                opt.textContent = d.label || ('Microphone ' + audioSel.options.length);
+                if (d.deviceId === savedAudio) opt.selected = true;
+                audioSel.appendChild(opt);
+            } else if (d.kind === 'videoinput' && videoSel) {
+                var opt = document.createElement('option');
+                opt.value = d.deviceId;
+                opt.textContent = d.label || ('Camera ' + videoSel.options.length);
+                if (d.deviceId === savedVideo) opt.selected = true;
+                videoSel.appendChild(opt);
+            } else if (d.kind === 'audiooutput' && outputSel) {
+                var opt = document.createElement('option');
+                opt.value = d.deviceId;
+                opt.textContent = d.label || ('Speaker ' + outputSel.options.length);
+                if (d.deviceId === savedOutput) opt.selected = true;
+                outputSel.appendChild(opt);
+            }
+        });
+    }).catch(function() {});
+}
+
+function saveDevicePref(type, deviceId) {
+    localStorage.setItem('aegis_device_' + type, deviceId);
+}
+
+function getDevicePref(type) {
+    return localStorage.getItem('aegis_device_' + type) || '';
+}
+
+// --- Mic Test ---
+var _micTestStream = null;
+var _micTestAnalyser = null;
+var _micTestAnimFrame = null;
+var _micTestRecorder = null;
+
+function toggleMicTest() {
+    var area = document.getElementById('micTestArea');
+    var btn = document.getElementById('micTestBtn');
+    if (area.classList.contains('open')) {
+        stopMicTest();
+        area.classList.remove('open');
+        btn.classList.remove('active');
+        btn.textContent = 'TEST';
+    } else {
+        area.classList.add('open');
+        btn.classList.add('active');
+        btn.textContent = 'STOP';
+        startMicLevelMeter();
+    }
+}
+
+function startMicLevelMeter() {
+    var deviceId = (document.getElementById('setting-device-audio') || {}).value;
+    var constraints = deviceId ? {audio: {deviceId: {exact: deviceId}}} : {audio: true};
+    navigator.mediaDevices.getUserMedia(constraints).then(function(stream) {
+        _micTestStream = stream;
+        var ctx = new (window.AudioContext || window.webkitAudioContext)();
+        var src = ctx.createMediaStreamSource(stream);
+        _micTestAnalyser = ctx.createAnalyser();
+        _micTestAnalyser.fftSize = 256;
+        src.connect(_micTestAnalyser);
+        var dataArray = new Uint8Array(_micTestAnalyser.frequencyBinCount);
+        var fill = document.getElementById('micLevelFill');
+        function draw() {
+            _micTestAnimFrame = requestAnimationFrame(draw);
+            _micTestAnalyser.getByteFrequencyData(dataArray);
+            var sum = 0;
+            for (var i = 0; i < dataArray.length; i++) sum += dataArray[i];
+            var avg = sum / dataArray.length;
+            var pct = Math.min(100, Math.round(avg / 128 * 100));
+            if (fill) fill.style.width = pct + '%';
+            if (pct > 60) fill.style.background = 'var(--lcars-warning)';
+            else if (pct > 85) fill.style.background = 'var(--lcars-error)';
+            else fill.style.background = 'var(--lcars-success)';
+        }
+        draw();
+    }).catch(function() {});
+}
+
+function stopMicTest() {
+    if (_micTestAnimFrame) cancelAnimationFrame(_micTestAnimFrame);
+    _micTestAnimFrame = null;
+    if (_micTestStream) {
+        _micTestStream.getTracks().forEach(function(t) { t.stop(); });
+        _micTestStream = null;
+    }
+    _micTestAnalyser = null;
+    var fill = document.getElementById('micLevelFill');
+    if (fill) fill.style.width = '0%';
+    var playback = document.getElementById('micRecTestPlayback');
+    if (playback) { playback.pause(); playback.style.display = 'none'; }
+    var info = document.getElementById('micRecTestInfo');
+    if (info) info.textContent = '';
+}
+
+function micRecordTest() {
+    var btn = document.getElementById('micRecTestBtn');
+    var info = document.getElementById('micRecTestInfo');
+    var playback = document.getElementById('micRecTestPlayback');
+    if (_micTestRecorder && _micTestRecorder.state === 'recording') return;
+
+    var deviceId = (document.getElementById('setting-device-audio') || {}).value;
+    var constraints = deviceId ? {audio: {deviceId: {exact: deviceId}}} : {audio: true};
+    playback.style.display = 'none';
+
+    navigator.mediaDevices.getUserMedia(constraints).then(function(stream) {
+        var chunks = [];
+        _micTestRecorder = new MediaRecorder(stream);
+        _micTestRecorder.ondataavailable = function(e) { if (e.data.size > 0) chunks.push(e.data); };
+        _micTestRecorder.onstop = function() {
+            stream.getTracks().forEach(function(t) { t.stop(); });
+            var blob = new Blob(chunks, {type: 'audio/webm'});
+            playback.src = URL.createObjectURL(blob);
+            playback.style.display = '';
+            // Set output device if supported
+            var outputId = getDevicePref('output');
+            if (outputId && playback.setSinkId) {
+                playback.setSinkId(outputId).catch(function() {});
+            }
+            btn.textContent = 'RECORD 5s';
+            btn.classList.remove('recording');
+            info.textContent = 'Playback ready';
+        };
+        _micTestRecorder.start();
+        btn.textContent = 'REC...';
+        btn.classList.add('recording');
+        var countdown = 5;
+        info.textContent = countdown + 's';
+        var iv = setInterval(function() {
+            countdown--;
+            info.textContent = countdown + 's';
+            if (countdown <= 0) {
+                clearInterval(iv);
+                if (_micTestRecorder && _micTestRecorder.state === 'recording') _micTestRecorder.stop();
+            }
+        }, 1000);
+    }).catch(function() {
+        info.textContent = 'Mic access denied';
+    });
+}
+
+// --- Video Test ---
+var _videoTestStream = null;
+
+function toggleVideoTest() {
+    var area = document.getElementById('videoTestArea');
+    var btn = document.getElementById('videoTestBtn');
+    if (area.classList.contains('open')) {
+        stopVideoTest();
+        area.classList.remove('open');
+        btn.classList.remove('active');
+        btn.textContent = 'TEST';
+    } else {
+        area.classList.add('open');
+        btn.classList.add('active');
+        btn.textContent = 'STOP';
+        startVideoPreview();
+    }
+}
+
+function startVideoPreview() {
+    var deviceId = (document.getElementById('setting-device-video') || {}).value;
+    var constraints = deviceId ? {video: {deviceId: {exact: deviceId}}} : {video: true};
+    navigator.mediaDevices.getUserMedia(constraints).then(function(stream) {
+        _videoTestStream = stream;
+        var preview = document.getElementById('videoTestPreview');
+        if (preview) preview.srcObject = stream;
+    }).catch(function() {
+        var area = document.getElementById('videoTestArea');
+        if (area) area.innerHTML = '<div style="font-size:11px;color:var(--lcars-error)">Camera access denied</div>';
+    });
+}
+
+function stopVideoTest() {
+    if (_videoTestStream) {
+        _videoTestStream.getTracks().forEach(function(t) { t.stop(); });
+        _videoTestStream = null;
+    }
+    var preview = document.getElementById('videoTestPreview');
+    if (preview) preview.srcObject = null;
+}
+
+// --- Audio Output Test ---
+
+function testAudioOutput() {
+    var ctx = new (window.AudioContext || window.webkitAudioContext)();
+    // Play a short 440Hz beep for 0.5s
+    var osc = ctx.createOscillator();
+    var gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 440;
+    gain.gain.value = 0.3;
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    // Try to use selected output device
+    var outputId = getDevicePref('output');
+    if (outputId && ctx.setSinkId) {
+        ctx.setSinkId(outputId).catch(function() {});
+    }
+
+    osc.start();
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+    osc.stop(ctx.currentTime + 0.5);
+    setTimeout(function() { ctx.close(); }, 600);
 }
 
 // ========== SESSION PERSISTENCE ==========
@@ -3869,6 +4254,7 @@ async function loadLogsSubtab(sub) {
             // Compose area
             html += '<div class="plog-compose">';
             html += '<textarea id="plogText" placeholder="Write a personal log entry..."></textarea>';
+            html += '<div class="plog-device-row"><label>MIC</label><select id="plogDeviceSelect"><option value="">Default</option></select></div>';
             html += '<div class="plog-compose-actions">';
             html += '<button class="plog-rec-btn" id="plogRecBtn" onclick="plogToggleRecord()">RECORD</button>';
             html += '<span class="plog-rec-info" id="plogRecInfo"></span>';
@@ -3889,6 +4275,7 @@ async function loadLogsSubtab(sub) {
                 html += '<div class="data-row" style="margin-top:8px"><span class="label">No personal logs yet</span></div>';
             }
             el.innerHTML = html;
+            plogEnumerateDevices();
         } catch (e) {
             el.innerHTML = '<div class="data-row"><span class="label">Error loading logs</span></div>';
         }
@@ -3921,6 +4308,27 @@ async function loadLogsSubtab(sub) {
 
 // --- Personal Log Functions ---
 
+function plogEnumerateDevices() {
+    var sel = document.getElementById('plogDeviceSelect');
+    if (!sel || !navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+    var savedDevice = getDevicePref('audio');
+    // Need a brief getUserMedia call first to get permission, then enumerate
+    navigator.mediaDevices.getUserMedia({audio: true}).then(function(stream) {
+        stream.getTracks().forEach(function(t) { t.stop(); });
+        return navigator.mediaDevices.enumerateDevices();
+    }).then(function(devices) {
+        var audioInputs = devices.filter(function(d) { return d.kind === 'audioinput'; });
+        sel.innerHTML = '<option value="">Default</option>';
+        audioInputs.forEach(function(d) {
+            var opt = document.createElement('option');
+            opt.value = d.deviceId;
+            opt.textContent = d.label || ('Microphone ' + (sel.options.length));
+            if (d.deviceId === savedDevice) opt.selected = true;
+            sel.appendChild(opt);
+        });
+    }).catch(function() {});
+}
+
 function plogToggleRecord() {
     var btn = document.getElementById('plogRecBtn');
     var info = document.getElementById('plogRecInfo');
@@ -3933,7 +4341,9 @@ function plogToggleRecord() {
     _plogAudioChunks = [];
     _plogAudioBlob = null;
     info.textContent = '';
-    navigator.mediaDevices.getUserMedia({audio: true}).then(function(stream) {
+    var deviceId = (document.getElementById('plogDeviceSelect') || {}).value || getDevicePref('audio');
+    var audioConstraints = deviceId ? {deviceId: {exact: deviceId}} : true;
+    navigator.mediaDevices.getUserMedia({audio: audioConstraints}).then(function(stream) {
         _plogMediaRecorder = new MediaRecorder(stream);
         _plogMediaRecorder.ondataavailable = function(e) {
             if (e.data.size > 0) _plogAudioChunks.push(e.data);

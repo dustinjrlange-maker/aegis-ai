@@ -393,7 +393,7 @@ async def speech_to_text(audio: UploadFile = File(...), user_id: str = Depends(r
             tmp_path = tmp.name
 
         audio_seg = AudioSegment.from_file(tmp_path)
-        audio_seg = audio_seg.set_frame_rate(16000).set_channels(1)
+        audio_seg = audio_seg.set_frame_rate(16000).set_channels(1).set_sample_width(2)
         wav_path = tmp_path.replace(".webm", ".wav")
         audio_seg.export(wav_path, format="wav")
 
@@ -915,7 +915,7 @@ async def create_personal_log_audio(
             tmp_path = tmp.name
 
         audio_seg = AudioSegment.from_file(tmp_path)
-        audio_seg = audio_seg.set_frame_rate(16000).set_channels(1)
+        audio_seg = audio_seg.set_frame_rate(16000).set_channels(1).set_sample_width(2)
         wav_path = tmp_path.replace(".webm", ".wav")
         audio_seg.export(wav_path, format="wav")
 

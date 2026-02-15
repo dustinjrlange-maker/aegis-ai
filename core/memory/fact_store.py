@@ -15,8 +15,9 @@ from difflib import SequenceMatcher
 # Fields where a new value should automatically replace the old one.
 # These are inherently temporal — "current job" changes over time.
 TEMPORAL_FIELDS = {
-    "occupation.current", "location.current", "emotional_state",
-    "life_events.current", "goals.current",
+    "occupation.current", "occupation.project", "location.current",
+    "emotional_state", "life_events.current", "life_events.moves",
+    "goals.current", "goals.project",
 }
 
 # Fields that are additive — new values get merged in, not replaced.
@@ -237,10 +238,14 @@ class FactStore:
                 entities.add(word)
         return entities
 
+    # Maximum items in an additive field before oldest items are dropped.
+    MAX_ADDITIVE_ITEMS = 5
+
     def _merge_additive(self, existing_value, new_value):
         """Merge new information into an additive field.
 
         Appends genuinely new content while avoiding redundancy.
+        Caps total items at MAX_ADDITIVE_ITEMS to prevent bloat.
         """
         existing_lower = existing_value.lower()
         new_lower = new_value.lower()
@@ -249,7 +254,10 @@ class FactStore:
         if new_lower in existing_lower:
             return existing_value
 
-        # Extract individual items from new value (split on ; or ,)
+        # Extract individual items from both values
+        existing_items = re.split(r'[;,]', existing_value)
+        existing_items = [item.strip() for item in existing_items if item.strip()]
+
         new_items = re.split(r'[;,]', new_value)
         new_items = [item.strip() for item in new_items if item.strip()]
 
@@ -258,7 +266,7 @@ class FactStore:
             item_lower = item.lower()
             # Check if this specific item is already in existing
             if item_lower not in existing_lower:
-                # Also check word overlap — if 80%+ of words match, skip
+                # Also check word overlap — if 70%+ of words match, skip
                 item_words = set(item_lower.split())
                 existing_words = set(existing_lower.split())
                 if item_words and len(item_words & existing_words) / len(item_words) < 0.7:
@@ -267,7 +275,12 @@ class FactStore:
         if not additions:
             return existing_value
 
-        return existing_value + "; " + "; ".join(additions)
+        # Combine and cap at MAX_ADDITIVE_ITEMS (keep newest items)
+        all_items = existing_items + additions
+        if len(all_items) > self.MAX_ADDITIVE_ITEMS:
+            all_items = all_items[-self.MAX_ADDITIVE_ITEMS:]
+
+        return ", ".join(all_items)
 
     def _handle_name_update(self, existing, new_value, now, session_id):
         """Handle identity.name updates — store aliases instead of conflicting."""
@@ -419,7 +432,7 @@ class FactStore:
             "identity.age": f"{name} is",
             "identity.nationality": f"{name}'s nationality:",
             "location.current": f"{name} lives in",
-            "occupation.current": f"{name} works on",
+            "occupation.current": f"{name} works as",
             "occupation.title": f"{name}'s job title:",
             "occupation.project": f"{name}'s work project:",
             "relationships.partner": f"{name}'s partner:",
@@ -432,6 +445,7 @@ class FactStore:
             "preferences.books": f"{name} reads",
             "goals.project": f"{name}'s project goals:",
             "goals.financial": f"{name}'s money goals:",
+            "goals.long_term": f"{name}'s long-term aspirations:",
             "goals.relocation": f"{name}'s moving plans:",
             "goals.streaming": f"{name}'s streaming goals:",
         }
@@ -602,3 +616,51 @@ class FactStore:
                 return f"{base}.{suffix}"
 
         return base
+
+    # ------------------------------------------------------------------
+    # Maintenance — remove stale or broken facts
+    # ------------------------------------------------------------------
+
+    def remove_fact(self, key):
+        """Remove a fact by key. Returns True if found and removed."""
+        if key in self._data["facts"]:
+            del self._data["facts"][key]
+            self._save()
+            return True
+        return False
+
+    def update_fact(self, key, new_value):
+        """Directly update a fact's value (for manual corrections)."""
+        if key in self._data["facts"]:
+            fact = self._data["facts"][key]
+            fact["history"].append({
+                "value": fact["value"],
+                "replaced": datetime.now().isoformat(),
+                "session": "manual_correction",
+            })
+            fact["value"] = new_value
+            fact["last_confirmed"] = datetime.now().isoformat()
+            self._save()
+            return True
+        return False
+
+    def prune_stale(self, max_age_days=30):
+        """Remove facts that haven't been confirmed in max_age_days.
+
+        Only prunes low-confidence facts (confidence <= 1) to avoid
+        removing established facts that just haven't come up recently.
+        """
+        now = datetime.now()
+        pruned = []
+        for key in list(self._data["facts"].keys()):
+            fact = self._data["facts"][key]
+            if fact["confidence"] > 1:
+                continue
+            last = datetime.fromisoformat(fact["last_confirmed"])
+            age = (now - last).days
+            if age > max_age_days:
+                pruned.append(key)
+                del self._data["facts"][key]
+        if pruned:
+            self._save()
+        return pruned

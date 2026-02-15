@@ -153,13 +153,21 @@ class MemoryManager:
         # Recent session journals (limited to 2 to reduce context pressure)
         recent_logs = load_recent_summaries(count=2, data_dir=self.user_data_dir)
         if recent_logs:
-            journal_text = "\n\n---\n\n".join(
-                entry["content"] if isinstance(entry, dict) else str(entry)
-                for entry in recent_logs
-            )
+            # Strip TOPICS and NOTABLE FACTS lines — they cause topic fixation
+            cleaned_entries = []
+            for entry in recent_logs:
+                content = entry["content"] if isinstance(entry, dict) else str(entry)
+                lines = [
+                    line for line in content.split("\n")
+                    if not line.strip().startswith("TOPICS:")
+                    and not line.strip().startswith("NOTABLE FACTS:")
+                ]
+                cleaned_entries.append("\n".join(lines))
+            journal_text = "\n\n---\n\n".join(cleaned_entries)
             context_parts.append(
                 "Recent sessions (your memory of past conversations):\n"
-                "Use for continuity only. Do NOT repeat topics, phrases, or details from these logs.\n\n"
+                "Use for continuity ONLY. Do NOT repeat, reference, or bring up anything from these logs "
+                "unless the companion mentions that specific topic first in THIS conversation.\n\n"
                 f"{journal_text}"
             )
 
