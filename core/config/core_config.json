@@ -62,5 +62,13 @@
         "enabled": true,
         "model": "bhadresh-savani/distilbert-base-uncased-emotion",
         "threshold": 0.75
+    },
+
+    "web": {
+        "enabled": true,
+        "search_max_results": 5,
+        "fetch_max_chars": 1500,
+        "request_timeout": 10,
+        "auto_detect": true
     }
 }

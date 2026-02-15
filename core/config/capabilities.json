@@ -7,12 +7,12 @@
         "Monitor GPU/VRAM and manage system resources",
         "Process media with ffmpeg (if installed)",
         "Detect emotions to subtly adjust tone",
-        "Switch personality/voice/theme packs"
+        "Switch personality/voice/theme packs",
+        "Search the web and fetch web pages for information"
     ],
     "cannot_do": [
         "Make phone calls, video calls, or join meetings",
         "Send emails, texts, or messages outside this chat",
-        "Browse the internet or search the web",
         "Access calendars or set real alarms",
         "Run, compile, or test code",
         "Access files on companion's computer",

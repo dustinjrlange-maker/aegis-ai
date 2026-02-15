@@ -14,4 +14,6 @@ python-multipart>=0.0.6
 Pillow>=10.0.0
 bcrypt>=4.0.0
 python-telegram-bot>=21.0
+ddgs>=9.0.0
+trafilatura>=2.0.0
 pytest>=8.0.0

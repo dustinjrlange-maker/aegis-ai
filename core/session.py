@@ -22,6 +22,7 @@ from core.protocols.communications import CommunicationsProtocol
 from core.protocols.security import SecurityProtocol
 from core.protocols.wellness import WellnessProtocol
 from core.protocols.operations import OperationsProtocol
+from core.protocols.web import WebProtocol
 from core.protocols.command import CommandProtocol
 from core.protocols.creative import CreativeProtocol
 from core.agent import build_filler_cleaner
@@ -79,6 +80,7 @@ class UserSession:
         self.protocol_registry.register(WellnessProtocol())
         self.protocol_registry.register(CommunicationsProtocol())
         self.protocol_registry.register(OperationsProtocol(data_dir=user_data_dir))
+        self.protocol_registry.register(WebProtocol())
         self.protocol_registry.register(CommandProtocol())
         self.protocol_registry.register(CreativeProtocol())
 
