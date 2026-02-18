@@ -27,6 +27,7 @@ class SecurityProtocol(Protocol):
         "password", "social security", "ssn", "credit card",
         "bank account", "routing number", "private key",
         "api key", "secret", "credential",
+        "oauth token", "refresh token", "access token",
     ]
 
     def __init__(self):

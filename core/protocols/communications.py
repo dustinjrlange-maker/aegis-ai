@@ -67,16 +67,17 @@ class CommunicationsProtocol(Protocol):
                 injection_parts.append(f"[{hint}]")
 
         # --- Anti-repetition injection ---
-        if len(recent_assistant) >= 3:
-            # Only include last 3 snippets, truncated short
+        if len(recent_assistant) >= 2:
+            # Include last 6 snippets to catch phrase fixation over longer windows
             snippets = []
-            for msg in recent_assistant[-3:]:
+            for msg in recent_assistant[-6:]:
                 snippet = msg[:40].strip()
                 if len(msg) > 40:
                     snippet += "..."
                 snippets.append(f'"{snippet}"')
             injection_parts.append(
-                "[Don't repeat: " + " / ".join(snippets) + "]"
+                "[Don't repeat phrases or ideas from these recent replies: "
+                + " / ".join(snippets) + "]"
             )
 
         if injection_parts:

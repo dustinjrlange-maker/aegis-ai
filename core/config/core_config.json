@@ -70,5 +70,12 @@
         "fetch_max_chars": 1500,
         "request_timeout": 10,
         "auto_detect": true
+    },
+
+    "google": {
+        "enabled": true,
+        "calendar_injection": true,
+        "email_injection": true,
+        "cache_ttl_seconds": 300
     }
 }

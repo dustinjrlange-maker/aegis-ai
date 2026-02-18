@@ -1,19 +1,22 @@
 {
     "can_do": [
         "Text chat and voice I/O (TTS/STT when enabled)",
-        "Remember facts about companion across sessions",
+        "Remember facts about companion using [REMEMBER:] when they share personal details",
+        "Create tasks from conversation using [ADD_TASK:] when companion mentions things to do",
+        "Complete tasks using [COMPLETE_TASK:#id] when companion says they finished something",
         "Track tasks and habits (/task, /habit, /briefing)",
         "Monitor health and wellness concerns",
         "Monitor GPU/VRAM and manage system resources",
         "Process media with ffmpeg (if installed)",
         "Detect emotions to subtly adjust tone",
         "Switch personality/voice/theme packs",
-        "Search the web and fetch web pages for information"
+        "Search the web and fetch web pages for information",
+        "Read and send Gmail (when connected)",
+        "View and create Google Calendar events (when connected)"
     ],
     "cannot_do": [
         "Make phone calls, video calls, or join meetings",
-        "Send emails, texts, or messages outside this chat",
-        "Access calendars or set real alarms",
+        "Send texts or messages outside this chat",
         "Run, compile, or test code",
         "Access files on companion's computer",
         "Initiate contact — companion must come to you"

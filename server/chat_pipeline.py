@@ -9,6 +9,7 @@ import logging
 import ollama
 from core.config import CONFIG, load_capabilities
 from core.voice import emotion
+from core.protocols.context_budget import budget_injections
 
 logger = logging.getLogger("aegis.chat_pipeline")
 
@@ -84,7 +85,7 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
         context_parts.append(char_relevant)
     if emotion_tag:
         context_parts.append(emotion_tag)
-    for injection in proto_result.get("context_injections", []):
+    for injection in budget_injections(proto_result.get("context_injections", [])):
         context_parts.append(injection)
 
     augmented = proto_result["input"]
@@ -109,6 +110,10 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
         if not output_result.get("suppress"):
             reply = output_result["response"]
 
+        # Extract bracket command actions (if any were executed during output processing)
+        bracket_proto = session.protocol_registry.get("bracket_commands")
+        bracket_actions = bracket_proto.get_pending_actions() if bracket_proto else []
+
         session.messages.append({"role": "assistant", "content": reply})
 
         # Auto-save transcript
@@ -126,6 +131,7 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
             "response": reply,
             "emotion": emotion_result,
             "wellness_flag": bool(proto_result.get("context_injections")),
+            "bracket_actions": bracket_actions,
         }
 
     except Exception as e:

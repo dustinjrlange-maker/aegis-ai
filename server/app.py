@@ -19,6 +19,9 @@ from fastapi.responses import HTMLResponse, FileResponse
 from pydantic import BaseModel
 from typing import Optional
 import json
+import hmac
+import hashlib
+import secrets
 import tempfile
 
 from core.config import CONFIG
@@ -43,11 +46,15 @@ from core.memory.personal_log import (
     create_log_entry, list_personal_logs, load_personal_log,
     delete_personal_log, get_audio_path,
 )
+from core.feature_toggles import load_feature_toggles, save_feature_toggles
 from server.chat_pipeline import process_chat
 
 
 # --- Session Manager (replaces global state) ---
 session_manager = SessionManager()
+
+# OAuth state store: maps state_token -> user_id (short-lived, in-memory)
+_oauth_states: dict[str, str] = {}
 
 logger = logging.getLogger("aegis.server")
 
@@ -121,6 +128,7 @@ class ChatResponse(BaseModel):
     response: str
     emotion: Optional[dict] = None
     wellness_flag: bool = False
+    bracket_actions: Optional[list] = None
 
 
 class TaskRequest(BaseModel):
@@ -192,6 +200,11 @@ class VaultPinRemoveRequest(BaseModel):
 
 class PersonalLogRequest(BaseModel):
     text: str
+
+
+class FeatureToggleRequest(BaseModel):
+    feature: str
+    enabled: bool
 
 
 # --- Auth Routes (unauthenticated) ---
@@ -359,6 +372,15 @@ async def manage_tasks(req: TaskRequest, user_id: str = Depends(require_user)):
         return {"tasks": ops.get_pending_tasks()}
     else:
         return {"error": "Invalid action. Use: add, done, remove, list"}
+
+
+@app.get("/api/tasks/count")
+async def get_task_count(user_id: str = Depends(require_user)):
+    """Lightweight task count for sidebar badge polling."""
+    session = session_manager.get_or_create(user_id)
+    ops = session.protocol_registry.get("operations")
+    count = len(ops.get_pending_tasks()) if ops else 0
+    return {"count": count}
 
 
 @app.get("/api/theme")
@@ -711,6 +733,29 @@ async def update_settings(req: SettingsUpdateRequest, user_id: str = Depends(req
     return {"success": True, "section": req.section, "key": req.key, "value": typed_value}
 
 
+# --- Feature Toggle Routes ---
+
+@app.get("/api/features")
+async def get_features(user_id: str = Depends(require_user)):
+    """Get the user's feature toggles."""
+    session = session_manager.get_or_create(user_id)
+    data_dir = session.memory.user_data_dir
+    return load_feature_toggles(data_dir)
+
+
+@app.post("/api/features")
+async def update_feature(req: FeatureToggleRequest, user_id: str = Depends(require_user)):
+    """Enable or disable a single feature."""
+    session = session_manager.get_or_create(user_id)
+    data_dir = session.memory.user_data_dir
+    toggles = load_feature_toggles(data_dir)
+    if req.feature not in toggles:
+        return {"error": f"Unknown feature: {req.feature}"}
+    toggles[req.feature] = req.enabled
+    save_feature_toggles(data_dir, toggles)
+    return {"success": True, "feature": req.feature, "enabled": req.enabled}
+
+
 # --- Vault Routes ---
 
 @app.get("/api/vault/profile")
@@ -983,6 +1028,139 @@ async def get_personal_log_audio(log_id: str, user_id: str = Depends(require_vau
     if audio_path:
         return FileResponse(str(audio_path), media_type="audio/webm")
     raise HTTPException(status_code=404, detail="Audio not found")
+
+
+# --- Google OAuth Routes ---
+
+@app.get("/api/google/auth")
+async def google_auth_start(request: Request, user_id: str = Depends(require_user)):
+    """Start Google OAuth flow -- returns auth URL for the user to visit."""
+    try:
+        from integrations.google_config import is_enabled
+        from core.protocols.google_tools import build_auth_url
+    except ImportError:
+        return {"error": "Google integration libraries not installed"}
+
+    if not is_enabled():
+        return {"error": "Google integration not configured. See data/google_client.json"}
+
+    # Build redirect URI from the incoming request
+    host = request.headers.get("host", "localhost:8484")
+    scheme = request.headers.get("x-forwarded-proto", "http")
+    redirect_uri = f"{scheme}://{host}/api/google/callback"
+
+    # Generate state token to pass user identity through OAuth redirect
+    state = secrets.token_urlsafe(32)
+    _oauth_states[state] = user_id
+
+    auth_url = build_auth_url(redirect_uri)
+    if not auth_url:
+        return {"error": "Could not generate Google auth URL"}
+
+    # Append state to the auth URL
+    separator = "&" if "?" in auth_url else "?"
+    auth_url += f"{separator}state={state}"
+
+    return {"auth_url": auth_url}
+
+
+@app.get("/api/google/callback")
+async def google_auth_callback(request: Request):
+    """Handle OAuth callback from Google (browser redirect, not API call)."""
+    code = request.query_params.get("code")
+    state = request.query_params.get("state")
+    error = request.query_params.get("error")
+
+    if error:
+        return HTMLResponse(f"<h2>Google authorization failed</h2><p>{error}</p>")
+
+    if not code or not state:
+        return HTMLResponse("<h2>Invalid callback</h2><p>Missing code or state parameter.</p>")
+
+    # Validate state and recover user_id
+    user_id = _oauth_states.pop(state, None)
+    if not user_id:
+        return HTMLResponse("<h2>Invalid or expired state</h2><p>Please try connecting again.</p>")
+
+    try:
+        from core.protocols.google_tools import exchange_code, save_credentials
+    except ImportError:
+        return HTMLResponse("<h2>Error</h2><p>Google integration libraries not installed.</p>")
+
+    # Build the same redirect URI used in the auth request
+    host = request.headers.get("host", "localhost:8484")
+    scheme = request.headers.get("x-forwarded-proto", "http")
+    redirect_uri = f"{scheme}://{host}/api/google/callback"
+
+    credentials = exchange_code(code, redirect_uri)
+    if not credentials:
+        return HTMLResponse("<h2>Error</h2><p>Could not exchange authorization code.</p>")
+
+    # Save tokens to the user's data directory
+    from core.config import PROJECT_ROOT
+    user_data_dir = PROJECT_ROOT / "data" / "users" / user_id
+    user_data_dir.mkdir(parents=True, exist_ok=True)
+    save_credentials(user_data_dir, credentials)
+
+    logger.info("Google account connected for user '%s'", user_id)
+
+    return HTMLResponse(
+        "<html><body style='font-family:sans-serif;text-align:center;padding:60px'>"
+        "<h2>Google connected!</h2>"
+        "<p>You can close this tab and return to Aegis.</p>"
+        "</body></html>"
+    )
+
+
+@app.get("/api/google/status")
+async def google_status(user_id: str = Depends(require_user)):
+    """Check if the user's Google account is connected."""
+    try:
+        from integrations.google_config import is_enabled
+        from core.protocols.google_tools import load_credentials
+    except ImportError:
+        return {"configured": False, "connected": False}
+
+    session = session_manager.get_or_create(user_id)
+    data_dir = session.memory.user_data_dir
+
+    configured = is_enabled()
+    creds = load_credentials(data_dir) if data_dir and configured else None
+
+    result = {
+        "configured": configured,
+        "connected": creds is not None,
+    }
+
+    if creds:
+        result["scopes"] = list(creds.scopes) if creds.scopes else []
+
+    return result
+
+
+@app.post("/api/google/disconnect")
+async def google_disconnect(user_id: str = Depends(require_user)):
+    """Revoke and delete Google OAuth tokens."""
+    try:
+        from core.protocols.google_tools import revoke_credentials
+    except ImportError:
+        return {"success": False, "error": "Google integration libraries not installed"}
+
+    session = session_manager.get_or_create(user_id)
+    data_dir = session.memory.user_data_dir
+    if not data_dir:
+        return {"success": False, "error": "No user data directory"}
+
+    revoke_credentials(data_dir)
+
+    # Clear protocol cache if active
+    google_proto = session.protocol_registry.get("google")
+    if google_proto:
+        google_proto._cache_time = 0.0
+        google_proto._cached_unread = 0
+        google_proto._cached_next_event = None
+
+    return {"success": True}
 
 
 # --- Static/PWA Routes ---

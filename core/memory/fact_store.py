@@ -15,8 +15,8 @@ from difflib import SequenceMatcher
 # Fields where a new value should automatically replace the old one.
 # These are inherently temporal — "current job" changes over time.
 TEMPORAL_FIELDS = {
-    "occupation.current", "occupation.project", "location.current",
-    "emotional_state", "life_events.current", "life_events.moves",
+    "occupation.current", "occupation.project",
+    "emotional_state", "life_events.current",
     "goals.current", "goals.project",
 }
 

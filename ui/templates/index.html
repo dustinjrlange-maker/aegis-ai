@@ -2055,6 +2055,58 @@
             letter-spacing: 1px;
             margin-bottom: 6px;
         }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            top: 12px;
+            right: 12px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            pointer-events: none;
+        }
+        .toast {
+            pointer-events: auto;
+            background: var(--lcars-surface);
+            color: var(--lcars-text);
+            border: 1px solid var(--lcars-grey-1);
+            border-left: 4px solid var(--lcars-blue-1);
+            border-radius: 4px;
+            padding: 10px 14px;
+            font-family: var(--font-body);
+            font-size: 13px;
+            max-width: 340px;
+            animation: toastIn 0.25s ease-out;
+        }
+        .toast.success { border-left-color: var(--lcars-green, #5f5); }
+        .toast.warning { border-left-color: var(--lcars-amber, #fa3); }
+        .toast.error   { border-left-color: var(--lcars-error); }
+        .toast.info    { border-left-color: var(--lcars-blue-1); }
+        .toast.removing { animation: toastOut 0.2s ease-in forwards; }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(30px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes toastOut {
+            from { opacity: 1; transform: translateX(0); }
+            to   { opacity: 0; transform: translateX(30px); }
+        }
+
+        /* Feature toggles in settings */
+        .feature-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+        .feature-toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 4px 0;
+        }
+        .feature-toggle-row .setting-label { font-size: 12px; }
     </style>
 </head>
 <body>
@@ -2650,6 +2702,13 @@ async function sendMessage(retryText) {
         const data = await res.json();
         removeTyping(typing);
         addMessage(data.response, 'agent', data.agent_name, data.wellness_flag);
+        // Show toasts for bracket actions
+        if (data.bracket_actions && data.bracket_actions.length) {
+            data.bracket_actions.forEach(function(action) {
+                var label = action.command.replace(/_/g, ' ').toLowerCase();
+                showToast(label + ': ' + action.arg, 'success');
+            });
+        }
         lastFailedMessage = null;
     } catch (e) {
         removeTyping(typing);
@@ -3091,6 +3150,15 @@ function renderTasks(tasks) {
 function updateTaskCount(tasks) {
     const el = document.getElementById('taskCount');
     el.textContent = tasks.length > 0 ? '(' + tasks.length + ')' : '';
+}
+
+async function loadTaskCount() {
+    try {
+        const res = await authFetch(API + '/tasks/count');
+        const data = await res.json();
+        const el = document.getElementById('taskCount');
+        el.textContent = data.count > 0 ? '(' + data.count + ')' : '';
+    } catch (e) {}
 }
 
 async function addTask() {
@@ -3731,8 +3799,15 @@ function renderSettings(settings) {
     '</div></div>';
     html += '</div>';
 
+    // Feature toggles (loaded async)
+    html += '<div class="settings-section">';
+    html += '<div class="settings-section-title">Features</div>';
+    html += '<div id="featureTogglesArea"><div class="task-empty">Loading...</div></div>';
+    html += '</div>';
+
     container.innerHTML = html;
     enumerateSettingsDevices();
+    loadFeatureToggles();
 }
 
 function settingToggle(section, key, label, desc, value) {
@@ -3784,6 +3859,55 @@ async function saveSetting(section, key, value, inputEl) {
         }
     } catch (e) {
         console.error('Setting save failed:', e);
+    }
+}
+
+// ========== FEATURE TOGGLES ==========
+
+async function loadFeatureToggles() {
+    var area = document.getElementById('featureTogglesArea');
+    if (!area) return;
+    try {
+        var res = await authFetch(API + '/features');
+        var features = await res.json();
+        var html = '<div class="feature-grid">';
+        var labels = {
+            chat: 'Chat', voice: 'Voice', tasks: 'Tasks', web_search: 'Web Search',
+            personal_logs: 'Personal Logs', fact_memory: 'Fact Memory',
+            calendar: 'Calendar', mood_tracking: 'Mood Tracking',
+            contacts: 'Contacts', habits: 'Habits', timer: 'Timer',
+            weather: 'Weather', file_upload: 'File Upload', pinned_messages: 'Pinned Messages',
+        };
+        Object.keys(features).forEach(function(key) {
+            var label = labels[key] || key.replace(/_/g, ' ');
+            var checked = features[key] ? ' checked' : '';
+            html += '<div class="feature-toggle-row">' +
+                '<span class="setting-label">' + escapeHtml(label) + '</span>' +
+                '<label class="proto-toggle">' +
+                '<input type="checkbox"' + checked +
+                ' onchange="toggleFeature(\'' + key + '\', this.checked)">' +
+                '<span class="toggle-slider"></span></label></div>';
+        });
+        html += '</div>';
+        area.innerHTML = html;
+    } catch (e) {
+        area.innerHTML = '<div class="task-empty">Could not load features</div>';
+    }
+}
+
+async function toggleFeature(name, enabled) {
+    try {
+        var res = await authFetch(API + '/features', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({feature: name, enabled: enabled}),
+        });
+        var data = await res.json();
+        if (data.success) {
+            showToast((enabled ? 'Enabled' : 'Disabled') + ': ' + name.replace(/_/g, ' '), 'info', 2000);
+        }
+    } catch (e) {
+        console.error('Feature toggle failed:', e);
     }
 }
 
@@ -4653,15 +4777,8 @@ async function init() {
     loadStatus();
     loadCommands();
 
-    // Load initial task count
-    try {
-        const res = await authFetch(API + '/tasks', {
-            method: 'POST',
-            body: JSON.stringify({action: 'list'}),
-        });
-        const data = await res.json();
-        updateTaskCount(data.tasks || []);
-    } catch (e) {}
+    // Load initial task count (lightweight GET)
+    loadTaskCount();
 
     // Fetch agent name for top bar
     try {
@@ -4690,14 +4807,79 @@ async function init() {
     _pollIntervals.forEach(function(id) { clearInterval(id); });
     _pollIntervals = [];
 
-    // Connection polling every 30s
-    _pollIntervals.push(setInterval(checkConnection, 30000));
-
-    // Task count refresh every 60s
+    // Connection polling every 60s (also refreshes task count)
     _pollIntervals.push(setInterval(function() {
-        loadTasks().catch(function() {});
+        checkConnection();
+        loadTaskCount();
     }, 60000));
 }
+
+// ========== TOAST NOTIFICATIONS ==========
+
+function showToast(message, type, durationMs) {
+    type = type || 'info';
+    durationMs = durationMs || 3000;
+    var container = document.getElementById('toastContainer');
+    if (!container) return;
+    var el = document.createElement('div');
+    el.className = 'toast ' + type;
+    el.textContent = message;
+    container.appendChild(el);
+    setTimeout(function() {
+        el.classList.add('removing');
+        setTimeout(function() { el.remove(); }, 200);
+    }, durationMs);
+}
+
+// ========== KEYBOARD SHORTCUTS ==========
+
+document.addEventListener('keydown', function(e) {
+    // Escape: close PIN modal > panels > sidebar
+    if (e.key === 'Escape') {
+        var pinOverlay = document.getElementById('pinModalOverlay');
+        if (pinOverlay && pinOverlay.classList.contains('open')) {
+            pinOverlay.classList.remove('open');
+            return;
+        }
+        var panelIds = [
+            'settingsPanelOverlay', 'vaultPanelOverlay', 'taskPanelOverlay',
+            'historyPanelOverlay', 'protoPanelOverlay', 'gpuPanelOverlay',
+            'packPanelOverlay', 'systemPanelOverlay'
+        ];
+        var closeFns = {
+            'settingsPanelOverlay': closeSettingsPanel,
+            'vaultPanelOverlay': closeVaultPanel,
+            'taskPanelOverlay': closeTaskPanel,
+            'historyPanelOverlay': closeHistoryPanel,
+            'protoPanelOverlay': closeProtocolPanel,
+            'gpuPanelOverlay': closeGpuPanel,
+            'packPanelOverlay': closePackPanel,
+            'systemPanelOverlay': closeSystemPanel,
+        };
+        for (var i = 0; i < panelIds.length; i++) {
+            var p = document.getElementById(panelIds[i]);
+            if (p && p.classList.contains('open')) {
+                closeFns[panelIds[i]]();
+                return;
+            }
+        }
+        // Close mobile sidebar
+        var sidebar = document.getElementById('sidebar');
+        if (sidebar && sidebar.classList.contains('open')) {
+            toggleSidebar();
+        }
+        return;
+    }
+    // Slash focuses input when nothing else is focused
+    if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        var tag = document.activeElement ? document.activeElement.tagName : '';
+        if (tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') {
+            e.preventDefault();
+            var chatInput = document.getElementById('input');
+            if (chatInput) chatInput.focus();
+        }
+    }
+});
 
 // Handle Enter key on login/register inputs
 document.addEventListener('keydown', function(e) {
@@ -4712,6 +4894,8 @@ document.addEventListener('keydown', function(e) {
 
 init();
 </script>
+
+<div class="toast-container" id="toastContainer"></div>
 
 </body>
 </html>

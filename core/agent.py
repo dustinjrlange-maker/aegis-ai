@@ -33,6 +33,7 @@ from core.protocols.security import SecurityProtocol
 from core.protocols.wellness import WellnessProtocol
 from core.protocols.operations import OperationsProtocol
 from core.protocols.web import WebProtocol
+from core.protocols.google import GoogleProtocol
 from core.protocols.command import CommandProtocol
 from core.protocols.creative import CreativeProtocol
 
@@ -240,6 +241,7 @@ def run():
     protocol_registry.register(CommunicationsProtocol())
     protocol_registry.register(OperationsProtocol(data_dir=user_data_dir))
     protocol_registry.register(WebProtocol())
+    protocol_registry.register(GoogleProtocol(data_dir=user_data_dir))
     protocol_registry.register(CommandProtocol())
     protocol_registry.register(CreativeProtocol())
     print("  Protocols online: " + ", ".join(protocol_registry.list_protocols()))

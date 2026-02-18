@@ -23,8 +23,10 @@ from core.protocols.security import SecurityProtocol
 from core.protocols.wellness import WellnessProtocol
 from core.protocols.operations import OperationsProtocol
 from core.protocols.web import WebProtocol
+from core.protocols.google import GoogleProtocol
 from core.protocols.command import CommandProtocol
 from core.protocols.creative import CreativeProtocol
+from core.protocols.bracket_commands import BracketCommandProtocol
 from core.agent import build_filler_cleaner
 from core.auth import load_user_preferences
 
@@ -81,14 +83,54 @@ class UserSession:
         self.protocol_registry.register(CommunicationsProtocol())
         self.protocol_registry.register(OperationsProtocol(data_dir=user_data_dir))
         self.protocol_registry.register(WebProtocol())
+        self.protocol_registry.register(GoogleProtocol(data_dir=user_data_dir))
         self.protocol_registry.register(CommandProtocol())
         self.protocol_registry.register(CreativeProtocol())
+
+        # Bracket command protocol — LLM emits [COMMAND: arg] tags
+        bracket_proto = BracketCommandProtocol()
+        bracket_proto.register_handler("REMEMBER", self._handle_remember)
+        bracket_proto.register_handler("ADD_TASK", self._handle_add_task)
+        bracket_proto.register_handler("COMPLETE_TASK", self._handle_complete_task)
+        self.protocol_registry.register(bracket_proto)
 
         # Tracking
         self.last_fact_extraction_index = 0
         self.session_ended = False
 
         logger.info("Session created for user '%s' (agent: %s)", user_id, self.agent_name)
+
+    # --- Bracket command handlers ---
+
+    def _handle_remember(self, fact_text: str) -> str:
+        """Store a fact via the fact store."""
+        if self.memory._fact_store:
+            report = self.memory._fact_store.ingest(
+                [{"key": "general.noted", "value": fact_text}],
+                session_id=self.memory.session_id,
+            )
+            return f"Remembered ({report['added']} new, {report['updated']} updated)"
+        return "No fact store available"
+
+    def _handle_add_task(self, task_text: str) -> str:
+        """Create a task via the operations protocol."""
+        ops = self.protocol_registry.get("operations")
+        if ops:
+            task = ops.add_task(task_text)
+            return f"Task #{task['id']} created"
+        return "Operations protocol not available"
+
+    def _handle_complete_task(self, task_ref: str) -> str:
+        """Complete a task by ID (accepts '#3' or '3')."""
+        ops = self.protocol_registry.get("operations")
+        if not ops:
+            return "Operations protocol not available"
+        try:
+            task_id = int(task_ref.strip().lstrip("#"))
+        except ValueError:
+            return f"Invalid task ID: {task_ref}"
+        result = ops.complete_task(task_id)
+        return f"Task #{task_id} completed" if result else f"Task #{task_id} not found"
 
     def touch(self):
         """Update last activity timestamp."""
