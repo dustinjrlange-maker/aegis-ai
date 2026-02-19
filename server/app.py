@@ -227,6 +227,10 @@ class TaskStarRequest(BaseModel):
     task_id: int
 
 
+class NotificationActionRequest(BaseModel):
+    notification_id: Optional[str] = None  # None = apply to all
+
+
 class EventRequest(BaseModel):
     action: str  # "add", "update", "delete", "list"
     event_id: Optional[str] = None
@@ -548,6 +552,130 @@ async def calendar_month(year: int, month: int, user_id: str = Depends(require_u
         "local_events": local_events,
         "google_events": google_events,
     }
+
+
+@app.get("/api/briefing")
+async def get_briefing(user_id: str = Depends(require_user)):
+    """Get structured daily briefing data."""
+    from datetime import datetime as dt, timedelta
+
+    session = session_manager.get_or_create(user_id)
+    ops = session.protocol_registry.get("operations")
+    now = dt.now()
+    today_str = now.strftime("%Y-%m-%d")
+    tomorrow = now + timedelta(hours=24)
+
+    overdue_tasks = []
+    due_today = []
+    high_priority_tasks = []
+    total_pending = 0
+
+    if ops:
+        for task in ops.get_pending_tasks():
+            total_pending += 1
+            if task.get("priority") == "high":
+                high_priority_tasks.append(task)
+            due = task.get("due")
+            if due:
+                try:
+                    due_dt = dt.fromisoformat(due)
+                    if due_dt < now:
+                        overdue_tasks.append(task)
+                    elif due_dt.strftime("%Y-%m-%d") == today_str:
+                        due_today.append(task)
+                except (ValueError, TypeError):
+                    pass
+
+    # Local events
+    events_today = session.event_manager.list_events(today_str, today_str)
+    end_3d = (now + timedelta(days=3)).strftime("%Y-%m-%d")
+    tomorrow_str = (now + timedelta(days=1)).strftime("%Y-%m-%d")
+    events_upcoming = session.event_manager.list_events(tomorrow_str, end_3d)
+
+    # Google events (best-effort)
+    google_today = []
+    google_upcoming = []
+    try:
+        google_proto = session.protocol_registry.get("google")
+        if google_proto:
+            creds = google_proto._get_creds()
+            if creds:
+                from core.protocols.google_tools import calendar_upcoming
+                raw = calendar_upcoming(creds, days=4)
+                for ev in raw:
+                    ev_date = ev.get("start", "")[:10]
+                    item = {
+                        "title": ev.get("summary", "(no title)"),
+                        "date": ev_date,
+                        "time_start": ev.get("start", "")[11:16] or None,
+                        "source": "google",
+                    }
+                    if ev_date == today_str:
+                        google_today.append(item)
+                    elif tomorrow_str <= ev_date <= end_3d:
+                        google_upcoming.append(item)
+    except Exception:
+        pass
+
+    # Side-effect: generate notifications
+    ns = session.notification_service
+    ns.generate_from_tasks(ops)
+    ns.generate_from_events(session.event_manager)
+
+    return {
+        "date": today_str,
+        "overdue_tasks": overdue_tasks,
+        "due_today": due_today,
+        "high_priority_tasks": high_priority_tasks,
+        "events_today": events_today + google_today,
+        "events_upcoming": events_upcoming + google_upcoming,
+        "total_pending": total_pending,
+    }
+
+
+@app.get("/api/notifications")
+async def get_notifications(user_id: str = Depends(require_user)):
+    """Get all notifications, lazily generating from tasks/events."""
+    session = session_manager.get_or_create(user_id)
+    ns = session.notification_service
+    ops = session.protocol_registry.get("operations")
+    ns.generate_from_tasks(ops)
+    ns.generate_from_events(session.event_manager)
+    return {
+        "notifications": ns.get_all(),
+        "unread_count": ns.get_unread_count(),
+    }
+
+
+@app.get("/api/notifications/count")
+async def get_notification_count(user_id: str = Depends(require_user)):
+    """Lightweight unread count for polling."""
+    session = session_manager.get_or_create(user_id)
+    return {"unread_count": session.notification_service.get_unread_count()}
+
+
+@app.post("/api/notifications/read")
+async def mark_notifications_read(req: NotificationActionRequest, user_id: str = Depends(require_user)):
+    """Mark one or all notifications as read."""
+    session = session_manager.get_or_create(user_id)
+    ns = session.notification_service
+    if req.notification_id:
+        ns.mark_read(req.notification_id)
+    else:
+        ns.mark_all_read()
+    return {"success": True, "unread_count": ns.get_unread_count()}
+
+
+@app.post("/api/notifications/dismiss")
+async def dismiss_notifications(req: NotificationActionRequest, user_id: str = Depends(require_user)):
+    """Dismiss one or all notifications."""
+    session = session_manager.get_or_create(user_id)
+    ns = session.notification_service
+    if req.notification_id:
+        ns.dismiss(req.notification_id)
+    else:
+        ns.dismiss_all()
+    return {"success": True, "unread_count": ns.get_unread_count()}
 
 
 @app.get("/api/theme")

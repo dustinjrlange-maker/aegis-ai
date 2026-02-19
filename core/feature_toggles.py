@@ -10,6 +10,8 @@ DEFAULT_FEATURES = {
     "web_search": True,
     "personal_logs": True,
     "fact_memory": True,
+    "notifications": True,
+    "daily_briefing": True,
     # Future phases — off by default until implemented
     "calendar": False,
     "mood_tracking": False,

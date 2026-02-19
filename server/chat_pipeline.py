@@ -114,6 +114,16 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
         bracket_proto = session.protocol_registry.get("bracket_commands")
         bracket_actions = bracket_proto.get_pending_actions() if bracket_proto else []
 
+        # Generate notifications from bracket action results
+        if bracket_actions:
+            for action in bracket_actions:
+                label = action["command"].replace("_", " ").title()
+                session.notification_service.add(
+                    type="bracket_action_result",
+                    title=f"{label}: {action['arg']}",
+                    body=action.get("result", ""),
+                )
+
         session.messages.append({"role": "assistant", "content": reply})
 
         # Auto-save transcript

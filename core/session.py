@@ -28,6 +28,7 @@ from core.protocols.command import CommandProtocol
 from core.protocols.creative import CreativeProtocol
 from core.protocols.bracket_commands import BracketCommandProtocol
 from core.memory.event_manager import EventManager
+from core.notifications import NotificationService
 from core.agent import build_filler_cleaner
 from core.auth import load_user_preferences
 
@@ -90,6 +91,9 @@ class UserSession:
 
         # Event manager (local calendar)
         self.event_manager = EventManager(user_data_dir)
+
+        # Notification service (in-memory, session-scoped)
+        self.notification_service = NotificationService()
 
         # Bracket command protocol — LLM emits [COMMAND: arg] tags
         bracket_proto = BracketCommandProtocol()
