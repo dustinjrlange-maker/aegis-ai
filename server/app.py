@@ -207,6 +207,40 @@ class FeatureToggleRequest(BaseModel):
     enabled: bool
 
 
+class TaskUpdateRequest(BaseModel):
+    task_id: int
+    text: Optional[str] = None
+    priority: Optional[str] = None
+    due: Optional[str] = None
+    activity_type: Optional[str] = None
+    starred: Optional[bool] = None
+
+
+class SubtaskRequest(BaseModel):
+    task_id: int
+    action: str  # "add", "complete", "remove"
+    text: Optional[str] = None
+    index: Optional[int] = None
+
+
+class TaskStarRequest(BaseModel):
+    task_id: int
+
+
+class EventRequest(BaseModel):
+    action: str  # "add", "update", "delete", "list"
+    event_id: Optional[str] = None
+    title: Optional[str] = None
+    date: Optional[str] = None
+    time_start: Optional[str] = None
+    time_end: Optional[str] = None
+    description: Optional[str] = ""
+    all_day: Optional[bool] = False
+    category: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+
+
 # --- Auth Routes (unauthenticated) ---
 
 @app.post("/api/auth/register")
@@ -381,6 +415,139 @@ async def get_task_count(user_id: str = Depends(require_user)):
     ops = session.protocol_registry.get("operations")
     count = len(ops.get_pending_tasks()) if ops else 0
     return {"count": count}
+
+
+@app.post("/api/tasks/update")
+async def update_task(req: TaskUpdateRequest, user_id: str = Depends(require_user)):
+    """Update task fields (text, priority, due, activity_type, starred)."""
+    session = session_manager.get_or_create(user_id)
+    ops = session.protocol_registry.get("operations")
+    if not ops:
+        return {"error": "Operations protocol not available"}
+    updates = {}
+    if req.text is not None:
+        updates["text"] = req.text
+    if req.priority is not None:
+        updates["priority"] = req.priority
+    if req.due is not None:
+        updates["due"] = req.due
+    if req.activity_type is not None:
+        updates["activity_type"] = req.activity_type
+    if req.starred is not None:
+        updates["starred"] = req.starred
+    task = ops.update_task(req.task_id, **updates)
+    return {"success": bool(task), "task": task}
+
+
+@app.post("/api/tasks/subtask")
+async def manage_subtask(req: SubtaskRequest, user_id: str = Depends(require_user)):
+    """Add, complete, or remove subtasks."""
+    session = session_manager.get_or_create(user_id)
+    ops = session.protocol_registry.get("operations")
+    if not ops:
+        return {"error": "Operations protocol not available"}
+    if req.action == "add" and req.text:
+        task = ops.add_subtask(req.task_id, req.text)
+        return {"success": bool(task), "task": task}
+    elif req.action == "complete" and req.index is not None:
+        task = ops.complete_subtask(req.task_id, req.index)
+        return {"success": bool(task), "task": task}
+    elif req.action == "remove" and req.index is not None:
+        task = ops.remove_subtask(req.task_id, req.index)
+        return {"success": bool(task), "task": task}
+    return {"error": "Invalid subtask action. Use: add, complete, remove"}
+
+
+@app.post("/api/tasks/star")
+async def toggle_task_star(req: TaskStarRequest, user_id: str = Depends(require_user)):
+    """Toggle star on a task."""
+    session = session_manager.get_or_create(user_id)
+    ops = session.protocol_registry.get("operations")
+    if not ops:
+        return {"error": "Operations protocol not available"}
+    task = ops.toggle_star(req.task_id)
+    return {"success": bool(task), "task": task}
+
+
+@app.post("/api/events")
+async def manage_events(req: EventRequest, user_id: str = Depends(require_user)):
+    """Local event CRUD."""
+    session = session_manager.get_or_create(user_id)
+    em = session.event_manager
+    if req.action == "add" and req.title and req.date:
+        event = em.add_event(
+            title=req.title, date=req.date,
+            time_start=req.time_start, time_end=req.time_end,
+            description=req.description or "",
+            all_day=req.all_day or False,
+            category=req.category or "general",
+        )
+        return {"success": True, "event": event}
+    elif req.action == "update" and req.event_id:
+        updates = {}
+        for field in ("title", "date", "time_start", "time_end",
+                       "description", "all_day", "category"):
+            val = getattr(req, field, None)
+            if val is not None:
+                updates[field] = val
+        event = em.update_event(req.event_id, **updates)
+        return {"success": bool(event), "event": event}
+    elif req.action == "delete" and req.event_id:
+        return {"success": em.delete_event(req.event_id)}
+    elif req.action == "list":
+        events = em.list_events(req.start_date, req.end_date)
+        return {"events": events}
+    return {"error": "Invalid action. Use: add, update, delete, list"}
+
+
+@app.get("/api/calendar/month/{year}/{month}")
+async def calendar_month(year: int, month: int, user_id: str = Depends(require_user)):
+    """Get local + Google events for a calendar month view."""
+    import calendar as cal_mod
+    first_day = 1
+    last_day = cal_mod.monthrange(year, month)[1]
+    start_date = f"{year:04d}-{month:02d}-{first_day:02d}"
+    end_date = f"{year:04d}-{month:02d}-{last_day:02d}"
+
+    session = session_manager.get_or_create(user_id)
+    local_events = session.event_manager.list_events(start_date, end_date)
+
+    google_events = []
+    try:
+        google_proto = session.protocol_registry.get("google")
+        if google_proto:
+            creds = google_proto._get_creds()
+            if creds:
+                from core.protocols.google_tools import calendar_upcoming
+                from datetime import datetime as dt, timedelta
+                month_start = dt(year, month, 1)
+                month_end = dt(year, month, last_day, 23, 59, 59)
+                now = dt.now()
+                if month_end > now:
+                    days_ahead = (month_end - now).days + 1
+                    raw = calendar_upcoming(creds, days=days_ahead)
+                    for ev in raw:
+                        ev_date = ev.get("start", "")[:10]
+                        if start_date <= ev_date <= end_date:
+                            google_events.append({
+                                "id": "g_" + ev.get("summary", "")[:8],
+                                "title": ev.get("summary", "(no title)"),
+                                "date": ev_date,
+                                "time_start": ev.get("start", "")[11:16] or None,
+                                "time_end": ev.get("end", "")[11:16] or None,
+                                "description": ev.get("location", ""),
+                                "source": "google",
+                                "read_only": True,
+                            })
+    except Exception:
+        pass
+
+    return {
+        "year": year,
+        "month": month,
+        "local_events": local_events,
+        "google_events": google_events,
+    }
 
 
 @app.get("/api/theme")

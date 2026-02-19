@@ -12,7 +12,8 @@
         "Switch personality/voice/theme packs",
         "Search the web and fetch web pages for information",
         "Read and send Gmail (when connected)",
-        "View and create Google Calendar events (when connected)"
+        "View and create Google Calendar events (when connected)",
+        "Create calendar events using [ADD_EVENT: YYYY-MM-DD | title]"
     ],
     "cannot_do": [
         "Make phone calls, video calls, or join meetings",

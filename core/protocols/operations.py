@@ -41,13 +41,17 @@ class OperationsProtocol(Protocol):
         self._load_recurring()
 
     def _load_tasks(self):
-        """Load tasks from disk."""
+        """Load tasks from disk, backfilling new schema defaults."""
         if self.TASK_FILE.exists():
             try:
                 with open(self.TASK_FILE, "r", encoding="utf-8") as f:
                     self._tasks = json.load(f)
             except (json.JSONDecodeError, IOError):
                 self._tasks = []
+        for task in self._tasks:
+            task.setdefault("subtasks", [])
+            task.setdefault("starred", False)
+            task.setdefault("activity_type", "general")
 
     def _save_tasks(self):
         """Persist tasks to disk."""
@@ -239,7 +243,8 @@ class OperationsProtocol(Protocol):
 
     # --- Task Management ---
 
-    def add_task(self, text, priority="normal", due=None, category="general"):
+    def add_task(self, text, priority="normal", due=None, category="general",
+                 activity_type="general"):
         """Add a task to the list."""
         task = {
             "id": len(self._tasks) + 1,
@@ -250,6 +255,9 @@ class OperationsProtocol(Protocol):
             "created": datetime.now().isoformat(),
             "completed": False,
             "completed_at": None,
+            "subtasks": [],
+            "starred": False,
+            "activity_type": activity_type,
         }
         self._tasks.append(task)
         self._save_tasks()
@@ -273,6 +281,59 @@ class OperationsProtocol(Protocol):
             self._save_tasks()
             return True
         return False
+
+    def update_task(self, task_id, **updates):
+        """Update allowed fields on a task."""
+        allowed = {"text", "priority", "due", "activity_type", "starred"}
+        for task in self._tasks:
+            if task["id"] == task_id:
+                for k, v in updates.items():
+                    if k in allowed:
+                        task[k] = v
+                self._save_tasks()
+                return task
+        return None
+
+    def add_subtask(self, task_id, text):
+        """Add a subtask to a task."""
+        for task in self._tasks:
+            if task["id"] == task_id:
+                task.setdefault("subtasks", [])
+                task["subtasks"].append({"text": text, "completed": False})
+                self._save_tasks()
+                return task
+        return None
+
+    def complete_subtask(self, task_id, subtask_idx):
+        """Mark a subtask as completed."""
+        for task in self._tasks:
+            if task["id"] == task_id:
+                subs = task.get("subtasks", [])
+                if 0 <= subtask_idx < len(subs):
+                    subs[subtask_idx]["completed"] = True
+                    self._save_tasks()
+                    return task
+        return None
+
+    def remove_subtask(self, task_id, subtask_idx):
+        """Remove a subtask by index."""
+        for task in self._tasks:
+            if task["id"] == task_id:
+                subs = task.get("subtasks", [])
+                if 0 <= subtask_idx < len(subs):
+                    subs.pop(subtask_idx)
+                    self._save_tasks()
+                    return task
+        return None
+
+    def toggle_star(self, task_id):
+        """Toggle the starred flag on a task."""
+        for task in self._tasks:
+            if task["id"] == task_id:
+                task["starred"] = not task.get("starred", False)
+                self._save_tasks()
+                return task
+        return None
 
     def get_pending_tasks(self):
         """Get all incomplete tasks."""

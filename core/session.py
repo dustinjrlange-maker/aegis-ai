@@ -27,6 +27,7 @@ from core.protocols.google import GoogleProtocol
 from core.protocols.command import CommandProtocol
 from core.protocols.creative import CreativeProtocol
 from core.protocols.bracket_commands import BracketCommandProtocol
+from core.memory.event_manager import EventManager
 from core.agent import build_filler_cleaner
 from core.auth import load_user_preferences
 
@@ -87,11 +88,15 @@ class UserSession:
         self.protocol_registry.register(CommandProtocol())
         self.protocol_registry.register(CreativeProtocol())
 
+        # Event manager (local calendar)
+        self.event_manager = EventManager(user_data_dir)
+
         # Bracket command protocol — LLM emits [COMMAND: arg] tags
         bracket_proto = BracketCommandProtocol()
         bracket_proto.register_handler("REMEMBER", self._handle_remember)
         bracket_proto.register_handler("ADD_TASK", self._handle_add_task)
         bracket_proto.register_handler("COMPLETE_TASK", self._handle_complete_task)
+        bracket_proto.register_handler("ADD_EVENT", self._handle_add_event)
         self.protocol_registry.register(bracket_proto)
 
         # Tracking
@@ -131,6 +136,18 @@ class UserSession:
             return f"Invalid task ID: {task_ref}"
         result = ops.complete_task(task_id)
         return f"Task #{task_id} completed" if result else f"Task #{task_id} not found"
+
+    def _handle_add_event(self, arg: str) -> str:
+        """Create a local event from bracket command: YYYY-MM-DD | title."""
+        parts = arg.split("|", 1)
+        if len(parts) != 2:
+            return "Invalid format. Use: YYYY-MM-DD | title"
+        date_str = parts[0].strip()
+        title = parts[1].strip()
+        if not title:
+            return "Event title is empty"
+        event = self.event_manager.add_event(title=title, date=date_str)
+        return f"Event '{event['title']}' created on {event['date']}"
 
     def touch(self):
         """Update last activity timestamp."""

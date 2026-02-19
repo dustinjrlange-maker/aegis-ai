@@ -990,6 +990,256 @@
             padding: 24px;
         }
 
+        .task-star {
+            cursor: pointer;
+            font-size: 14px;
+            color: var(--lcars-grey-2);
+            flex-shrink: 0;
+            user-select: none;
+        }
+        .task-star.starred { color: #f59e0b; }
+
+        .task-meta-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-top: 2px;
+        }
+
+        .task-due-badge {
+            font-size: 9px;
+            color: var(--lcars-text-dim);
+            background: rgba(255,255,255,0.06);
+            border-radius: 3px;
+            padding: 1px 5px;
+            font-family: var(--font-display);
+        }
+
+        .task-activity-badge {
+            font-size: 9px;
+            color: var(--lcars-blue-1);
+            text-transform: uppercase;
+            font-family: var(--font-display);
+            letter-spacing: 0.5px;
+        }
+
+        .task-subtasks {
+            margin: 4px 0 0 18px;
+        }
+
+        .task-subtask-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--lcars-text-dim);
+            padding: 2px 0;
+        }
+
+        .task-subtask-item input[type="checkbox"] {
+            accent-color: var(--lcars-blue-1);
+            cursor: pointer;
+        }
+
+        .task-subtask-item.done { text-decoration: line-through; opacity: 0.5; }
+
+        .task-subtask-add {
+            font-size: 10px;
+            color: var(--lcars-blue-1);
+            cursor: pointer;
+            margin-top: 2px;
+            font-family: var(--font-display);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .task-subtask-add:hover { text-decoration: underline; }
+
+        .task-subtask-remove {
+            font-size: 9px;
+            color: var(--lcars-grey-2);
+            cursor: pointer;
+            margin-left: auto;
+        }
+        .task-subtask-remove:hover { color: var(--lcars-warning); }
+
+        .task-edit-form {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 8px 10px;
+            background: rgba(255,255,255,0.03);
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .task-edit-form input, .task-edit-form select {
+            background: var(--lcars-surface);
+            border: 1px solid var(--lcars-grey-1);
+            border-radius: 3px;
+            color: var(--lcars-text);
+            padding: 5px 8px;
+            font-size: 12px;
+            font-family: var(--font-body);
+        }
+        .task-edit-form .task-edit-actions {
+            display: flex;
+            gap: 6px;
+            justify-content: flex-end;
+        }
+        .task-edit-form button {
+            background: var(--lcars-blue-1);
+            border: none;
+            border-radius: 3px;
+            color: #000;
+            font-family: var(--font-display);
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            padding: 4px 10px;
+            cursor: pointer;
+        }
+        .task-edit-form button.cancel-btn {
+            background: var(--lcars-grey-1);
+            color: var(--lcars-text-dim);
+        }
+
+        /* ========== CALENDAR PANEL ========== */
+
+        .cal-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .cal-nav button {
+            background: var(--lcars-grey-1);
+            border: none;
+            border-radius: 4px;
+            color: var(--lcars-text);
+            font-family: var(--font-display);
+            font-size: 14px;
+            padding: 6px 14px;
+            cursor: pointer;
+        }
+        .cal-nav button:hover { background: var(--lcars-blue-1); color: #000; }
+        .cal-nav span {
+            font-family: var(--font-display);
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--lcars-blue-1);
+        }
+
+        .cal-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+        }
+        .cal-header {
+            text-align: center;
+            font-family: var(--font-display);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--lcars-text-dim);
+            padding: 4px 0;
+        }
+        .cal-day {
+            aspect-ratio: 1;
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 4px 2px;
+            cursor: pointer;
+            position: relative;
+            font-size: 12px;
+        }
+        .cal-day:hover { background: rgba(255,255,255,0.05); }
+        .cal-day.today { border-color: var(--lcars-blue-1); border-width: 2px; }
+        .cal-day.other-month { opacity: 0.3; }
+        .cal-day-num {
+            font-family: var(--font-display);
+            font-size: 11px;
+        }
+        .cal-event-dots {
+            display: flex;
+            gap: 2px;
+            margin-top: 2px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .cal-event-dot {
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: var(--lcars-blue-1);
+        }
+        .cal-event-dot.google { background: #34a853; }
+
+        .cal-event-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .cal-event-time {
+            font-family: var(--font-display);
+            font-size: 11px;
+            color: var(--lcars-text-dim);
+            min-width: 50px;
+        }
+        .cal-event-title {
+            flex: 1;
+            font-size: 13px;
+        }
+        .cal-event-source {
+            font-size: 9px;
+            font-family: var(--font-display);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #34a853;
+        }
+        .cal-event-delete {
+            font-size: 10px;
+            color: var(--lcars-grey-2);
+            cursor: pointer;
+            font-family: var(--font-display);
+        }
+        .cal-event-delete:hover { color: var(--lcars-warning); }
+
+        .cal-event-form {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .cal-event-form input[type="text"],
+        .cal-event-form input[type="date"],
+        .cal-event-form input[type="time"] {
+            background: var(--lcars-surface);
+            border: 1px solid var(--lcars-grey-1);
+            border-radius: 4px;
+            color: var(--lcars-text);
+            padding: 8px 10px;
+            font-family: var(--font-body);
+            font-size: 13px;
+        }
+        .cal-event-form input:focus { border-color: var(--lcars-blue-1); outline: none; }
+        .cal-event-form button {
+            background: var(--lcars-blue-1);
+            border: none;
+            border-radius: 4px;
+            color: #000;
+            font-family: var(--font-display);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 8px 14px;
+            cursor: pointer;
+        }
+
         /* ========== HISTORY PANEL ========== */
 
         .history-item {
@@ -2202,6 +2452,11 @@
             </div>
 
             <div class="sidebar-section">
+                <div class="sidebar-section-title">Calendar</div>
+                <button class="sidebar-action-btn" onclick="openCalendarPanel()" aria-label="View calendar">VIEW</button>
+            </div>
+
+            <div class="sidebar-section">
                 <div class="sidebar-section-title">History</div>
                 <button class="sidebar-action-btn" onclick="openHistoryPanel()" aria-label="Browse session history">BROWSE</button>
             </div>
@@ -2313,9 +2568,69 @@
                 <option value="high">High</option>
                 <option value="low">Low</option>
             </select>
+            <input type="date" id="taskDueDate" aria-label="Due date" style="width:120px;">
             <button onclick="addTask()">ADD</button>
         </div>
         <div id="taskList"></div>
+    </div>
+</div>
+
+<!-- Calendar Panel -->
+<div class="panel-overlay" id="calendarPanelOverlay" onclick="closeCalendarPanel()"></div>
+<div class="panel" id="calendarPanel" role="dialog" aria-label="Calendar">
+    <div class="panel-header">
+        <span>Calendar</span>
+        <button class="panel-close-btn" onclick="closeCalendarPanel()" aria-label="Close">&times;</button>
+    </div>
+    <div class="panel-body">
+        <!-- Month navigation -->
+        <div class="cal-nav">
+            <button onclick="calPrevMonth()" aria-label="Previous month">&lt;</button>
+            <span id="calMonthLabel"></span>
+            <button onclick="calNextMonth()" aria-label="Next month">&gt;</button>
+        </div>
+        <!-- Calendar grid -->
+        <div id="calGridView">
+            <div class="cal-grid">
+                <div class="cal-header">Sun</div>
+                <div class="cal-header">Mon</div>
+                <div class="cal-header">Tue</div>
+                <div class="cal-header">Wed</div>
+                <div class="cal-header">Thu</div>
+                <div class="cal-header">Fri</div>
+                <div class="cal-header">Sat</div>
+            </div>
+            <div class="cal-grid" id="calDays"></div>
+        </div>
+        <!-- Day detail view (hidden by default) -->
+        <div id="calDayView" style="display:none">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+                <button class="panel-back-btn" onclick="calCloseDay()">BACK</button>
+                <span id="calDayLabel" style="font-family:var(--font-display);font-size:14px;text-transform:uppercase;letter-spacing:1px"></span>
+            </div>
+            <div id="calDayEvents"></div>
+            <button class="sidebar-action-btn" onclick="calShowAddForm()" style="margin-top:12px">ADD EVENT</button>
+        </div>
+        <!-- Add event form (hidden by default) -->
+        <div id="calAddForm" style="display:none">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+                <button class="panel-back-btn" onclick="calHideAddForm()">BACK</button>
+                <span style="font-family:var(--font-display);font-size:14px;text-transform:uppercase;letter-spacing:1px">New Event</span>
+            </div>
+            <div class="cal-event-form">
+                <input type="text" id="calEventTitle" placeholder="Event title">
+                <input type="date" id="calEventDate">
+                <div style="display:flex;gap:8px">
+                    <input type="time" id="calEventStart" placeholder="Start" style="flex:1">
+                    <input type="time" id="calEventEnd" placeholder="End" style="flex:1">
+                </div>
+                <input type="text" id="calEventDesc" placeholder="Description (optional)">
+                <label style="font-size:11px;color:var(--lcars-text-dim);display:flex;align-items:center;gap:6px">
+                    <input type="checkbox" id="calEventAllDay"> All day
+                </label>
+                <button onclick="calAddEvent()">CREATE</button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -3101,6 +3416,8 @@ async function loadStatus() {
 
 // ========== TASK PANEL ==========
 
+var _editingTaskId = null;
+
 function openTaskPanel() {
     document.getElementById('taskPanelOverlay').classList.add('open');
     document.getElementById('taskPanel').classList.add('open');
@@ -3110,6 +3427,7 @@ function openTaskPanel() {
 function closeTaskPanel() {
     document.getElementById('taskPanelOverlay').classList.remove('open');
     document.getElementById('taskPanel').classList.remove('open');
+    _editingTaskId = null;
 }
 
 async function loadTasks() {
@@ -3134,39 +3452,106 @@ function renderTasks(tasks) {
         return;
     }
 
-    container.innerHTML = tasks.map(function(t) {
-        const pClass = (t.priority || 'normal').toLowerCase();
+    // Sort: starred first, then by id
+    var sorted = tasks.slice().sort(function(a, b) {
+        if (a.starred && !b.starred) return -1;
+        if (!a.starred && b.starred) return 1;
+        return a.id - b.id;
+    });
+
+    container.innerHTML = sorted.map(function(t) {
+        var pClass = (t.priority || 'normal').toLowerCase();
+        var starClass = t.starred ? 'task-star starred' : 'task-star';
+        var starChar = t.starred ? '&#9733;' : '&#9734;';
+        var dueBadge = t.due ? '<span class="task-due-badge">' + escapeHtml(t.due.substring(0, 10)) + '</span>' : '';
+        var actBadge = (t.activity_type && t.activity_type !== 'general')
+            ? '<span class="task-activity-badge">' + escapeHtml(t.activity_type) + '</span>' : '';
+        var metaRow = (dueBadge || actBadge)
+            ? '<div class="task-meta-row">' + actBadge + dueBadge + '</div>' : '';
+
+        // Subtasks
+        var subs = t.subtasks || [];
+        var subCount = subs.length > 0
+            ? ' <span style="font-size:10px;color:var(--lcars-text-dim)">(' +
+              subs.filter(function(s){return s.completed;}).length + '/' + subs.length + ')</span>'
+            : '';
+        var subHtml = '';
+        if (subs.length > 0) {
+            subHtml = '<div class="task-subtasks">' + subs.map(function(s, idx) {
+                var doneClass = s.completed ? ' done' : '';
+                var checked = s.completed ? ' checked' : '';
+                return '<div class="task-subtask-item' + doneClass + '">' +
+                    '<input type="checkbox"' + checked + ' onchange="completeSubtask(' + t.id + ',' + idx + ')">' +
+                    '<span>' + escapeHtml(s.text) + '</span>' +
+                    '<span class="task-subtask-remove" onclick="removeSubtask(' + t.id + ',' + idx + ')">X</span>' +
+                '</div>';
+            }).join('') +
+            '<div class="task-subtask-add" onclick="addSubtask(' + t.id + ')">+ subtask</div>' +
+            '</div>';
+        } else {
+            subHtml = '<div class="task-subtasks"><div class="task-subtask-add" onclick="addSubtask(' + t.id + ')">+ subtask</div></div>';
+        }
+
+        // Edit form (shown if editing this task)
+        var editForm = '';
+        if (_editingTaskId === t.id) {
+            editForm = '<div class="task-edit-form" id="taskEditForm_' + t.id + '">' +
+                '<input type="text" id="editText_' + t.id + '" value="' + escapeHtml(t.text || '') + '" placeholder="Task text">' +
+                '<div style="display:flex;gap:6px">' +
+                    '<select id="editPri_' + t.id + '">' +
+                        '<option value="normal"' + (t.priority === 'normal' ? ' selected' : '') + '>Normal</option>' +
+                        '<option value="high"' + (t.priority === 'high' ? ' selected' : '') + '>High</option>' +
+                        '<option value="low"' + (t.priority === 'low' ? ' selected' : '') + '>Low</option>' +
+                    '</select>' +
+                    '<input type="date" id="editDue_' + t.id + '" value="' + escapeHtml((t.due || '').substring(0, 10)) + '">' +
+                    '<input type="text" id="editAct_' + t.id + '" value="' + escapeHtml(t.activity_type || 'general') + '" placeholder="Activity type" style="width:80px">' +
+                '</div>' +
+                '<div class="task-edit-actions">' +
+                    '<button class="cancel-btn" onclick="cancelEditTask()">CANCEL</button>' +
+                    '<button onclick="saveTask(' + t.id + ')">SAVE</button>' +
+                '</div>' +
+            '</div>';
+        }
+
         return '<div class="task-item">' +
+            '<span class="' + starClass + '" onclick="toggleStar(' + t.id + ')">' + starChar + '</span>' +
             '<div class="task-priority ' + escapeHtml(pClass) + '"></div>' +
-            '<div class="task-text">' + escapeHtml(t.text || t.description || '') + '</div>' +
+            '<div style="flex:1">' +
+                '<div class="task-text">' + escapeHtml(t.text || '') + subCount + '</div>' +
+                metaRow +
+                subHtml +
+            '</div>' +
             '<div class="task-actions">' +
+                '<button onclick="editTask(' + t.id + ')" aria-label="Edit task">EDIT</button>' +
                 '<button class="done-btn" onclick="completeTask(' + t.id + ')" aria-label="Complete task">DONE</button>' +
                 '<button onclick="removeTask(' + t.id + ')" aria-label="Remove task">X</button>' +
             '</div>' +
-        '</div>';
+        '</div>' + editForm;
     }).join('');
 }
 
 function updateTaskCount(tasks) {
-    const el = document.getElementById('taskCount');
+    var el = document.getElementById('taskCount');
     el.textContent = tasks.length > 0 ? '(' + tasks.length + ')' : '';
 }
 
 async function loadTaskCount() {
     try {
-        const res = await authFetch(API + '/tasks/count');
-        const data = await res.json();
-        const el = document.getElementById('taskCount');
+        var res = await authFetch(API + '/tasks/count');
+        var data = await res.json();
+        var el = document.getElementById('taskCount');
         el.textContent = data.count > 0 ? '(' + data.count + ')' : '';
     } catch (e) {}
 }
 
 async function addTask() {
-    const input = document.getElementById('taskInput');
-    const text = input.value.trim();
+    var input = document.getElementById('taskInput');
+    var text = input.value.trim();
     if (!text) return;
 
-    const priority = document.getElementById('taskPriority').value;
+    var priority = document.getElementById('taskPriority').value;
+    var dueEl = document.getElementById('taskDueDate');
+    var due = dueEl ? dueEl.value : '';
 
     try {
         await authFetch(API + '/tasks', {
@@ -3175,6 +3560,25 @@ async function addTask() {
             body: JSON.stringify({action: 'add', text: text, priority: priority}),
         });
         input.value = '';
+        if (dueEl) dueEl.value = '';
+        // If due date was set, update the task
+        if (due) {
+            var res2 = await authFetch(API + '/tasks', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({action: 'list'}),
+            });
+            var data2 = await res2.json();
+            var tasks = data2.tasks || [];
+            if (tasks.length > 0) {
+                var newest = tasks[tasks.length - 1];
+                await authFetch(API + '/tasks/update', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({task_id: newest.id, due: due}),
+                });
+            }
+        }
         loadTasks();
     } catch (e) {}
 }
@@ -3199,6 +3603,301 @@ async function removeTask(id) {
         });
         loadTasks();
     } catch (e) {}
+}
+
+async function toggleStar(id) {
+    try {
+        await authFetch(API + '/tasks/star', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({task_id: id}),
+        });
+        loadTasks();
+    } catch (e) {}
+}
+
+async function addSubtask(taskId) {
+    var text = prompt('Subtask:');
+    if (!text || !text.trim()) return;
+    try {
+        await authFetch(API + '/tasks/subtask', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({task_id: taskId, action: 'add', text: text.trim()}),
+        });
+        loadTasks();
+    } catch (e) {}
+}
+
+async function completeSubtask(taskId, idx) {
+    try {
+        await authFetch(API + '/tasks/subtask', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({task_id: taskId, action: 'complete', index: idx}),
+        });
+        loadTasks();
+    } catch (e) {}
+}
+
+async function removeSubtask(taskId, idx) {
+    try {
+        await authFetch(API + '/tasks/subtask', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({task_id: taskId, action: 'remove', index: idx}),
+        });
+        loadTasks();
+    } catch (e) {}
+}
+
+function editTask(id) {
+    _editingTaskId = (_editingTaskId === id) ? null : id;
+    loadTasks();
+}
+
+function cancelEditTask() {
+    _editingTaskId = null;
+    loadTasks();
+}
+
+async function saveTask(id) {
+    var text = document.getElementById('editText_' + id);
+    var pri = document.getElementById('editPri_' + id);
+    var due = document.getElementById('editDue_' + id);
+    var act = document.getElementById('editAct_' + id);
+    if (!text) return;
+
+    var body = {task_id: id};
+    body.text = text.value.trim();
+    body.priority = pri ? pri.value : 'normal';
+    body.due = due ? due.value : '';
+    body.activity_type = act ? act.value.trim() : 'general';
+
+    try {
+        await authFetch(API + '/tasks/update', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body),
+        });
+        _editingTaskId = null;
+        showToast('Task updated');
+        loadTasks();
+    } catch (e) {}
+}
+
+// ========== CALENDAR PANEL ==========
+
+var calCurrentDate = new Date();
+var _calSelectedDay = null;
+var _calLocalEvents = [];
+var _calGoogleEvents = [];
+
+var MONTH_NAMES = ['January','February','March','April','May','June',
+    'July','August','September','October','November','December'];
+
+function openCalendarPanel() {
+    document.getElementById('calendarPanelOverlay').classList.add('open');
+    document.getElementById('calendarPanel').classList.add('open');
+    calCurrentDate = new Date();
+    _calSelectedDay = null;
+    calRenderMonth();
+}
+
+function closeCalendarPanel() {
+    document.getElementById('calendarPanelOverlay').classList.remove('open');
+    document.getElementById('calendarPanel').classList.remove('open');
+}
+
+function calPrevMonth() {
+    calCurrentDate.setMonth(calCurrentDate.getMonth() - 1);
+    _calSelectedDay = null;
+    calRenderMonth();
+}
+
+function calNextMonth() {
+    calCurrentDate.setMonth(calCurrentDate.getMonth() + 1);
+    _calSelectedDay = null;
+    calRenderMonth();
+}
+
+async function calRenderMonth() {
+    var y = calCurrentDate.getFullYear();
+    var m = calCurrentDate.getMonth() + 1;
+
+    document.getElementById('calMonthLabel').textContent = MONTH_NAMES[m - 1] + ' ' + y;
+    document.getElementById('calGridView').style.display = '';
+    document.getElementById('calDayView').style.display = 'none';
+    document.getElementById('calAddForm').style.display = 'none';
+
+    try {
+        var res = await authFetch(API + '/calendar/month/' + y + '/' + m);
+        var data = await res.json();
+        _calLocalEvents = data.local_events || [];
+        _calGoogleEvents = data.google_events || [];
+    } catch (e) {
+        _calLocalEvents = [];
+        _calGoogleEvents = [];
+    }
+
+    // Build day grid
+    var firstDay = new Date(y, m - 1, 1).getDay(); // 0=Sun
+    var daysInMonth = new Date(y, m, 0).getDate();
+    var prevDays = new Date(y, m - 1, 0).getDate();
+
+    var today = new Date();
+    var todayStr = today.getFullYear() + '-' +
+        String(today.getMonth() + 1).padStart(2, '0') + '-' +
+        String(today.getDate()).padStart(2, '0');
+
+    var cells = '';
+
+    // Previous month fill
+    for (var p = firstDay - 1; p >= 0; p--) {
+        var pd = prevDays - p;
+        cells += '<div class="cal-day other-month"><span class="cal-day-num">' + pd + '</span></div>';
+    }
+
+    // Current month
+    for (var d = 1; d <= daysInMonth; d++) {
+        var dateStr = y + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+        var isToday = (dateStr === todayStr);
+
+        // Count events for this day
+        var localCount = _calLocalEvents.filter(function(e) { return e.date === dateStr; }).length;
+        var googleCount = _calGoogleEvents.filter(function(e) { return e.date === dateStr; }).length;
+
+        var dots = '';
+        if (localCount > 0 || googleCount > 0) {
+            dots = '<div class="cal-event-dots">';
+            for (var li = 0; li < Math.min(localCount, 3); li++) dots += '<div class="cal-event-dot"></div>';
+            for (var gi = 0; gi < Math.min(googleCount, 3); gi++) dots += '<div class="cal-event-dot google"></div>';
+            dots += '</div>';
+        }
+
+        cells += '<div class="cal-day' + (isToday ? ' today' : '') + '" onclick="calShowDay(\'' + dateStr + '\')">' +
+            '<span class="cal-day-num">' + d + '</span>' +
+            dots +
+        '</div>';
+    }
+
+    // Next month fill
+    var totalCells = firstDay + daysInMonth;
+    var remaining = (7 - (totalCells % 7)) % 7;
+    for (var n = 1; n <= remaining; n++) {
+        cells += '<div class="cal-day other-month"><span class="cal-day-num">' + n + '</span></div>';
+    }
+
+    document.getElementById('calDays').innerHTML = cells;
+}
+
+function calShowDay(dateStr) {
+    _calSelectedDay = dateStr;
+    document.getElementById('calGridView').style.display = 'none';
+    document.getElementById('calDayView').style.display = '';
+    document.getElementById('calAddForm').style.display = 'none';
+
+    // Format label
+    var parts = dateStr.split('-');
+    var dt = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    var dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    document.getElementById('calDayLabel').textContent =
+        dayNames[dt.getDay()] + ', ' + MONTH_NAMES[dt.getMonth()] + ' ' + dt.getDate() + ', ' + dt.getFullYear();
+
+    // Gather events
+    var dayLocal = _calLocalEvents.filter(function(e) { return e.date === dateStr; });
+    var dayGoogle = _calGoogleEvents.filter(function(e) { return e.date === dateStr; });
+    var all = dayLocal.concat(dayGoogle);
+
+    var container = document.getElementById('calDayEvents');
+    if (all.length === 0) {
+        container.innerHTML = '<div class="task-empty">No events</div>';
+        return;
+    }
+
+    container.innerHTML = all.map(function(ev) {
+        var timeStr = ev.all_day ? 'All day' : (ev.time_start || '');
+        if (ev.time_end && !ev.all_day) timeStr += ' - ' + ev.time_end;
+        var source = ev.source === 'google' ? '<span class="cal-event-source">Google</span>' : '';
+        var deleteBtn = ev.read_only ? '' :
+            '<span class="cal-event-delete" onclick="calDeleteEvent(\'' + ev.id + '\')">DEL</span>';
+        return '<div class="cal-event-item">' +
+            '<span class="cal-event-time">' + escapeHtml(timeStr) + '</span>' +
+            '<span class="cal-event-title">' + escapeHtml(ev.title) + '</span>' +
+            source + deleteBtn +
+        '</div>';
+    }).join('');
+}
+
+function calCloseDay() {
+    _calSelectedDay = null;
+    document.getElementById('calDayView').style.display = 'none';
+    document.getElementById('calGridView').style.display = '';
+}
+
+function calShowAddForm() {
+    document.getElementById('calDayView').style.display = 'none';
+    document.getElementById('calAddForm').style.display = '';
+    document.getElementById('calEventDate').value = _calSelectedDay || '';
+    document.getElementById('calEventTitle').value = '';
+    document.getElementById('calEventStart').value = '';
+    document.getElementById('calEventEnd').value = '';
+    document.getElementById('calEventDesc').value = '';
+    document.getElementById('calEventAllDay').checked = false;
+}
+
+function calHideAddForm() {
+    document.getElementById('calAddForm').style.display = 'none';
+    if (_calSelectedDay) {
+        document.getElementById('calDayView').style.display = '';
+    } else {
+        document.getElementById('calGridView').style.display = '';
+    }
+}
+
+async function calAddEvent() {
+    var title = document.getElementById('calEventTitle').value.trim();
+    var date = document.getElementById('calEventDate').value;
+    if (!title || !date) { showToast('Title and date are required'); return; }
+
+    var body = {
+        action: 'add',
+        title: title,
+        date: date,
+        time_start: document.getElementById('calEventStart').value || null,
+        time_end: document.getElementById('calEventEnd').value || null,
+        description: document.getElementById('calEventDesc').value || '',
+        all_day: document.getElementById('calEventAllDay').checked,
+    };
+
+    try {
+        await authFetch(API + '/events', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body),
+        });
+        showToast('Event created');
+        await calRenderMonth();
+        if (_calSelectedDay) calShowDay(_calSelectedDay);
+        else calHideAddForm();
+    } catch (e) {
+        showToast('Failed to create event');
+    }
+}
+
+async function calDeleteEvent(eventId) {
+    try {
+        await authFetch(API + '/events', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({action: 'delete', event_id: eventId}),
+        });
+        showToast('Event deleted');
+        await calRenderMonth();
+        if (_calSelectedDay) calShowDay(_calSelectedDay);
+    } catch (e) {
+        showToast('Failed to delete event');
+    }
 }
 
 // ========== HISTORY PANEL ==========
@@ -4843,13 +5542,14 @@ document.addEventListener('keydown', function(e) {
         }
         var panelIds = [
             'settingsPanelOverlay', 'vaultPanelOverlay', 'taskPanelOverlay',
-            'historyPanelOverlay', 'protoPanelOverlay', 'gpuPanelOverlay',
-            'packPanelOverlay', 'systemPanelOverlay'
+            'calendarPanelOverlay', 'historyPanelOverlay', 'protoPanelOverlay',
+            'gpuPanelOverlay', 'packPanelOverlay', 'systemPanelOverlay'
         ];
         var closeFns = {
             'settingsPanelOverlay': closeSettingsPanel,
             'vaultPanelOverlay': closeVaultPanel,
             'taskPanelOverlay': closeTaskPanel,
+            'calendarPanelOverlay': closeCalendarPanel,
             'historyPanelOverlay': closeHistoryPanel,
             'protoPanelOverlay': closeProtocolPanel,
             'gpuPanelOverlay': closeGpuPanel,
