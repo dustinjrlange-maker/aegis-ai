@@ -74,7 +74,7 @@
         .lcars-frame {
             display: grid;
             grid-template-rows: var(--top-bar-height) 1fr var(--bottom-bar-height);
-            grid-template-columns: var(--sidebar-width) 1fr;
+            grid-template-columns: 1fr var(--sidebar-width);
             height: 100dvh;
             gap: 0;
         }
@@ -98,6 +98,7 @@
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
+            order: 99;
         }
 
         .lcars-top-bar .endcap-left .hamburger {
@@ -157,7 +158,7 @@
         .lcars-top-bar .endcap-right {
             width: 80px;
             background: var(--lcars-pink-1);
-            border-radius: 0 0 24px 0;
+            border-radius: 0 0 0 24px;
             flex-shrink: 0;
         }
 
@@ -165,7 +166,7 @@
 
         .lcars-sidebar {
             grid-row: 2 / 3;
-            grid-column: 1 / 2;
+            grid-column: 2 / 3;
             background: var(--lcars-bg);
             display: flex;
             flex-direction: column;
@@ -184,12 +185,12 @@
             display: flex;
             flex-direction: column;
             gap: var(--bar-gap);
-            padding-right: 8px;
+            padding-left: 8px;
         }
 
         .sidebar-bar {
             height: 20px;
-            border-radius: 0 10px 10px 0;
+            border-radius: 10px 0 0 10px;
             flex-shrink: 0;
         }
 
@@ -371,12 +372,19 @@
 
         .lcars-content {
             grid-row: 2 / 3;
-            grid-column: 2 / 3;
-            display: flex;
-            flex-direction: column;
+            grid-column: 1 / 2;
+            display: grid;
+            grid-template-columns: 226px 1fr;
+            grid-template-rows: auto 1fr;
+            grid-template-areas: "dock ticker" "dock workspace";
             overflow: hidden;
             position: relative;
-            border-left: 3px solid var(--lcars-blue-2);
+            border-right: 3px solid var(--lcars-blue-2);
+        }
+        .lcars-content-workspace {
+            grid-area: workspace;
+            position: relative;
+            overflow: hidden;
         }
 
         /* ========== MESSAGES ========== */
@@ -636,32 +644,33 @@
             gap: var(--bar-gap);
         }
 
-        /* Elbow connector */
+        /* Elbow connector (right side) */
         .lcars-elbow {
             width: var(--sidebar-width);
             position: relative;
             flex-shrink: 0;
             background: var(--lcars-bg);
+            order: 99;
         }
 
         .lcars-elbow .elbow-outer {
             position: absolute;
             bottom: 0;
-            left: 0;
+            right: 0;
             width: 100%;
             height: 100%;
             background: var(--lcars-purple-1);
-            border-radius: 0 var(--elbow-radius) 0 0;
+            border-radius: var(--elbow-radius) 0 0 0;
         }
 
         .lcars-elbow .elbow-inner {
             position: absolute;
             bottom: 0;
-            right: 0;
+            left: 0;
             width: calc(100% - 32px);
             height: calc(100% - 32px);
             background: var(--lcars-bg);
-            border-radius: 0 var(--elbow-radius) 0 0;
+            border-radius: var(--elbow-radius) 0 0 0;
         }
 
         /* Bottom bar segments */
@@ -671,44 +680,31 @@
             flex-shrink: 0;
         }
 
-        .lcars-bottom-bar .input-wrapper {
+        /* Status readout bar (replaces input) */
+        .status-readout {
             flex: 1;
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 6px 12px;
+            gap: 12px;
+            padding: 0 16px;
             background: var(--lcars-bg);
             border-top: 3px solid var(--lcars-purple-1);
-            position: relative;
-        }
-
-        .lcars-bottom-bar .input-wrapper textarea {
-            flex: 1;
-            background: #111111;
-            border: 1px solid var(--lcars-grey-1);
-            border-radius: 4px;
-            color: var(--lcars-text);
-            padding: 8px 12px;
-            font-size: 14px;
-            font-family: var(--font-body);
-            resize: none;
-            max-height: 100px;
-            min-height: 38px;
-            line-height: 1.4;
-            outline: none;
-            transition: border-color 0.15s;
-        }
-
-        .lcars-bottom-bar .input-wrapper textarea:focus {
-            border-color: var(--lcars-blue-1);
-        }
-
-        .lcars-bottom-bar .input-wrapper textarea::placeholder {
             font-family: var(--font-display);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: var(--lcars-grey-2);
             font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--lcars-text-dim);
+        }
+        .status-readout-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--lcars-success);
+            flex-shrink: 0;
+        }
+        .status-readout-sep {
+            color: var(--lcars-grey-2);
         }
 
         /* Mic button */
@@ -779,7 +775,7 @@
             width: 40px;
             background: var(--lcars-blue-1);
             flex-shrink: 0;
-            border-radius: 0 0 24px 0;
+            border-radius: 0;
         }
 
         /* ========== COMMAND POPUP ========== */
@@ -787,15 +783,15 @@
         .cmd-popup {
             position: absolute;
             bottom: 100%;
-            left: 12px;
-            right: 12px;
+            left: 0;
+            right: 0;
             background: var(--lcars-surface);
             border: 1px solid var(--lcars-grey-1);
             border-radius: 6px;
             max-height: 240px;
             overflow-y: auto;
             display: none;
-            z-index: 50;
+            z-index: 500;
             box-shadow: 0 -4px 16px rgba(0,0,0,0.5);
         }
 
@@ -840,10 +836,11 @@
         .panel-overlay {
             position: fixed;
             inset: 0;
-            background: rgba(0, 0, 0, 0.7);
+            background: transparent;
             z-index: 299;
             display: none;
-            backdrop-filter: blur(2px);
+            backdrop-filter: none;
+            pointer-events: none;
         }
 
         .panel-overlay.open {
@@ -1850,40 +1847,43 @@
                 border-radius: 0;
             }
 
-            /* Sidebar: hidden, slides from left as overlay */
+            /* Sidebar: hidden, slides from right as overlay */
             .lcars-sidebar {
                 position: fixed;
                 top: 0;
-                left: -280px;
+                right: -280px;
+                left: auto;
                 width: 280px;
                 height: 100%;
                 z-index: 200;
                 background: var(--lcars-bg);
-                border-right: 3px solid var(--lcars-blue-2);
-                transition: left 0.25s ease;
+                border-left: 3px solid var(--lcars-blue-2);
+                transition: right 0.25s ease;
                 padding-top: var(--top-bar-height);
             }
 
             .lcars-sidebar.open {
-                left: 0;
+                right: 0;
             }
 
             /* Content: full width */
             .lcars-content {
-                grid-column: 1;
-                border-left: none;
+                grid-column: 1 / -1;
+                border-right: none;
             }
 
-            /* Bottom bar: no elbow */
+            /* Bottom bar: no elbow on mobile */
             .lcars-elbow { display: none; }
             .lcars-bottom-bar .bar-seg-b1 { display: none; }
 
             .lcars-bottom-bar {
-                grid-column: 1;
+                grid-column: 1 / -1;
             }
 
-            .lcars-bottom-bar .input-wrapper {
+            .status-readout {
                 border-top-width: 2px;
+                font-size: 10px;
+                letter-spacing: 1px;
             }
 
             .lcars-bottom-bar .bar-seg-b2 {
@@ -1908,8 +1908,8 @@
         /* ========== SAFE AREA (notched phones) ========== */
 
         @supports (padding: env(safe-area-inset-bottom)) {
-            .lcars-bottom-bar .input-wrapper {
-                padding-bottom: calc(6px + env(safe-area-inset-bottom));
+            .lcars-chat-window .chat-input-bar {
+                padding-bottom: calc(8px + env(safe-area-inset-bottom));
             }
             .lcars-top-bar {
                 padding-top: env(safe-area-inset-top);
@@ -1922,7 +1922,7 @@
             display: none;
             position: absolute;
             top: 10px;
-            right: 10px;
+            left: 10px;
             background: none;
             border: none;
             color: var(--lcars-grey-4);
@@ -2643,10 +2643,41 @@
 
         .welcome-dashboard {
             display: flex; flex-direction: column; align-items: center;
-            justify-content: center; min-height: 70vh; padding: 24px;
+            justify-content: center; padding: 20px 24px;
             animation: welcomeFadeIn 0.6s ease-out;
         }
         .welcome-dashboard.hidden { display: none; }
+
+        /* Dashboard collapsible section */
+        .dashboard-section {
+            border-bottom: 2px solid var(--lcars-blue-1);
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .dashboard-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 32px;
+            padding: 0 16px;
+            background: var(--lcars-bg);
+            border: none;
+            color: var(--lcars-blue-3);
+            font-family: var(--font-display);
+            font-size: 12px;
+            letter-spacing: 3px;
+            cursor: pointer;
+            width: 100%;
+            text-transform: uppercase;
+        }
+        .dashboard-toggle:hover { color: var(--lcars-amber); }
+        .dashboard-toggle .chevron {
+            transition: transform 0.2s ease;
+            font-size: 14px;
+        }
+        .dashboard-section.collapsed .chevron { transform: rotate(-90deg); }
+        .dashboard-section.collapsed .dashboard-content { display: none; }
+        .dashboard-section.hidden { display: none; }
         @keyframes welcomeFadeIn {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
@@ -2747,6 +2778,91 @@
         body.light-mode .lcars-panel { background: #f5f5f5; }
         body.light-mode .lcars-panel-header { color: #000; }
         body.light-mode .login-box { background: #ffffff; }
+
+        /* ========== DRAG ENGINE ========== */
+
+        .drag-handle { cursor: grab; user-select: none; }
+        .drag-handle:active { cursor: grabbing; }
+        .lcars-panel.dragging { opacity: 0.92; transition: none !important; }
+
+        /* ========== FLOATING CHAT WINDOW ========== */
+
+        .lcars-chat-window {
+            position: fixed;
+            top: 5%;
+            left: 2%;
+            width: min(700px, 58vw);
+            height: min(600px, 80vh);
+            z-index: 301;
+            display: flex;
+            flex-direction: column;
+            min-width: 320px;
+            min-height: 200px;
+            resize: both;
+            overflow: hidden;
+            background: var(--lcars-bg);
+            box-shadow: 0 0 60px rgba(59, 130, 246, 0.15), 0 0 2px rgba(59, 130, 246, 0.4);
+        }
+        .lcars-chat-window .panel-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border-left: 4px solid var(--lcars-grey-1);
+            margin-left: 12px;
+            padding: 0;
+        }
+        .lcars-chat-window .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            scroll-behavior: smooth;
+        }
+        .lcars-chat-window .chat-input-bar {
+            display: flex;
+            gap: 8px;
+            padding: 8px 12px;
+            border-top: 2px solid var(--lcars-blue-1);
+            align-items: center;
+            position: relative;
+        }
+        .lcars-chat-window .chat-input-bar textarea {
+            flex: 1;
+            background: #111111;
+            border: 1px solid var(--lcars-grey-1);
+            border-radius: 4px;
+            color: var(--lcars-text);
+            padding: 8px 12px;
+            font-size: 14px;
+            font-family: var(--font-body);
+            resize: none;
+            max-height: 100px;
+            min-height: 38px;
+            line-height: 1.4;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+        .lcars-chat-window .chat-input-bar textarea:focus {
+            border-color: var(--lcars-blue-1);
+        }
+        .lcars-chat-window .chat-input-bar textarea::placeholder {
+            font-family: var(--font-display);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--lcars-grey-2);
+            font-size: 12px;
+        }
+        .lcars-chat-window.collapsed .panel-body {
+            display: none;
+        }
+        .lcars-chat-window.collapsed {
+            height: auto !important;
+            min-height: 0;
+            resize: none;
+        }
 
         /* ========== PHASE 10: LCARS PANEL SYSTEM ========== */
 
@@ -3209,7 +3325,7 @@
         /* ========== LCARS WIDGET COMPONENT SYSTEM ========== */
 
         :root {
-            --widget-col-width: 260px;
+            --widget-col-width: 300px;
         }
 
         .lcars-widget {
@@ -3221,7 +3337,7 @@
 
         .widget-frame-top {
             display: flex;
-            height: 28px;
+            height: 32px;
             flex-shrink: 0;
         }
 
@@ -3239,7 +3355,7 @@
             padding: 0 8px;
             color: #000;
             font-family: var(--font-display);
-            font-size: 11px;
+            font-size: 12px;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 2px;
@@ -3254,12 +3370,12 @@
 
         .widget-badge {
             font-family: var(--font-mono);
-            font-size: 10px;
+            font-size: 11px;
             font-weight: 700;
             background: rgba(0,0,0,0.2);
-            padding: 1px 6px;
+            padding: 2px 7px;
             border-radius: 8px;
-            min-width: 18px;
+            min-width: 20px;
             text-align: center;
         }
 
@@ -3283,15 +3399,16 @@
         }
 
         .widget-body {
-            padding: 8px 10px 10px 10px;
+            padding: 10px 12px 12px 12px;
             font-size: 12px;
             border-left: 3px solid var(--lcars-grey-1);
             margin-left: 8px;
-            min-height: 32px;
+            min-height: 60px;
             max-height: 200px;
             overflow-y: auto;
             scrollbar-width: thin;
             scrollbar-color: var(--lcars-grey-1) transparent;
+            box-shadow: inset 0 0 12px rgba(255, 204, 102, 0.03);
         }
         .widget-body::-webkit-scrollbar { width: 3px; }
         .widget-body::-webkit-scrollbar-track { background: transparent; }
@@ -3299,7 +3416,104 @@
 
         .widget-body .data-row { padding: 2px 0; }
         .widget-body .data-row .label { font-size: 9px; }
-        .widget-body .data-row .value { font-size: 10px; max-width: 140px; }
+        .widget-body .data-row .value { font-size: 10px; max-width: 160px; }
+
+        /* Widget separator bar between widgets in dock */
+        .widget-dock .lcars-widget + .lcars-widget::before {
+            content: '';
+            display: block;
+            height: 3px;
+            margin: 0 8px 0 8px;
+            background: linear-gradient(90deg,
+                var(--lcars-amber) 0%, var(--lcars-amber) 25%,
+                transparent 25%, transparent 30%,
+                var(--lcars-blue-1) 30%, var(--lcars-blue-1) 55%,
+                transparent 55%, transparent 60%,
+                var(--lcars-purple-1) 60%, var(--lcars-purple-1) 80%,
+                transparent 80%, transparent 85%,
+                var(--lcars-orange) 85%, var(--lcars-orange) 100%);
+            opacity: 0.5;
+        }
+
+        /* Clock widget special styling */
+        .widget-clock-time {
+            font-family: var(--font-mono);
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--lcars-amber);
+            letter-spacing: 3px;
+            line-height: 1.1;
+        }
+        .widget-clock-date {
+            font-family: var(--font-display);
+            font-size: 10px;
+            color: var(--lcars-text-dim);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-top: 2px;
+        }
+        .widget-clock-stardate {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: var(--lcars-amber);
+            opacity: 0.7;
+            margin-top: 1px;
+        }
+
+        /* ========== LCARS DATA TICKER BAR ========== */
+        .lcars-ticker {
+            background: var(--lcars-surface);
+            border-bottom: 2px solid var(--lcars-amber);
+            overflow: hidden;
+            height: 26px;
+            position: relative;
+            flex-shrink: 0;
+        }
+        .lcars-ticker::before {
+            content: 'DATA FEED';
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            padding: 0 8px;
+            background: var(--lcars-amber);
+            color: #000;
+            font-family: var(--font-display);
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            z-index: 2;
+        }
+        .ticker-track {
+            display: flex;
+            align-items: center;
+            height: 100%;
+            white-space: nowrap;
+            animation: tickerScroll 40s linear infinite;
+            padding-left: 90px;
+        }
+        .ticker-item {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--lcars-amber);
+            padding: 0 12px;
+            letter-spacing: 1px;
+        }
+        .ticker-sep {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: var(--lcars-grey-2);
+            padding: 0 4px;
+        }
+        @keyframes tickerScroll {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        .lcars-content.layout-focus .lcars-ticker { display: none; }
 
         /* Widget color themes */
         .lcars-widget.theme-amber .widget-elbow { background: var(--lcars-amber); }
@@ -3438,6 +3652,7 @@
         /* ========== LAYOUT SYSTEM ========== */
 
         .widget-dock {
+            grid-area: dock;
             display: flex;
             flex-direction: column;
             gap: 6px;
@@ -3445,128 +3660,85 @@
             scrollbar-width: thin;
             scrollbar-color: var(--lcars-grey-1) transparent;
             min-width: 0;
+            border-right: 3px solid var(--lcars-amber);
+            padding: 6px;
         }
         .widget-dock::-webkit-scrollbar { width: 3px; }
         .widget-dock::-webkit-scrollbar-track { background: transparent; }
         .widget-dock::-webkit-scrollbar-thumb { background: var(--lcars-grey-1); border-radius: 2px; }
 
-        /* Bridge layout: chat left, widgets right */
-        .lcars-content.layout-bridge {
-            display: grid;
-            grid-template-columns: 1fr var(--widget-col-width);
-            grid-template-rows: 1fr;
-            grid-template-areas: "chat dock-right";
-            gap: 6px;
-            padding-right: 6px;
-        }
-        .lcars-content.layout-bridge .chat-panel {
-            grid-area: chat;
-        }
-        .lcars-content.layout-bridge #widgetDock {
-            grid-area: dock-right;
-            display: flex;
-        }
-        .lcars-content.layout-bridge #widgetDockRight {
-            display: none;
+        /* All non-focus layouts: left dock strip + ticker + workspace */
+        .lcars-content.layout-bridge .lcars-ticker,
+        .lcars-content.layout-ops .lcars-ticker,
+        .lcars-content.layout-science .lcars-ticker {
+            grid-area: ticker;
         }
 
-        /* Ops layout: widgets top, chat below */
-        .lcars-content.layout-ops {
-            display: grid;
-            grid-template-columns: 1fr;
-            grid-template-rows: auto 1fr;
-            grid-template-areas: "dock-top" "chat";
-            gap: 6px;
-        }
-        .lcars-content.layout-ops .chat-panel {
-            grid-area: chat;
-        }
-        .lcars-content.layout-ops #widgetDock {
-            grid-area: dock-top;
-            flex-direction: row;
-            flex-wrap: wrap;
-            overflow-y: visible;
-            overflow-x: auto;
-            max-height: 200px;
-            padding: 4px 6px;
-        }
-        .lcars-content.layout-ops #widgetDock .lcars-widget {
-            min-width: 150px;
-            max-width: 220px;
-            flex: 1 1 150px;
-        }
-        .lcars-content.layout-ops #widgetDockRight {
-            display: none;
-        }
-
-        /* Science layout: widgets left, chat center, widgets right */
-        .lcars-content.layout-science {
-            display: grid;
-            grid-template-columns: var(--widget-col-width) 1fr var(--widget-col-width);
-            grid-template-rows: 1fr;
-            grid-template-areas: "dock-left chat dock-right";
-            gap: 6px;
-            padding: 0 6px;
-        }
-        .lcars-content.layout-science .chat-panel {
-            grid-area: chat;
-        }
-        .lcars-content.layout-science #widgetDock {
-            grid-area: dock-left;
-            display: flex;
-        }
-        .lcars-content.layout-science #widgetDockRight {
-            grid-area: dock-right;
-            display: flex;
-        }
-
-        /* Focus layout: chat only, no widgets, no chat header */
+        /* Focus layout: no dock, no ticker — workspace fills everything */
         .lcars-content.layout-focus {
-            display: flex;
-            flex-direction: column;
-        }
-        .lcars-content.layout-focus .chat-panel-header {
-            display: none;
+            grid-template-columns: 1fr;
+            grid-template-areas: "workspace";
+            grid-template-rows: 1fr;
         }
         .lcars-content.layout-focus #widgetDock,
-        .lcars-content.layout-focus #widgetDockRight {
+        .lcars-content.layout-focus .lcars-ticker {
             display: none;
+        }
+
+        /* ========== SNAP GRID ========== */
+
+        .snap-grid-overlay {
+            display: none;
+            position: fixed;
+            pointer-events: none;
+            z-index: 9998;
+            background:
+                repeating-linear-gradient(to right, rgba(153, 204, 255, 0.08) 0px, rgba(153, 204, 255, 0.08) 1px, transparent 1px, transparent 100%),
+                repeating-linear-gradient(to bottom, rgba(153, 204, 255, 0.08) 0px, rgba(153, 204, 255, 0.08) 1px, transparent 1px, transparent 100%);
+        }
+        .snap-grid-overlay.visible { display: block; }
+        .lcars-panel.snapping {
+            transition: left 0.2s ease-out, top 0.2s ease-out;
         }
 
         /* ========== LAYOUT RESPONSIVE: TABLET ========== */
 
         @media (max-width: 1023px) {
             :root { --widget-col-width: 200px; }
-
-            /* Science degrades to Bridge on tablet */
-            .lcars-content.layout-science {
-                grid-template-columns: 1fr var(--widget-col-width);
-                grid-template-areas: "chat dock-right";
-            }
-            .lcars-content.layout-science #widgetDock {
-                display: none;
-            }
-            .lcars-content.layout-science #widgetDockRight {
-                grid-area: dock-right;
-                display: flex;
+            .lcars-content {
+                grid-template-columns: 200px 1fr;
             }
         }
 
         /* ========== LAYOUT RESPONSIVE: MOBILE ========== */
 
         @media (max-width: 767px) {
-            .lcars-content.layout-bridge,
-            .lcars-content.layout-ops,
-            .lcars-content.layout-science {
-                display: flex !important;
-                flex-direction: column !important;
+            .lcars-content {
+                grid-template-columns: 1fr !important;
+                grid-template-areas: "workspace" !important;
+                grid-template-rows: 1fr !important;
             }
 
-            .chat-panel-header { display: none !important; }
-
-            #widgetDock,
-            #widgetDockRight {
+            #widgetDock {
                 display: none !important;
+            }
+
+            .lcars-ticker {
+                display: none !important;
+            }
+
+            /* Chat window fills screen on mobile */
+            .lcars-chat-window {
+                top: 0 !important;
+                left: 0 !important;
+                width: 100vw !important;
+                height: calc(100dvh - var(--top-bar-height) - var(--bottom-bar-height)) !important;
+                min-width: 0;
+                resize: none;
+                border-radius: 0;
+            }
+            .lcars-chat-window .lcars-panel-frame-top {
+                display: none;
             }
         }
 
@@ -3805,74 +3977,21 @@
     <!-- ===== CONTENT AREA ===== -->
     <div class="lcars-content layout-focus" id="lcarsContent" role="main">
 
-        <!-- Widget Dock (primary — left or top depending on layout) -->
-        <div class="widget-dock" id="widgetDock"></div>
-
-        <!-- Chat Panel -->
-        <div class="chat-panel" id="chatPanel">
-            <div class="chat-panel-header">
-                <div class="widget-elbow"></div>
-                <div class="widget-header">
-                    <span class="widget-title">COMMS</span>
-                    <button class="chat-minimize-btn" id="chatMinBtn" onclick="toggleChatCollapse()">_</button>
-                </div>
-                <div class="widget-endcap"></div>
-            </div>
-            <div class="messages" id="messages" role="log" aria-live="polite" aria-label="Chat messages">
-                <div class="msg system" id="connectMsg">CHANNEL OPEN</div>
-
-                <!-- Welcome Dashboard (visible when no conversation active) -->
-                <div class="welcome-dashboard" id="welcomeDashboard">
-                    <div class="welcome-logo">AEGIS</div>
-                    <div class="welcome-subtitle">Autonomous Engagement &amp; Guidance Intelligence System</div>
-                    <div class="welcome-stardate" id="welcomeStardate"></div>
-
-                    <div class="welcome-bars">
-                        <div class="wb-seg" style="flex:2;background:var(--lcars-amber)"></div>
-                        <div class="wb-seg" style="flex:1;background:var(--lcars-gold)"></div>
-                        <div class="wb-seg" style="flex:3;background:var(--lcars-blue-1)"></div>
-                        <div class="wb-seg" style="flex:1;background:var(--lcars-purple-1)"></div>
-                        <div class="wb-seg" style="flex:2;background:var(--lcars-orange)"></div>
-                    </div>
-
-                    <div class="welcome-cards" id="welcomeCards">
-                        <div class="welcome-card amber" onclick="openTaskPanel()">
-                            <div class="welcome-card-value" id="wcTasks">--</div>
-                            <div class="welcome-card-label">Tasks</div>
-                        </div>
-                        <div class="welcome-card green" onclick="openHabitPanel()" data-feature="habits">
-                            <div class="welcome-card-value" id="wcHabits">--</div>
-                            <div class="welcome-card-label">Habits</div>
-                        </div>
-                        <div class="welcome-card purple" onclick="openCalendarPanel()">
-                            <div class="welcome-card-value" id="wcEvents">--</div>
-                            <div class="welcome-card-label">Events</div>
-                        </div>
-                        <div class="welcome-card ice" data-feature="weather">
-                            <div class="welcome-card-value" id="wcWeather">--</div>
-                            <div class="welcome-card-label">Weather</div>
-                        </div>
-                    </div>
-
-                    <div class="welcome-bars">
-                        <div class="wb-seg" style="flex:1;background:var(--lcars-purple-1)"></div>
-                        <div class="wb-seg" style="flex:3;background:var(--lcars-blue-1)"></div>
-                        <div class="wb-seg" style="flex:1;background:var(--lcars-amber)"></div>
-                        <div class="wb-seg" style="flex:2;background:var(--lcars-pink-1)"></div>
-                    </div>
-
-                    <div class="welcome-actions" style="margin-top:12px">
-                        <button class="lcars-btn pill amber" onclick="openBriefingPanel()">BRIEFING</button>
-                        <button class="lcars-btn pill blue" onclick="openTimerPanel()" data-feature="time_tracking">TIMER</button>
-                        <button class="lcars-btn pill purple" onclick="openMoodPanel()" data-feature="mood_tracking">MOOD</button>
-                        <button class="lcars-btn pill-left pink" onclick="openVaultPanel()">VAULT</button>
-                    </div>
-                </div>
+        <!-- Data Ticker Bar -->
+        <div class="lcars-ticker" id="lcarsTicker">
+            <div class="ticker-track" id="tickerTrack">
+                <span class="ticker-item">SYSTEM ONLINE</span>
+                <span class="ticker-sep">///</span>
+                <span class="ticker-item">AWAITING DATA</span>
+                <span class="ticker-sep">///</span>
             </div>
         </div>
 
-        <!-- Widget Dock Right (used by Science layout) -->
-        <div class="widget-dock widget-dock-right" id="widgetDockRight"></div>
+        <!-- Widget Dock (fixed left strip) -->
+        <div class="widget-dock" id="widgetDock"></div>
+
+        <!-- Workspace area (panels float here) -->
+        <div class="lcars-content-workspace" id="lcarsWorkspace"></div>
 
         <!-- ===== WIDGETS ===== -->
         <div class="lcars-widget theme-amber" id="widget-tasks" style="display:none">
@@ -3973,25 +4092,121 @@
             <div class="widget-body" id="widgetTimerBody"></div>
         </div>
 
+        <!-- WIDGET-CLOCK (theme-amber, always visible) -->
+        <div class="lcars-widget theme-amber" id="widget-clock" style="display:none">
+            <div class="widget-frame-top">
+                <div class="widget-elbow"></div>
+                <div class="widget-header">
+                    <span class="widget-title">CHRONOMETER</span>
+                </div>
+                <div class="widget-endcap"></div>
+            </div>
+            <div class="widget-body" id="widgetClockBody">
+                <div class="widget-clock-time" id="clockTime">--:--:--</div>
+                <div class="widget-clock-stardate" id="clockStardate">STARDATE --</div>
+                <div class="widget-clock-date" id="clockDate">--</div>
+            </div>
+        </div>
+
     </div>
 
-    <!-- ===== BOTTOM BAR ===== -->
+    <!-- ===== BOTTOM BAR (status readout) ===== -->
     <div class="lcars-bottom-bar">
+        <div class="bar-seg-b1"></div>
+        <div class="status-readout">
+            <div class="status-readout-dot" id="statusReadoutDot"></div>
+            <span class="status-readout-text" id="statusReadoutStardate">STARDATE --</span>
+            <span class="status-readout-sep">///</span>
+            <span class="status-readout-text" id="statusReadoutAgent">AEGIS</span>
+        </div>
+        <div class="bar-seg-b2 shimmer"></div>
         <div class="lcars-elbow">
             <div class="elbow-outer"></div>
             <div class="elbow-inner"></div>
         </div>
-        <div class="bar-seg-b1"></div>
-        <div class="input-wrapper">
+    </div>
+
+</div>
+
+<!-- ===== FLOATING CHAT WINDOW ===== -->
+<div class="lcars-chat-window" id="chatWindow">
+    <div class="lcars-panel-frame-top drag-handle">
+        <div class="lcars-panel-elbow" style="background:var(--lcars-blue-1);"></div>
+        <div class="lcars-panel-header" style="background:var(--lcars-blue-1);">
+            <span>COMMS</span>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <button class="panel-close-btn" id="chatMinBtn" onclick="toggleChatWindow()" style="font-size:16px;">_</button>
+            </div>
+        </div>
+        <div class="lcars-panel-endcap" style="background:var(--lcars-purple-1);"></div>
+    </div>
+    <div class="panel-body chat-window-body" id="chatWindowBody">
+        <!-- Collapsible Welcome Dashboard -->
+        <div class="dashboard-section" id="dashboardSection">
+            <button class="dashboard-toggle" onclick="toggleDashboard()">
+                <span>DASHBOARD</span>
+                <span class="chevron">&#9660;</span>
+            </button>
+            <div class="dashboard-content">
+                <div class="welcome-dashboard" id="welcomeDashboard">
+                    <div class="welcome-logo">AEGIS</div>
+                    <div class="welcome-subtitle">Autonomous Engagement &amp; Guidance Intelligence System</div>
+                    <div class="welcome-stardate" id="welcomeStardate"></div>
+
+                    <div class="welcome-bars">
+                        <div class="wb-seg" style="flex:2;background:var(--lcars-amber)"></div>
+                        <div class="wb-seg" style="flex:1;background:var(--lcars-gold)"></div>
+                        <div class="wb-seg" style="flex:3;background:var(--lcars-blue-1)"></div>
+                        <div class="wb-seg" style="flex:1;background:var(--lcars-purple-1)"></div>
+                        <div class="wb-seg" style="flex:2;background:var(--lcars-orange)"></div>
+                    </div>
+
+                    <div class="welcome-cards" id="welcomeCards">
+                        <div class="welcome-card amber" onclick="openTaskPanel()">
+                            <div class="welcome-card-value" id="wcTasks">--</div>
+                            <div class="welcome-card-label">Tasks</div>
+                        </div>
+                        <div class="welcome-card green" onclick="openHabitPanel()" data-feature="habits">
+                            <div class="welcome-card-value" id="wcHabits">--</div>
+                            <div class="welcome-card-label">Habits</div>
+                        </div>
+                        <div class="welcome-card purple" onclick="openCalendarPanel()">
+                            <div class="welcome-card-value" id="wcEvents">--</div>
+                            <div class="welcome-card-label">Events</div>
+                        </div>
+                        <div class="welcome-card ice" data-feature="weather">
+                            <div class="welcome-card-value" id="wcWeather">--</div>
+                            <div class="welcome-card-label">Weather</div>
+                        </div>
+                    </div>
+
+                    <div class="welcome-bars">
+                        <div class="wb-seg" style="flex:1;background:var(--lcars-purple-1)"></div>
+                        <div class="wb-seg" style="flex:3;background:var(--lcars-blue-1)"></div>
+                        <div class="wb-seg" style="flex:1;background:var(--lcars-amber)"></div>
+                        <div class="wb-seg" style="flex:2;background:var(--lcars-pink-1)"></div>
+                    </div>
+
+                    <div class="welcome-actions" style="margin-top:12px">
+                        <button class="lcars-btn pill amber" onclick="openBriefingPanel()">BRIEFING</button>
+                        <button class="lcars-btn pill blue" onclick="openTimerPanel()" data-feature="time_tracking">TIMER</button>
+                        <button class="lcars-btn pill purple" onclick="openMoodPanel()" data-feature="mood_tracking">MOOD</button>
+                        <button class="lcars-btn pill-left pink" onclick="openVaultPanel()">VAULT</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="messages" id="messages" role="log" aria-live="polite" aria-label="Chat messages">
+            <div class="msg system" id="connectMsg">CHANNEL OPEN</div>
+        </div>
+        <div class="chat-input-bar">
             <div class="cmd-popup" id="cmdPopup" role="listbox" aria-label="Command suggestions"></div>
             <textarea id="input" placeholder="ENTER QUERY..." rows="1" aria-label="Message input"
                       onkeydown="handleKey(event)" oninput="handleInput(this)"></textarea>
             <button class="mic-btn" id="micBtn" onclick="toggleMic()" aria-label="Voice input">MIC</button>
             <button class="transmit-btn" id="sendBtn" onclick="sendMessage()" aria-label="Send message">TRANSMIT</button>
         </div>
-        <div class="bar-seg-b2 shimmer"></div>
     </div>
-
 </div>
 
 <!-- Vault Panel -->
@@ -4654,6 +4869,215 @@ let commands = [];
 let cmdPopupIndex = -1;
 let lastFailedMessage = null;
 let authToken = localStorage.getItem('aegis_token');
+
+// ========== DRAG ENGINE + PANEL STACKING ==========
+
+var _topZIndex = 302;
+var _openPanelStack = [];
+var _panelCascadeIndex = 0;
+var _dragMoveThreshold = 4;
+
+function bringToFront(panelEl) {
+    if (!panelEl) return;
+    panelEl.style.zIndex = ++_topZIndex;
+}
+
+function cascadePanel(panelEl) {
+    var grid = getSnapGrid();
+    if (grid) {
+        var col = _panelCascadeIndex % grid.cols;
+        var row = Math.floor(_panelCascadeIndex / grid.cols) % grid.rows;
+        panelEl.style.left = (grid.x + col * grid.cellW) + 'px';
+        panelEl.style.top = (grid.y + row * grid.cellH) + 'px';
+    } else {
+        var offset = (_panelCascadeIndex % 6) * 30;
+        panelEl.style.top = 'calc(15% + ' + offset + 'px)';
+        panelEl.style.left = 'calc(25% + ' + offset + 'px)';
+    }
+    panelEl.style.transform = 'none';
+    _panelCascadeIndex++;
+}
+
+// ========== SNAP GRID ==========
+
+function getWorkspaceBounds() {
+    var ws = document.getElementById('lcarsWorkspace');
+    if (ws) return ws.getBoundingClientRect();
+    // Fallback: compute from viewport minus known bars
+    var topBar = document.querySelector('.lcars-top-bar');
+    var botBar = document.querySelector('.lcars-bottom-bar');
+    var dock = document.getElementById('widgetDock');
+    var sidebar = document.querySelector('.lcars-sidebar');
+    var top = topBar ? topBar.getBoundingClientRect().bottom : 0;
+    var bottom = botBar ? botBar.getBoundingClientRect().top : window.innerHeight;
+    var left = dock && dock.offsetParent ? dock.getBoundingClientRect().right : 0;
+    var right = sidebar && sidebar.offsetParent ? sidebar.getBoundingClientRect().left : window.innerWidth;
+    return { left: left, top: top, right: right, bottom: bottom,
+             width: right - left, height: bottom - top, x: left, y: top };
+}
+
+function getSnapGrid() {
+    var bounds = getWorkspaceBounds();
+    if (!bounds || bounds.width < 100 || bounds.height < 100) return null;
+    var cols = 4, rows = 3;
+    return {
+        x: bounds.left || bounds.x,
+        y: bounds.top || bounds.y,
+        w: bounds.width,
+        h: bounds.height,
+        cols: cols,
+        rows: rows,
+        cellW: bounds.width / cols,
+        cellH: bounds.height / rows
+    };
+}
+
+function snapToGrid(x, y) {
+    var grid = getSnapGrid();
+    if (!grid) return { x: x, y: y };
+    var relX = x - grid.x;
+    var relY = y - grid.y;
+    var snappedCol = Math.round(relX / grid.cellW);
+    var snappedRow = Math.round(relY / grid.cellH);
+    snappedCol = Math.max(0, Math.min(snappedCol, grid.cols - 1));
+    snappedRow = Math.max(0, Math.min(snappedRow, grid.rows - 1));
+    return {
+        x: grid.x + snappedCol * grid.cellW,
+        y: grid.y + snappedRow * grid.cellH
+    };
+}
+
+function showSnapGrid() {
+    var overlay = document.getElementById('snapGridOverlay');
+    var grid = getSnapGrid();
+    if (!overlay || !grid) return;
+    overlay.style.left = grid.x + 'px';
+    overlay.style.top = grid.y + 'px';
+    overlay.style.width = grid.w + 'px';
+    overlay.style.height = grid.h + 'px';
+    overlay.style.backgroundSize = grid.cellW + 'px ' + grid.cellH + 'px';
+    overlay.classList.add('visible');
+}
+
+function hideSnapGrid() {
+    var overlay = document.getElementById('snapGridOverlay');
+    if (overlay) overlay.classList.remove('visible');
+}
+
+function pushPanelStack(panelId) {
+    var idx = _openPanelStack.indexOf(panelId);
+    if (idx !== -1) _openPanelStack.splice(idx, 1);
+    _openPanelStack.push(panelId);
+}
+
+function popPanelStack(panelId) {
+    var idx = _openPanelStack.indexOf(panelId);
+    if (idx !== -1) _openPanelStack.splice(idx, 1);
+}
+
+function initDrag(panelEl, handleEl) {
+    var offsetX = 0, offsetY = 0;
+    var isDragging = false;
+    var startX = 0, startY = 0;
+    var movedEnough = false;
+    var isPanel = panelEl.classList.contains('lcars-panel');
+
+    function onStart(e) {
+        var ev = e.touches ? e.touches[0] : e;
+        var rect = panelEl.getBoundingClientRect();
+        offsetX = ev.clientX - rect.left;
+        offsetY = ev.clientY - rect.top;
+        startX = ev.clientX;
+        startY = ev.clientY;
+        isDragging = true;
+        movedEnough = false;
+        bringToFront(panelEl);
+        if (isPanel) showSnapGrid();
+        if (e.touches) {
+            document.addEventListener('touchmove', onMove, { passive: false });
+            document.addEventListener('touchend', onEnd);
+        } else {
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onEnd);
+        }
+    }
+
+    function onMove(e) {
+        if (!isDragging) return;
+        var ev = e.touches ? e.touches[0] : e;
+        var dx = ev.clientX - startX;
+        var dy = ev.clientY - startY;
+        if (!movedEnough) {
+            if (Math.abs(dx) < _dragMoveThreshold && Math.abs(dy) < _dragMoveThreshold) return;
+            movedEnough = true;
+            panelEl.classList.add('dragging');
+        }
+        if (e.cancelable) e.preventDefault();
+        var newLeft = ev.clientX - offsetX;
+        var newTop = ev.clientY - offsetY;
+        panelEl.style.left = newLeft + 'px';
+        panelEl.style.top = newTop + 'px';
+        panelEl.style.transform = 'none';
+    }
+
+    function onEnd() {
+        isDragging = false;
+        panelEl.classList.remove('dragging');
+        hideSnapGrid();
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onEnd);
+        document.removeEventListener('touchmove', onMove);
+        document.removeEventListener('touchend', onEnd);
+        // Clamp to viewport
+        var rect = panelEl.getBoundingClientRect();
+        var clamped = false;
+        var newLeft = rect.left, newTop = rect.top;
+        if (rect.left < -rect.width + 80) { newLeft = -rect.width + 80; clamped = true; }
+        if (rect.top < 0) { newTop = 0; clamped = true; }
+        if (rect.left > window.innerWidth - 80) { newLeft = window.innerWidth - 80; clamped = true; }
+        if (rect.top > window.innerHeight - 40) { newTop = window.innerHeight - 40; clamped = true; }
+        if (clamped) {
+            newLeft = parseFloat(panelEl.style.left) || newLeft;
+            newTop = parseFloat(panelEl.style.top) || newTop;
+        }
+        // Snap panels (not chat window) to grid
+        if (isPanel && movedEnough) {
+            var snapped = snapToGrid(clamped ? newLeft : rect.left, clamped ? newTop : rect.top);
+            panelEl.classList.add('snapping');
+            panelEl.style.left = snapped.x + 'px';
+            panelEl.style.top = snapped.y + 'px';
+            setTimeout(function() { panelEl.classList.remove('snapping'); }, 200);
+        } else if (clamped) {
+            panelEl.style.left = newLeft + 'px';
+            panelEl.style.top = newTop + 'px';
+        }
+    }
+
+    handleEl.classList.add('drag-handle');
+    handleEl.addEventListener('mousedown', function(e) {
+        if (e.target.closest('.panel-close-btn, .panel-back-btn, button')) return;
+        onStart(e);
+    });
+    handleEl.addEventListener('touchstart', function(e) {
+        if (e.target.closest('.panel-close-btn, .panel-back-btn, button')) return;
+        onStart(e);
+    }, { passive: true });
+
+    // Click anywhere on panel brings to front
+    panelEl.addEventListener('mousedown', function() {
+        bringToFront(panelEl);
+    });
+}
+
+function toggleChatWindow() {
+    var win = document.getElementById('chatWindow');
+    var btn = document.getElementById('chatMinBtn');
+    if (!win) return;
+    win.classList.toggle('collapsed');
+    var collapsed = win.classList.contains('collapsed');
+    if (btn) btn.textContent = collapsed ? '+' : '_';
+    localStorage.setItem('aegis_chat_collapsed', collapsed ? '1' : '0');
+}
 let currentUsername = localStorage.getItem('aegis_username');
 let currentDisplayName = localStorage.getItem('aegis_display_name');
 let _authRedirecting = false;
@@ -4968,18 +5392,18 @@ async function sendMessage(retryText) {
 }
 
 function addMessage(text, type, sender, wellness) {
-    // Auto-uncollapse chat panel on new message
-    var chatPanel = document.getElementById('chatPanel');
-    if (chatPanel && chatPanel.classList.contains('collapsed')) {
-        chatPanel.classList.remove('collapsed');
+    // Auto-uncollapse chat window on new message
+    var chatWin = document.getElementById('chatWindow');
+    if (chatWin && chatWin.classList.contains('collapsed')) {
+        chatWin.classList.remove('collapsed');
         var minBtn = document.getElementById('chatMinBtn');
         if (minBtn) minBtn.textContent = '_';
         localStorage.setItem('aegis_chat_collapsed', '0');
     }
 
-    // Hide welcome dashboard on first message
-    var dash = document.getElementById('welcomeDashboard');
-    if (dash && !dash.classList.contains('hidden')) dash.classList.add('hidden');
+    // Hide welcome dashboard section on first message
+    var dashSec = document.getElementById('dashboardSection');
+    if (dashSec && !dashSec.classList.contains('hidden')) dashSec.classList.add('hidden');
 
     const msgs = document.getElementById('messages');
     const div = document.createElement('div');
@@ -5277,16 +5701,19 @@ async function checkConnection() {
 function setOnlineStatus(online) {
     const dot = document.getElementById('statusDot');
     const sendBtn = document.getElementById('sendBtn');
+    const readoutDot = document.getElementById('statusReadoutDot');
     serverOnline = online;
 
     if (online) {
         dot.classList.remove('offline');
         dot.setAttribute('aria-label', 'Connection status: online');
         sendBtn.disabled = sending;
+        if (readoutDot) readoutDot.style.background = 'var(--lcars-success)';
     } else {
         dot.classList.add('offline');
         dot.setAttribute('aria-label', 'Connection status: offline');
         sendBtn.disabled = true;
+        if (readoutDot) readoutDot.style.background = 'var(--lcars-error)';
     }
 }
 
@@ -5384,13 +5811,18 @@ var _editingTaskId = null;
 
 function openTaskPanel() {
     document.getElementById('taskPanelOverlay').classList.add('open');
-    document.getElementById('taskPanel').classList.add('open');
+    var panel = document.getElementById('taskPanel');
+    panel.classList.add('open');
+    cascadePanel(panel);
+    bringToFront(panel);
+    pushPanelStack('taskPanelOverlay');
     loadTasks();
 }
 
 function closeTaskPanel() {
     document.getElementById('taskPanelOverlay').classList.remove('open');
     document.getElementById('taskPanel').classList.remove('open');
+    popPanelStack('taskPanelOverlay');
     _editingTaskId = null;
 }
 
@@ -5662,7 +6094,11 @@ var MONTH_NAMES = ['January','February','March','April','May','June',
 
 function openCalendarPanel() {
     document.getElementById('calendarPanelOverlay').classList.add('open');
-    document.getElementById('calendarPanel').classList.add('open');
+    var panel = document.getElementById('calendarPanel');
+    panel.classList.add('open');
+    cascadePanel(panel);
+    bringToFront(panel);
+    pushPanelStack('calendarPanelOverlay');
     calCurrentDate = new Date();
     _calSelectedDay = null;
     calRenderMonth();
@@ -5671,6 +6107,7 @@ function openCalendarPanel() {
 function closeCalendarPanel() {
     document.getElementById('calendarPanelOverlay').classList.remove('open');
     document.getElementById('calendarPanel').classList.remove('open');
+    popPanelStack('calendarPanelOverlay');
 }
 
 function calPrevMonth() {
@@ -5870,7 +6307,11 @@ let historyViewingTranscript = false;
 
 function openHistoryPanel() {
     document.getElementById('historyPanelOverlay').classList.add('open');
-    document.getElementById('historyPanel').classList.add('open');
+    var panel = document.getElementById('historyPanel');
+    panel.classList.add('open');
+    cascadePanel(panel);
+    bringToFront(panel);
+    pushPanelStack('historyPanelOverlay');
     historyViewingTranscript = false;
     document.getElementById('historyBackBtn').style.display = 'none';
     document.getElementById('historyTitle').textContent = 'Session History';
@@ -5880,6 +6321,7 @@ function openHistoryPanel() {
 function closeHistoryPanel() {
     document.getElementById('historyPanelOverlay').classList.remove('open');
     document.getElementById('historyPanel').classList.remove('open');
+    popPanelStack('historyPanelOverlay');
 }
 
 function historyBack() {
@@ -5941,13 +6383,18 @@ async function loadTranscript(sessionId) {
 
 function openProtocolPanel() {
     document.getElementById('protoPanelOverlay').classList.add('open');
-    document.getElementById('protoPanel').classList.add('open');
+    var panel = document.getElementById('protoPanel');
+    panel.classList.add('open');
+    cascadePanel(panel);
+    bringToFront(panel);
+    pushPanelStack('protoPanelOverlay');
     loadProtocolDetails();
 }
 
 function closeProtocolPanel() {
     document.getElementById('protoPanelOverlay').classList.remove('open');
     document.getElementById('protoPanel').classList.remove('open');
+    popPanelStack('protoPanelOverlay');
 }
 
 async function loadProtocolDetails() {
@@ -6039,13 +6486,18 @@ async function toggleProtocol(name, enabled) {
 
 function openGpuPanel() {
     document.getElementById('gpuPanelOverlay').classList.add('open');
-    document.getElementById('gpuPanel').classList.add('open');
+    var panel = document.getElementById('gpuPanel');
+    panel.classList.add('open');
+    cascadePanel(panel);
+    bringToFront(panel);
+    pushPanelStack('gpuPanelOverlay');
     loadGpuDetails();
 }
 
 function closeGpuPanel() {
     document.getElementById('gpuPanelOverlay').classList.remove('open');
     document.getElementById('gpuPanel').classList.remove('open');
+    popPanelStack('gpuPanelOverlay');
 }
 
 async function loadGpuDetails() {
@@ -6102,7 +6554,11 @@ let packViewingDetail = false;
 
 function openPackPanel() {
     document.getElementById('packPanelOverlay').classList.add('open');
-    document.getElementById('packPanel').classList.add('open');
+    var panel = document.getElementById('packPanel');
+    panel.classList.add('open');
+    cascadePanel(panel);
+    bringToFront(panel);
+    pushPanelStack('packPanelOverlay');
     packViewingDetail = false;
     document.getElementById('packBackBtn').style.display = 'none';
     document.getElementById('packPanelTitle').textContent = 'Pack Manager';
@@ -6112,6 +6568,7 @@ function openPackPanel() {
 function closePackPanel() {
     document.getElementById('packPanelOverlay').classList.remove('open');
     document.getElementById('packPanel').classList.remove('open');
+    popPanelStack('packPanelOverlay');
 }
 
 function packBack() {
@@ -6212,13 +6669,18 @@ async function loadPackDetail(packType, packName) {
 
 function openSystemPanel() {
     document.getElementById('systemPanelOverlay').classList.add('open');
-    document.getElementById('systemPanel').classList.add('open');
+    var panel = document.getElementById('systemPanel');
+    panel.classList.add('open');
+    cascadePanel(panel);
+    bringToFront(panel);
+    pushPanelStack('systemPanelOverlay');
     loadSystemDetails();
 }
 
 function closeSystemPanel() {
     document.getElementById('systemPanelOverlay').classList.remove('open');
     document.getElementById('systemPanel').classList.remove('open');
+    popPanelStack('systemPanelOverlay');
 }
 
 async function loadSystemDetails() {
@@ -6369,13 +6831,18 @@ async function switchVoice(packName) {
 
 function openSettingsPanel() {
     document.getElementById('settingsPanelOverlay').classList.add('open');
-    document.getElementById('settingsPanel').classList.add('open');
+    var panel = document.getElementById('settingsPanel');
+    panel.classList.add('open');
+    cascadePanel(panel);
+    bringToFront(panel);
+    pushPanelStack('settingsPanelOverlay');
     loadSettings();
 }
 
 function closeSettingsPanel() {
     document.getElementById('settingsPanelOverlay').classList.remove('open');
     document.getElementById('settingsPanel').classList.remove('open');
+    popPanelStack('settingsPanelOverlay');
     // Stop any active device tests
     stopMicTest();
     stopVideoTest();
@@ -6832,13 +7299,18 @@ let _plogAudioBlob = null;
 
 function openVaultPanel() {
     document.getElementById('vaultPanelOverlay').classList.add('open');
-    document.getElementById('vaultPanel').classList.add('open');
+    var panel = document.getElementById('vaultPanel');
+    panel.classList.add('open');
+    cascadePanel(panel);
+    bringToFront(panel);
+    pushPanelStack('vaultPanelOverlay');
     loadVaultTab('profile');
 }
 
 function closeVaultPanel() {
     document.getElementById('vaultPanelOverlay').classList.remove('open');
     document.getElementById('vaultPanel').classList.remove('open');
+    popPanelStack('vaultPanelOverlay');
 }
 
 function vaultTab(tab, btn) {
@@ -7457,17 +7929,45 @@ async function init() {
 
     // Layout system + widgets
     initLayout();
+    initClock();
+    initTicker();
     initChatCollapse();
     setInterval(checkAlarms, 30000);
     setInterval(loadWeather, 300000); // refresh weather every 5 min
 
-    // Fetch agent name for top bar
+    // Init drag on all panels + floating chat window
+    document.querySelectorAll('.lcars-panel').forEach(function(panel) {
+        var handle = panel.querySelector('.lcars-panel-frame-top');
+        if (handle) initDrag(panel, handle);
+    });
+    var chatWin = document.getElementById('chatWindow');
+    if (chatWin) {
+        var chatHandle = chatWin.querySelector('.lcars-panel-frame-top');
+        if (chatHandle) initDrag(chatWin, chatHandle);
+    }
+
+    // Fetch agent name for top bar + status readout
     try {
         const res = await authFetch(API + '/status');
         const data = await res.json();
         const name = data.agent_name || 'AEGIS';
         document.getElementById('agentName').textContent = name.toUpperCase();
+        var readoutAgent = document.getElementById('statusReadoutAgent');
+        if (readoutAgent) readoutAgent.textContent = name.toUpperCase();
     } catch (e) {}
+
+    // Update status readout stardate
+    function updateStatusReadout() {
+        var now = new Date();
+        var y = now.getFullYear();
+        var dayOfYear = Math.ceil((now - new Date(y, 0, 1)) / 86400000);
+        var frac = Math.floor((now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds()) / 86.4);
+        var stardate = y + '.' + String(dayOfYear).padStart(3, '0') + '.' + String(frac).padStart(3, '0');
+        var el = document.getElementById('statusReadoutStardate');
+        if (el) el.textContent = 'SD ' + stardate;
+    }
+    updateStatusReadout();
+    setInterval(updateStatusReadout, 10000);
 
     // Show desktop top-endcap label on wider screens
     if (window.innerWidth >= 768) {
@@ -7642,13 +8142,18 @@ document.addEventListener('click', function(e) {
 
 function openBriefingPanel() {
     document.getElementById('briefingPanelOverlay').classList.add('open');
-    document.getElementById('briefingPanel').classList.add('open');
+    var panel = document.getElementById('briefingPanel');
+    panel.classList.add('open');
+    cascadePanel(panel);
+    bringToFront(panel);
+    pushPanelStack('briefingPanelOverlay');
     loadBriefing();
 }
 
 function closeBriefingPanel() {
     document.getElementById('briefingPanelOverlay').classList.remove('open');
     document.getElementById('briefingPanel').classList.remove('open');
+    popPanelStack('briefingPanelOverlay');
     sessionStorage.setItem('aegis_briefing_shown', '1');
 }
 
@@ -7848,7 +8353,7 @@ function showToast(message, type, durationMs) {
 // ========== KEYBOARD SHORTCUTS ==========
 
 document.addEventListener('keydown', function(e) {
-    // Escape: close PIN modal > panels > sidebar
+    // Escape: close PIN modal > topmost panel (by stack) > sidebar
     if (e.key === 'Escape') {
         var pinOverlay = document.getElementById('pinModalOverlay');
         if (pinOverlay && pinOverlay.classList.contains('open')) {
@@ -7861,14 +8366,7 @@ document.addEventListener('keydown', function(e) {
             closeNotificationDropdown();
             return;
         }
-        var panelIds = [
-            'briefingPanelOverlay', 'settingsPanelOverlay', 'vaultPanelOverlay', 'taskPanelOverlay',
-            'calendarPanelOverlay', 'historyPanelOverlay', 'protoPanelOverlay',
-            'gpuPanelOverlay', 'packPanelOverlay', 'systemPanelOverlay',
-            'moodPanelOverlay', 'contactPanelOverlay', 'habitPanelOverlay',
-            'behaviorPanelOverlay', 'pinnedPanelOverlay', 'timerPanelOverlay',
-            'alarmPanelOverlay', 'filePanelOverlay', 'socialPanelOverlay'
-        ];
+        // Stack-based close: pop the most recently opened/focused panel
         var closeFns = {
             'briefingPanelOverlay': closeBriefingPanel,
             'settingsPanelOverlay': closeSettingsPanel,
@@ -7890,12 +8388,12 @@ document.addEventListener('keydown', function(e) {
             'filePanelOverlay': closeFilePanel,
             'socialPanelOverlay': closeSocialPanel,
         };
-        for (var i = 0; i < panelIds.length; i++) {
-            var p = document.getElementById(panelIds[i]);
-            if (p && p.classList.contains('open')) {
-                closeFns[panelIds[i]]();
-                return;
+        if (_openPanelStack.length > 0) {
+            var topId = _openPanelStack[_openPanelStack.length - 1];
+            if (closeFns[topId]) {
+                closeFns[topId]();
             }
+            return;
         }
         // Close mobile sidebar
         var sidebar = document.getElementById('sidebar');
@@ -8035,25 +8533,38 @@ function initColorScheme() {
 
 var LAYOUT_WIDGET_MAP = {
     bridge: {
-        primary: ['widget-tasks', 'widget-calendar', 'widget-habits', 'widget-mood'],
-        right: []
+        primary: ['widget-clock', 'widget-tasks', 'widget-calendar', 'widget-habits', 'widget-mood',
+                   'widget-weather', 'widget-system', 'widget-gpu', 'widget-timer']
     },
     ops: {
-        primary: ['widget-tasks', 'widget-calendar', 'widget-weather', 'widget-system', 'widget-gpu', 'widget-timer'],
-        right: []
+        primary: ['widget-clock', 'widget-tasks', 'widget-calendar', 'widget-weather',
+                   'widget-system', 'widget-gpu', 'widget-timer']
     },
     science: {
-        primary: ['widget-tasks', 'widget-calendar', 'widget-habits'],
-        right: ['widget-mood', 'widget-weather', 'widget-system', 'widget-gpu', 'widget-timer']
+        primary: ['widget-clock', 'widget-tasks', 'widget-calendar', 'widget-habits',
+                   'widget-mood', 'widget-weather', 'widget-system', 'widget-gpu', 'widget-timer']
     },
     focus: {
-        primary: [],
-        right: []
+        primary: []
     }
 };
 
 var _currentLayout = 'focus';
 var _widgetTimerInterval = null;
+var _widgetElements = {};  // cached DOM refs for widgets
+var _clockInterval = null;
+var _tickerInterval = null;
+
+var ALL_WIDGET_IDS = ['widget-tasks', 'widget-calendar', 'widget-habits', 'widget-mood',
+                      'widget-system', 'widget-gpu', 'widget-weather', 'widget-timer',
+                      'widget-clock'];
+
+function cacheWidgetElements() {
+    ALL_WIDGET_IDS.forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) _widgetElements[id] = el;
+    });
+}
 
 function applyLayout(name) {
     if (!LAYOUT_WIDGET_MAP[name]) name = 'focus';
@@ -8067,42 +8578,33 @@ function applyLayout(name) {
     content.classList.add('layout-' + name);
 
     var dockPrimary = document.getElementById('widgetDock');
-    var dockRight = document.getElementById('widgetDockRight');
     var map = LAYOUT_WIDGET_MAP[name];
 
-    // Hide all widgets first
-    var allWidgetIds = ['widget-tasks', 'widget-calendar', 'widget-habits', 'widget-mood',
-                        'widget-system', 'widget-gpu', 'widget-weather', 'widget-timer'];
-    allWidgetIds.forEach(function(id) {
-        var w = document.getElementById(id);
+    // Hide all widgets first — use cached refs
+    ALL_WIDGET_IDS.forEach(function(id) {
+        var w = _widgetElements[id];
         if (w) {
             w.style.display = 'none';
-            // Detach from current parent
-            if (w.parentNode && w.parentNode !== content) {
+            if (w.parentNode) {
                 w.parentNode.removeChild(w);
-            } else if (w.parentNode === content) {
-                content.removeChild(w);
             }
         }
     });
 
-    // Move widgets to primary dock
+    // Move widgets to dock
     map.primary.forEach(function(id) {
-        var w = document.getElementById(id);
+        var w = _widgetElements[id];
         if (w && dockPrimary) {
             dockPrimary.appendChild(w);
             w.style.display = '';
         }
     });
 
-    // Move widgets to right dock
-    map.right.forEach(function(id) {
-        var w = document.getElementById(id);
-        if (w && dockRight) {
-            dockRight.appendChild(w);
-            w.style.display = '';
-        }
-    });
+    // Show/hide ticker
+    var ticker = document.getElementById('lcarsTicker');
+    if (ticker) {
+        ticker.style.display = (name === 'focus') ? 'none' : '';
+    }
 
     // Persist
     localStorage.setItem('aegis_layout', name);
@@ -8121,28 +8623,22 @@ function applyLayout(name) {
 }
 
 function initLayout() {
+    cacheWidgetElements();
     var saved = localStorage.getItem('aegis_layout');
     applyLayout(saved || 'bridge');
 }
 
 function toggleChatCollapse() {
-    var panel = document.getElementById('chatPanel');
-    var btn = document.getElementById('chatMinBtn');
-    if (!panel) return;
-
-    panel.classList.toggle('collapsed');
-    var collapsed = panel.classList.contains('collapsed');
-    if (btn) btn.textContent = collapsed ? '+' : '_';
-    localStorage.setItem('aegis_chat_collapsed', collapsed ? '1' : '0');
+    toggleChatWindow();
 }
 
 function initChatCollapse() {
     var saved = localStorage.getItem('aegis_chat_collapsed');
     if (saved === '1') {
-        var panel = document.getElementById('chatPanel');
+        var win = document.getElementById('chatWindow');
         var btn = document.getElementById('chatMinBtn');
-        if (panel) {
-            panel.classList.add('collapsed');
+        if (win) {
+            win.classList.add('collapsed');
             if (btn) btn.textContent = '+';
         }
     }
@@ -8241,6 +8737,150 @@ async function renderWidgetHabits() {
     } catch (e) {}
 }
 
+// ========== CLOCK WIDGET ==========
+
+function computeStardate() {
+    // TNG-style stardate: based on year + day fraction
+    var now = new Date();
+    var year = now.getFullYear();
+    var start = new Date(year, 0, 1);
+    var dayOfYear = Math.floor((now - start) / 86400000) + 1;
+    var totalDays = ((year % 4 === 0 && year % 100 !== 0) || year % 400 === 0) ? 366 : 365;
+    var frac = dayOfYear / totalDays;
+    var sd = (year - 2000) * 1000 + Math.floor(frac * 1000);
+    return sd.toFixed(1);
+}
+
+function renderClock() {
+    var now = new Date();
+    var h = String(now.getHours()).padStart(2, '0');
+    var m = String(now.getMinutes()).padStart(2, '0');
+    var s = String(now.getSeconds()).padStart(2, '0');
+    var timeEl = document.getElementById('clockTime');
+    if (timeEl) timeEl.textContent = h + ':' + m + ':' + s;
+
+    var sdEl = document.getElementById('clockStardate');
+    if (sdEl) sdEl.textContent = 'STARDATE ' + computeStardate();
+
+    var dateEl = document.getElementById('clockDate');
+    if (dateEl) {
+        var days = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+        var months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+        dateEl.textContent = days[now.getDay()] + ' ' + now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear();
+    }
+}
+
+function initClock() {
+    renderClock();
+    if (_clockInterval) clearInterval(_clockInterval);
+    _clockInterval = setInterval(renderClock, 1000);
+}
+
+// ========== DATA TICKER ==========
+
+var _tickerData = {};  // cached from API responses
+
+function refreshTicker() {
+    var track = document.getElementById('tickerTrack');
+    if (!track) return;
+
+    var items = [];
+
+    // Gather data from available sources
+    authFetch(API + '/status').then(function(r) { return r.json(); }).then(function(data) {
+        _tickerData.status = data;
+        buildTickerContent();
+    }).catch(function() {});
+
+    authFetch(API + '/tasks').then(function(r) { return r.json(); }).then(function(data) {
+        _tickerData.tasks = data;
+        buildTickerContent();
+    }).catch(function() {});
+
+    authFetch(API + '/moods').then(function(r) { return r.json(); }).then(function(data) {
+        _tickerData.moods = data;
+        buildTickerContent();
+    }).catch(function() {});
+}
+
+function buildTickerContent() {
+    var track = document.getElementById('tickerTrack');
+    if (!track) return;
+
+    var items = [];
+    var sep = '<span class="ticker-sep">///</span>';
+
+    // Uptime / session
+    if (_tickerData.status) {
+        var msgCount = _tickerData.status.message_count || 0;
+        items.push('MESSAGES: ' + msgCount);
+        var model = _tickerData.status.model || '--';
+        items.push('MODEL: ' + model.toUpperCase());
+        if (_tickerData.status.agent_name) {
+            items.push('AGENT: ' + _tickerData.status.agent_name.toUpperCase());
+        }
+    }
+
+    // Tasks
+    if (_tickerData.tasks && _tickerData.tasks.tasks) {
+        var pending = _tickerData.tasks.tasks.filter(function(t) { return !t.completed; });
+        var completed = _tickerData.tasks.tasks.filter(function(t) { return t.completed; });
+        items.push('TASKS PENDING: ' + pending.length);
+        items.push('TASKS COMPLETED: ' + completed.length);
+        if (pending.length > 0) {
+            var nextTask = pending[0].title || pending[0].description || '--';
+            if (nextTask.length > 30) nextTask = nextTask.substring(0, 30) + '...';
+            items.push('NEXT: ' + nextTask.toUpperCase());
+        }
+    }
+
+    // Mood
+    if (_tickerData.moods && _tickerData.moods.moods && _tickerData.moods.moods.length > 0) {
+        var latestMood = _tickerData.moods.moods[_tickerData.moods.moods.length - 1];
+        if (latestMood.mood) {
+            items.push('MOOD: ' + latestMood.mood.toUpperCase());
+        }
+    }
+
+    // Session time
+    if (window._sessionStartTime) {
+        var elapsed = Math.floor((Date.now() - window._sessionStartTime) / 1000);
+        items.push('SESSION: ' + formatDuration(elapsed));
+    }
+
+    // Stardate
+    items.push('STARDATE: ' + computeStardate());
+
+    // System time
+    var now = new Date();
+    var h = String(now.getHours()).padStart(2, '0');
+    var m = String(now.getMinutes()).padStart(2, '0');
+    items.push('TIME: ' + h + ':' + m);
+
+    if (items.length === 0) {
+        items.push('SYSTEM ONLINE');
+        items.push('AWAITING DATA');
+    }
+
+    // Build HTML — duplicate for seamless loop
+    var html = '';
+    for (var pass = 0; pass < 2; pass++) {
+        for (var i = 0; i < items.length; i++) {
+            html += '<span class="ticker-item">' + escapeHtml(items[i]) + '</span>';
+            html += sep;
+        }
+    }
+
+    track.innerHTML = html;
+}
+
+function initTicker() {
+    window._sessionStartTime = Date.now();
+    refreshTicker();
+    if (_tickerInterval) clearInterval(_tickerInterval);
+    _tickerInterval = setInterval(refreshTicker, 60000);
+}
+
 async function quickToggleHabit(habitId, doneToday) {
     if (!habitId) return;
     try {
@@ -8335,13 +8975,38 @@ async function renderWidgetWeather() {
                 body.innerHTML = '<div style="color:var(--lcars-text-dim);font-size:11px">No weather data</div>';
                 return;
             }
-            var temp = data.temperature != null ? Math.round(data.temperature) + '\u00B0' : '--';
+            var temp = data.temperature != null ? Math.round(data.temperature) + '\u00B0F' : '--';
             var cond = data.condition || '--';
             var loc = data.location || '';
-            var html = '<div style="font-family:var(--font-display);font-size:18px;color:var(--lcars-amber);font-weight:700">' + temp + '</div>';
-            html += '<div style="font-size:10px;color:var(--lcars-ice);font-family:var(--font-display);text-transform:uppercase;letter-spacing:1px">' + escapeHtml(cond) + '</div>';
+            var humidity = data.humidity != null ? data.humidity + '%' : null;
+            var wind = data.wind_speed != null ? Math.round(data.wind_speed) + ' mph' : null;
+
+            // Condition text icon
+            var condUpper = cond.toUpperCase();
+            var condIcon = 'DATA';
+            if (condUpper.indexOf('CLEAR') >= 0 || condUpper.indexOf('SUNNY') >= 0) condIcon = '[ CLEAR ]';
+            else if (condUpper.indexOf('CLOUD') >= 0 || condUpper.indexOf('OVERCAST') >= 0) condIcon = '[ CLOUDS ]';
+            else if (condUpper.indexOf('RAIN') >= 0 || condUpper.indexOf('DRIZZLE') >= 0) condIcon = '[ RAIN ]';
+            else if (condUpper.indexOf('SNOW') >= 0) condIcon = '[ SNOW ]';
+            else if (condUpper.indexOf('STORM') >= 0 || condUpper.indexOf('THUNDER') >= 0) condIcon = '[ STORM ]';
+            else if (condUpper.indexOf('FOG') >= 0 || condUpper.indexOf('MIST') >= 0) condIcon = '[ FOG ]';
+            else condIcon = '[ ' + condUpper.substring(0, 8) + ' ]';
+
+            var html = '<div style="display:flex;align-items:baseline;gap:8px">';
+            html += '<div style="font-family:var(--font-mono);font-size:26px;color:var(--lcars-amber);font-weight:700;line-height:1">' + temp + '</div>';
+            html += '<div style="font-size:11px;color:var(--lcars-ice);font-family:var(--font-mono);letter-spacing:1px">' + condIcon + '</div>';
+            html += '</div>';
+
+            // Sub-readouts
+            var subs = [];
+            if (humidity) subs.push('HUM ' + humidity);
+            if (wind) subs.push('WIND ' + wind);
+            if (subs.length > 0) {
+                html += '<div style="font-family:var(--font-mono);font-size:9px;color:var(--lcars-text-dim);margin-top:4px;letter-spacing:1px">' + subs.join('  //  ') + '</div>';
+            }
+
             if (loc) {
-                html += '<div style="font-size:9px;color:var(--lcars-text-dim);font-family:var(--font-mono)">' + escapeHtml(loc) + '</div>';
+                html += '<div style="font-size:9px;color:var(--lcars-text-dim);font-family:var(--font-mono);margin-top:2px">' + escapeHtml(loc) + '</div>';
             }
             body.innerHTML = html;
         }
@@ -8399,6 +9064,9 @@ function refreshAllWidgets() {
     if (visible.indexOf('widget-gpu') >= 0) renderWidgetGpu();
     if (visible.indexOf('widget-weather') >= 0) renderWidgetWeather();
     if (visible.indexOf('widget-timer') >= 0) renderWidgetTimer();
+
+    // Ticker refreshes from cached data
+    refreshTicker();
 }
 
 // ========== SIDEBAR WIDGETS ==========
@@ -8505,8 +9173,26 @@ function initWelcomeDashboard() {
         sd.textContent = 'STARDATE ' + stardate;
     }
 
+    // Restore dashboard collapse state
+    initDashboardState();
+
     // Populate cards
     loadWelcomeCards();
+}
+
+function toggleDashboard() {
+    var sec = document.getElementById('dashboardSection');
+    if (!sec) return;
+    sec.classList.toggle('collapsed');
+    localStorage.setItem('aegis_dashboard_collapsed', sec.classList.contains('collapsed') ? '1' : '0');
+}
+
+function initDashboardState() {
+    var saved = localStorage.getItem('aegis_dashboard_collapsed');
+    if (saved === '1') {
+        var sec = document.getElementById('dashboardSection');
+        if (sec) sec.classList.add('collapsed');
+    }
 }
 
 async function loadWelcomeCards() {
@@ -8554,13 +9240,18 @@ var _selectedMoods = [];
 
 function openMoodPanel() {
     document.getElementById('moodPanelOverlay').classList.add('open');
-    document.getElementById('moodPanel').classList.add('open');
+    var panel = document.getElementById('moodPanel');
+    panel.classList.add('open');
+    cascadePanel(panel);
+    bringToFront(panel);
+    pushPanelStack('moodPanelOverlay');
     renderMoodChips();
     loadMoods();
 }
 function closeMoodPanel() {
     document.getElementById('moodPanelOverlay').classList.remove('open');
     document.getElementById('moodPanel').classList.remove('open');
+    popPanelStack('moodPanelOverlay');
 }
 
 function renderMoodChips() {
@@ -8632,12 +9323,17 @@ async function loadMoods() {
 
 function openContactPanel() {
     document.getElementById('contactPanelOverlay').classList.add('open');
-    document.getElementById('contactPanel').classList.add('open');
+    var panel = document.getElementById('contactPanel');
+    panel.classList.add('open');
+    cascadePanel(panel);
+    bringToFront(panel);
+    pushPanelStack('contactPanelOverlay');
     loadContacts();
 }
 function closeContactPanel() {
     document.getElementById('contactPanelOverlay').classList.remove('open');
     document.getElementById('contactPanel').classList.remove('open');
+    popPanelStack('contactPanelOverlay');
 }
 
 async function addContact() {
@@ -8698,12 +9394,17 @@ async function deleteContact(id) {
 
 function openHabitPanel() {
     document.getElementById('habitPanelOverlay').classList.add('open');
-    document.getElementById('habitPanel').classList.add('open');
+    var panel = document.getElementById('habitPanel');
+    panel.classList.add('open');
+    cascadePanel(panel);
+    bringToFront(panel);
+    pushPanelStack('habitPanelOverlay');
     loadHabits();
 }
 function closeHabitPanel() {
     document.getElementById('habitPanelOverlay').classList.remove('open');
     document.getElementById('habitPanel').classList.remove('open');
+    popPanelStack('habitPanelOverlay');
 }
 
 async function addHabit() {
@@ -8770,12 +9471,17 @@ async function deleteHabit(id) {
 
 function openBehaviorPanel() {
     document.getElementById('behaviorPanelOverlay').classList.add('open');
-    document.getElementById('behaviorPanel').classList.add('open');
+    var panel = document.getElementById('behaviorPanel');
+    panel.classList.add('open');
+    cascadePanel(panel);
+    bringToFront(panel);
+    pushPanelStack('behaviorPanelOverlay');
     loadBehaviors();
 }
 function closeBehaviorPanel() {
     document.getElementById('behaviorPanelOverlay').classList.remove('open');
     document.getElementById('behaviorPanel').classList.remove('open');
+    popPanelStack('behaviorPanelOverlay');
 }
 
 async function addBehavior() {
@@ -8846,12 +9552,17 @@ async function deleteBehavior(id) {
 
 function openPinnedPanel() {
     document.getElementById('pinnedPanelOverlay').classList.add('open');
-    document.getElementById('pinnedPanel').classList.add('open');
+    var panel = document.getElementById('pinnedPanel');
+    panel.classList.add('open');
+    cascadePanel(panel);
+    bringToFront(panel);
+    pushPanelStack('pinnedPanelOverlay');
     loadPinned();
 }
 function closePinnedPanel() {
     document.getElementById('pinnedPanelOverlay').classList.remove('open');
     document.getElementById('pinnedPanel').classList.remove('open');
+    popPanelStack('pinnedPanelOverlay');
 }
 
 async function pinChatMessage(role, text, sender) {
@@ -8901,13 +9612,18 @@ var _timerInterval = null;
 
 function openTimerPanel() {
     document.getElementById('timerPanelOverlay').classList.add('open');
-    document.getElementById('timerPanel').classList.add('open');
+    var panel = document.getElementById('timerPanel');
+    panel.classList.add('open');
+    cascadePanel(panel);
+    bringToFront(panel);
+    pushPanelStack('timerPanelOverlay');
     loadTimerState();
     loadTimerHistory();
 }
 function closeTimerPanel() {
     document.getElementById('timerPanelOverlay').classList.remove('open');
     document.getElementById('timerPanel').classList.remove('open');
+    popPanelStack('timerPanelOverlay');
 }
 
 async function startTimer() {
@@ -9020,12 +9736,17 @@ async function loadWeather() {
 
 function openAlarmPanel() {
     document.getElementById('alarmPanelOverlay').classList.add('open');
-    document.getElementById('alarmPanel').classList.add('open');
+    var panel = document.getElementById('alarmPanel');
+    panel.classList.add('open');
+    cascadePanel(panel);
+    bringToFront(panel);
+    pushPanelStack('alarmPanelOverlay');
     loadAlarms();
 }
 function closeAlarmPanel() {
     document.getElementById('alarmPanelOverlay').classList.remove('open');
     document.getElementById('alarmPanel').classList.remove('open');
+    popPanelStack('alarmPanelOverlay');
 }
 
 async function addAlarm() {
@@ -9113,12 +9834,17 @@ async function checkAlarms() {
 
 function openFilePanel() {
     document.getElementById('filePanelOverlay').classList.add('open');
-    document.getElementById('filePanel').classList.add('open');
+    var panel = document.getElementById('filePanel');
+    panel.classList.add('open');
+    cascadePanel(panel);
+    bringToFront(panel);
+    pushPanelStack('filePanelOverlay');
     loadFiles();
 }
 function closeFilePanel() {
     document.getElementById('filePanelOverlay').classList.remove('open');
     document.getElementById('filePanel').classList.remove('open');
+    popPanelStack('filePanelOverlay');
 }
 
 async function uploadFile() {
@@ -9186,12 +9912,17 @@ async function deleteFile(id) {
 
 function openSocialPanel() {
     document.getElementById('socialPanelOverlay').classList.add('open');
-    document.getElementById('socialPanel').classList.add('open');
+    var panel = document.getElementById('socialPanel');
+    panel.classList.add('open');
+    cascadePanel(panel);
+    bringToFront(panel);
+    pushPanelStack('socialPanelOverlay');
     loadSocialProjects();
 }
 function closeSocialPanel() {
     document.getElementById('socialPanelOverlay').classList.remove('open');
     document.getElementById('socialPanel').classList.remove('open');
+    popPanelStack('socialPanelOverlay');
 }
 
 async function addSocialProject() {
@@ -9267,6 +9998,7 @@ init();
 </script>
 
 <div class="toast-container" id="toastContainer"></div>
+<div class="snap-grid-overlay" id="snapGridOverlay"></div>
 
 </body>
 </html>
