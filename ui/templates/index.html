@@ -8231,7 +8231,7 @@ async function renderWidgetHabits() {
                            '%;background:var(--lcars-success)"></div></div>';
                 habits.forEach(function(h) {
                     var dotClass = h.done_today ? 'done' : '';
-                    html += '<div class="widget-habit-row" onclick="quickToggleHabit(\'' + (h.id || '') + '\')">' +
+                    html += '<div class="widget-habit-row" onclick="quickToggleHabit(\'' + (h.id || '') + '\',' + !!h.done_today + ')">' +
                             '<div class="widget-habit-dot ' + dotClass + '"></div>' +
                             '<span class="widget-habit-name">' + escapeHtml(h.name || '--') + '</span></div>';
                 });
@@ -8241,13 +8241,14 @@ async function renderWidgetHabits() {
     } catch (e) {}
 }
 
-async function quickToggleHabit(habitId) {
+async function quickToggleHabit(habitId, doneToday) {
     if (!habitId) return;
     try {
-        await authFetch(API + '/habits/toggle', {
+        var action = doneToday ? 'uncheck' : 'check';
+        await authFetch(API + '/habits', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({habit_id: habitId})
+            body: JSON.stringify({action: action, habit_id: habitId})
         });
         renderWidgetHabits();
     } catch (e) {}
@@ -8301,7 +8302,7 @@ async function renderWidgetSystem() {
 
 async function renderWidgetGpu() {
     try {
-        var res = await authFetch(API + '/gpu/status');
+        var res = await authFetch(API + '/gpu');
         var data = await res.json();
         var body = document.getElementById('widgetGpuBody');
         if (body) {
@@ -8312,14 +8313,13 @@ async function renderWidgetGpu() {
             var vramUsed = data.vram_used_mb || 0;
             var vramTotal = data.vram_total_mb || 8192;
             var vramPct = Math.round((vramUsed / vramTotal) * 100);
-            var util = data.utilization || 0;
-            var temp = data.temperature || '--';
+            var util = data.utilization_pct || 0;
             var fillColor = vramPct > 80 ? 'var(--lcars-error)' : vramPct > 60 ? 'var(--lcars-warning)' : 'var(--lcars-pink-1)';
 
             var html = '<div style="font-size:9px;color:var(--lcars-text-dim);margin-bottom:2px">VRAM ' + vramPct + '%</div>';
             html += '<div class="widget-gauge"><div class="fill" style="width:' + vramPct + '%;background:' + fillColor + '"></div></div>';
             html += lcarsDataRow('UTIL', util + '%');
-            html += lcarsDataRow('TEMP', temp + 'C');
+            html += lcarsDataRow('VRAM', vramUsed + '/' + vramTotal + ' MB');
             body.innerHTML = html;
         }
     } catch (e) {}
