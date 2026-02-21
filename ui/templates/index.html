@@ -374,9 +374,9 @@
             grid-row: 2 / 3;
             grid-column: 1 / 2;
             display: grid;
-            grid-template-columns: 226px 1fr;
+            grid-template-columns: 226px 1fr 226px;
             grid-template-rows: auto 1fr;
-            grid-template-areas: "dock ticker" "dock workspace";
+            grid-template-areas: "dock ticker rightdock" "dock workspace rightdock";
             overflow: hidden;
             position: relative;
             border-right: 3px solid var(--lcars-blue-2);
@@ -2880,6 +2880,22 @@
             flex-direction: column;
             overflow: hidden;
             box-shadow: 0 0 60px rgba(59, 130, 246, 0.15), 0 0 2px rgba(59, 130, 246, 0.4);
+            resize: both;
+            min-width: 320px;
+            min-height: 200px;
+        }
+        .lcars-panel::after {
+            content: '';
+            position: absolute;
+            bottom: 4px;
+            right: 4px;
+            width: 10px;
+            height: 10px;
+            background: radial-gradient(circle, var(--lcars-grey-2) 1.5px, transparent 1.5px);
+            background-size: 4px 4px;
+            background-position: 1px 1px;
+            opacity: 0.5;
+            pointer-events: none;
         }
         .lcars-panel.open { display: flex; }
 
@@ -3667,6 +3683,23 @@
         .widget-dock::-webkit-scrollbar-track { background: transparent; }
         .widget-dock::-webkit-scrollbar-thumb { background: var(--lcars-grey-1); border-radius: 2px; }
 
+        .widget-dock-right {
+            grid-area: rightdock;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--lcars-grey-1) transparent;
+            min-width: 0;
+            border-left: 3px solid var(--lcars-amber);
+            padding: 6px;
+        }
+        .widget-dock-right::-webkit-scrollbar { width: 3px; }
+        .widget-dock-right::-webkit-scrollbar-track { background: transparent; }
+        .widget-dock-right::-webkit-scrollbar-thumb { background: var(--lcars-grey-1); border-radius: 2px; }
+        .widget-dock-right:empty { border-left: none; padding: 0; min-width: 0; width: 0; }
+
         /* All non-focus layouts: left dock strip + ticker + workspace */
         .lcars-content.layout-bridge .lcars-ticker,
         .lcars-content.layout-ops .lcars-ticker,
@@ -3681,6 +3714,7 @@
             grid-template-rows: 1fr;
         }
         .lcars-content.layout-focus #widgetDock,
+        .lcars-content.layout-focus #widgetDockRight,
         .lcars-content.layout-focus .lcars-ticker {
             display: none;
         }
@@ -3706,7 +3740,7 @@
         @media (max-width: 1023px) {
             :root { --widget-col-width: 200px; }
             .lcars-content {
-                grid-template-columns: 200px 1fr;
+                grid-template-columns: 200px 1fr 200px;
             }
         }
 
@@ -3719,7 +3753,7 @@
                 grid-template-rows: 1fr !important;
             }
 
-            #widgetDock {
+            #widgetDock, #widgetDockRight {
                 display: none !important;
             }
 
@@ -3741,6 +3775,391 @@
                 display: none;
             }
         }
+
+        /* ========== WIDGET COLLAPSE/EXPAND ========== */
+        .widget-collapse-btn {
+            background: none;
+            border: none;
+            color: #000;
+            font-size: 10px;
+            cursor: pointer;
+            padding: 0 2px;
+            line-height: 1;
+            opacity: 0.6;
+            transition: opacity 0.15s, transform 0.2s;
+        }
+        .widget-collapse-btn:hover { opacity: 1; }
+        .lcars-widget.collapsed .widget-collapse-btn { transform: rotate(-90deg); }
+        .lcars-widget.collapsed .widget-body {
+            max-height: 0;
+            overflow: hidden;
+            padding: 0 12px;
+            min-height: 0;
+            transition: max-height 0.2s ease, padding 0.2s ease;
+        }
+        .lcars-widget:not(.collapsed) .widget-body {
+            transition: max-height 0.2s ease, padding 0.2s ease;
+        }
+
+        /* ========== WIDGET DRAG REORDER ========== */
+        .lcars-widget.dragging {
+            opacity: 0.5;
+        }
+        .widget-drag-placeholder {
+            height: 4px;
+            background: var(--lcars-amber);
+            border-radius: 2px;
+            margin: 2px 0;
+            transition: opacity 0.15s;
+        }
+
+        /* ========== WIDGET SETTINGS DROPDOWN ========== */
+        .widget-settings-btn {
+            background: none;
+            border: none;
+            color: #000;
+            font-size: 11px;
+            cursor: pointer;
+            padding: 0 2px;
+            line-height: 1;
+            opacity: 0.6;
+            transition: opacity 0.15s;
+        }
+        .widget-settings-btn:hover { opacity: 1; }
+        .widget-settings-dropdown {
+            position: absolute;
+            top: 34px;
+            right: 4px;
+            background: var(--lcars-surface);
+            border: 1px solid var(--lcars-grey-1);
+            border-radius: 4px;
+            padding: 6px;
+            display: none;
+            z-index: 50;
+            gap: 4px;
+        }
+        .widget-settings-dropdown.open { display: flex; }
+        .widget-color-swatch {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: border-color 0.15s;
+        }
+        .widget-color-swatch:hover { border-color: var(--lcars-text); }
+        .widget-color-swatch.active { border-color: #fff; }
+        .widget-color-swatch.sw-amber { background: var(--lcars-amber); }
+        .widget-color-swatch.sw-blue { background: var(--lcars-blue-1); }
+        .widget-color-swatch.sw-purple { background: var(--lcars-purple-1); }
+        .widget-color-swatch.sw-green { background: var(--lcars-success); }
+        .widget-color-swatch.sw-pink { background: var(--lcars-pink-1); }
+        .widget-color-swatch.sw-ice { background: var(--lcars-ice); }
+
+        /* ========== SIDEBAR TAB TITLE ========== */
+        .sidebar-tab-title {
+            font-family: var(--font-display);
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--lcars-text-dim);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            padding: 4px 8px 2px 8px;
+            border-bottom: 2px solid var(--lcars-blue-2);
+            margin: 0 4px;
+        }
+
+        /* ========== CLOCK 12/24H TOGGLE ========== */
+        .clock-format-btn {
+            background: rgba(0,0,0,0.2);
+            border: none;
+            color: #000;
+            font-family: var(--font-mono);
+            font-size: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            padding: 1px 4px;
+            border-radius: 4px;
+            line-height: 1;
+            opacity: 0.7;
+        }
+        .clock-format-btn:hover { opacity: 1; }
+
+        /* ========== PERSONAL LOG DATE GROUPS ========== */
+        .plog-date-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 0 4px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .plog-date-header .plog-date-label {
+            font-family: var(--font-display);
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--lcars-amber);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .plog-date-header .plog-date-count {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: var(--lcars-text-dim);
+        }
+        .plog-date-header .plog-date-chevron {
+            font-size: 8px;
+            color: var(--lcars-text-dim);
+            transition: transform 0.2s;
+        }
+        .plog-date-group.collapsed .plog-date-chevron { transform: rotate(-90deg); }
+        .plog-date-group.collapsed .plog-date-entries { display: none; }
+        .plog-date-separator {
+            height: 2px;
+            background: linear-gradient(90deg, var(--lcars-amber) 0%, transparent 100%);
+            margin: 0 0 4px;
+            opacity: 0.3;
+        }
+
+        /* ========== SYSTEM PERFORMANCE WIDGET ========== */
+        .sysperf-bar {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin: 3px 0;
+        }
+        .sysperf-label {
+            font-family: var(--font-mono);
+            font-size: 9px;
+            color: var(--lcars-text-dim);
+            width: 28px;
+            text-align: right;
+        }
+        .sysperf-track {
+            flex: 1;
+            height: 6px;
+            background: var(--lcars-grey-1);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .sysperf-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+        .sysperf-pct {
+            font-family: var(--font-mono);
+            font-size: 9px;
+            color: var(--lcars-text);
+            width: 28px;
+        }
+
+        /* ========== NEWS WIDGET ========== */
+        .news-headline {
+            padding: 3px 0;
+            border-bottom: 1px solid var(--lcars-grey-1);
+        }
+        .news-headline:last-child { border-bottom: none; }
+        .news-headline a {
+            color: var(--lcars-text);
+            text-decoration: none;
+            font-size: 11px;
+            line-height: 1.3;
+            display: block;
+        }
+        .news-headline a:hover { color: var(--lcars-blue-3); }
+        .news-source-tabs {
+            display: flex;
+            gap: 2px;
+            margin-bottom: 6px;
+        }
+        .news-source-tab {
+            background: var(--lcars-grey-1);
+            border: none;
+            color: var(--lcars-text-dim);
+            font-family: var(--font-display);
+            font-size: 8px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .news-source-tab.active {
+            background: var(--lcars-purple-1);
+            color: #000;
+        }
+
+        /* ========== WEATHER PANEL ========== */
+        .weather-current-card {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 12px;
+            background: var(--lcars-surface);
+            border-left: 3px solid var(--lcars-ice);
+            margin-bottom: 16px;
+        }
+        .weather-temp-big {
+            font-family: var(--font-mono);
+            font-size: 42px;
+            font-weight: 700;
+            color: var(--lcars-amber);
+            line-height: 1;
+        }
+        .weather-cond-text {
+            font-family: var(--font-display);
+            font-size: 14px;
+            color: var(--lcars-ice);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        .weather-sub-detail {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--lcars-text-dim);
+            margin-top: 2px;
+        }
+        .weather-hourly-scroll {
+            overflow-x: auto;
+            white-space: nowrap;
+            padding: 8px 0;
+            scrollbar-width: thin;
+            scrollbar-color: var(--lcars-grey-1) transparent;
+        }
+        .weather-hourly-scroll::-webkit-scrollbar { height: 3px; }
+        .weather-hourly-scroll::-webkit-scrollbar-track { background: transparent; }
+        .weather-hourly-scroll::-webkit-scrollbar-thumb { background: var(--lcars-grey-1); border-radius: 2px; }
+        .weather-daily-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 6px 8px;
+            border-bottom: 1px solid var(--lcars-grey-1);
+        }
+        .weather-daily-card:last-child { border-bottom: none; }
+        .weather-daily-day {
+            font-family: var(--font-display);
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--lcars-text);
+            width: 40px;
+            text-transform: uppercase;
+        }
+        .weather-daily-temps {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--lcars-amber);
+        }
+        .weather-daily-cond {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: var(--lcars-text-dim);
+            flex: 1;
+        }
+        .weather-chart-container {
+            margin: 12px 0;
+            background: var(--lcars-surface);
+            border-radius: 4px;
+            padding: 8px;
+        }
+        .weather-chart-container svg {
+            width: 100%;
+            height: auto;
+        }
+
+        /* ========== VIDEO LOG ========== */
+        .plog-video-preview {
+            max-width: 200px;
+            max-height: 150px;
+            border: 1px solid var(--lcars-grey-1);
+            border-radius: 4px;
+            margin: 4px 0;
+        }
+        .plog-video-btn {
+            background: var(--lcars-purple-1);
+            color: #000;
+            border: none;
+            border-radius: 3px;
+            font-family: var(--font-display);
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            padding: 6px 12px;
+            cursor: pointer;
+        }
+        .plog-video-btn:hover { opacity: 0.85; }
+        .plog-video-btn.recording {
+            background: var(--lcars-error);
+            animation: statusPulse 1s ease-in-out infinite;
+        }
+        .plog-video-countdown {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--lcars-error);
+            margin-left: 8px;
+        }
+        .plog-mood-chip {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-family: var(--font-display);
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin: 1px 2px;
+        }
+        .plog-mood-card {
+            background: var(--lcars-surface);
+            border-left: 3px solid var(--lcars-purple-1);
+            padding: 6px 10px;
+            margin: 4px 0;
+            font-size: 11px;
+        }
+        .plog-energy-bar {
+            height: 4px;
+            background: var(--lcars-grey-1);
+            border-radius: 2px;
+            margin-top: 4px;
+            overflow: hidden;
+        }
+        .plog-energy-fill {
+            height: 100%;
+            background: var(--lcars-amber);
+            border-radius: 2px;
+        }
+
+        /* ========== SYSPERF PANEL ========== */
+        .sysperf-detail-section {
+            margin-bottom: 16px;
+        }
+        .sysperf-detail-title {
+            font-family: var(--font-display);
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--lcars-success);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 6px;
+            border-bottom: 1px solid var(--lcars-grey-1);
+            padding-bottom: 4px;
+        }
+        .sysperf-proc-row {
+            display: flex;
+            justify-content: space-between;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            padding: 1px 0;
+        }
+        .sysperf-proc-name {
+            color: var(--lcars-text);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 65%;
+        }
+        .sysperf-proc-val { color: var(--lcars-amber); }
 
     </style>
 </head>
@@ -3811,6 +4230,7 @@
             <button class="sidebar-tab" onclick="switchSidebarTab('per', this)">PER</button>
             <button class="sidebar-tab" onclick="switchSidebarTab('dat', this)">DAT</button>
         </div>
+        <div class="sidebar-tab-title" id="sidebarTabTitle">OPERATIONS</div>
 
         <div class="sidebar-data">
             <!-- OPS: System, Protocols, Packs, GPU, Settings, Display -->
@@ -3857,7 +4277,7 @@
                     <button class="sidebar-action-btn" onclick="openSettingsPanel()" aria-label="Configuration settings">CONFIG</button>
                 </div>
 
-                <div class="sidebar-section" data-feature="night_mode">
+                <div class="sidebar-section">
                     <div class="sidebar-section-title">Display</div>
                     <select class="theme-select" id="layoutSelect" aria-label="Select layout" onchange="applyLayout(this.value)">
                         <option value="bridge">BRIDGE</option>
@@ -3935,6 +4355,11 @@
                     <div class="sidebar-section-title">Social</div>
                     <button class="sidebar-action-btn" onclick="openSocialPanel()" aria-label="Social media">MANAGE</button>
                 </div>
+
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Personal Log</div>
+                    <button class="sidebar-action-btn" onclick="openPersonalLogFromSidebar()" aria-label="Personal log">OPEN</button>
+                </div>
             </div>
 
             <!-- DAT: History, Saved, Files, Weather, Vault -->
@@ -3992,6 +4417,9 @@
 
         <!-- Workspace area (panels float here) -->
         <div class="lcars-content-workspace" id="lcarsWorkspace"></div>
+
+        <!-- Right Widget Dock -->
+        <div class="widget-dock-right" id="widgetDockRight"></div>
 
         <!-- ===== WIDGETS ===== -->
         <div class="lcars-widget theme-amber" id="widget-tasks" style="display:none">
@@ -4074,6 +4502,7 @@
                 <div class="widget-elbow"></div>
                 <div class="widget-header">
                     <span class="widget-title">WEATHER</span>
+                    <button class="widget-expand-btn" onclick="openWeatherPanel()">&#x2197;</button>
                 </div>
                 <div class="widget-endcap"></div>
             </div>
@@ -4105,6 +4534,36 @@
                 <div class="widget-clock-time" id="clockTime">--:--:--</div>
                 <div class="widget-clock-stardate" id="clockStardate">STARDATE --</div>
                 <div class="widget-clock-date" id="clockDate">--</div>
+            </div>
+        </div>
+
+        <!-- WIDGET-SYSPERF (Phase 2A) -->
+        <div class="lcars-widget theme-green" id="widget-sysperf" style="display:none">
+            <div class="widget-frame-top">
+                <div class="widget-elbow"></div>
+                <div class="widget-header">
+                    <span class="widget-title">SYS PERF</span>
+                    <button class="widget-expand-btn" onclick="openSysperfPanel()">&#x2197;</button>
+                </div>
+                <div class="widget-endcap"></div>
+            </div>
+            <div class="widget-body" id="widgetSysperfBody">
+                <div style="color:var(--lcars-text-dim);font-size:11px">Loading...</div>
+            </div>
+        </div>
+
+        <!-- WIDGET-NEWS (Phase 2B) -->
+        <div class="lcars-widget theme-purple" id="widget-news" style="display:none">
+            <div class="widget-frame-top">
+                <div class="widget-elbow"></div>
+                <div class="widget-header">
+                    <span class="widget-title">NEWS</span>
+                    <button class="widget-expand-btn" onclick="openNewsPanel()">&#x2197;</button>
+                </div>
+                <div class="widget-endcap"></div>
+            </div>
+            <div class="widget-body" id="widgetNewsBody">
+                <div style="color:var(--lcars-text-dim);font-size:11px">Loading...</div>
             </div>
         </div>
 
@@ -4858,6 +5317,93 @@
     </div>
 </div>
 
+<!-- System Performance Panel -->
+<div class="panel-overlay" id="sysperfPanelOverlay" onclick="closeSysperfPanel()"></div>
+<div class="lcars-panel theme-green" id="sysperfPanel" role="dialog" aria-label="System Performance">
+    <div class="lcars-panel-frame-top">
+        <div class="lcars-panel-elbow"></div>
+        <div class="lcars-panel-header">
+            <span>System Performance</span>
+            <button class="panel-close-btn" onclick="closeSysperfPanel()" aria-label="Close">&times;</button>
+        </div>
+        <div class="lcars-panel-endcap"></div>
+    </div>
+    <div class="lcars-panel-bar">
+        <div class="pbar-seg" style="flex:3;background:var(--lcars-success)"></div>
+        <div class="pbar-seg animated" style="flex:2"></div>
+        <div class="pbar-seg" style="flex:1;background:#15803d"></div>
+    </div>
+    <div class="panel-body">
+        <div id="sysperfDetailContent">
+            <div class="data-row"><span class="label">Loading...</span></div>
+        </div>
+    </div>
+    <div class="lcars-panel-frame-bottom">
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-success);border-radius:0 0 0 12px"></div>
+        <div class="pbot-seg" style="flex:2;background:#15803d"></div>
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-success);border-radius:0 0 12px 0"></div>
+    </div>
+</div>
+
+<!-- News Panel -->
+<div class="panel-overlay" id="newsPanelOverlay" onclick="closeNewsPanel()"></div>
+<div class="lcars-panel theme-purple" id="newsPanel" role="dialog" aria-label="News Feed">
+    <div class="lcars-panel-frame-top">
+        <div class="lcars-panel-elbow"></div>
+        <div class="lcars-panel-header">
+            <span>Data Feed: News</span>
+            <button class="panel-close-btn" onclick="closeNewsPanel()" aria-label="Close">&times;</button>
+        </div>
+        <div class="lcars-panel-endcap"></div>
+    </div>
+    <div class="lcars-panel-bar">
+        <div class="pbar-seg" style="flex:3;background:var(--lcars-purple-1)"></div>
+        <div class="pbar-seg animated" style="flex:2"></div>
+        <div class="pbar-seg" style="flex:1;background:var(--lcars-lilac)"></div>
+    </div>
+    <div class="panel-body">
+        <div id="newsDetailContent">
+            <div class="data-row"><span class="label">Loading...</span></div>
+        </div>
+    </div>
+    <div class="lcars-panel-frame-bottom">
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-purple-1);border-radius:0 0 0 12px"></div>
+        <div class="pbot-seg" style="flex:2;background:var(--lcars-lilac)"></div>
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-purple-2);border-radius:0 0 12px 0"></div>
+    </div>
+</div>
+
+<!-- Weather Panel -->
+<div class="panel-overlay" id="weatherPanelOverlay" onclick="closeWeatherPanel()"></div>
+<div class="lcars-panel theme-ice" id="weatherPanel" role="dialog" aria-label="Weather Forecast">
+    <div class="lcars-panel-frame-top">
+        <div class="lcars-panel-elbow"></div>
+        <div class="lcars-panel-header">
+            <span>Weather Forecast</span>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <button class="panel-close-btn" style="font-size:14px;" onclick="openWeatherLocationSearch()">LOC</button>
+                <button class="panel-close-btn" onclick="closeWeatherPanel()" aria-label="Close">&times;</button>
+            </div>
+        </div>
+        <div class="lcars-panel-endcap"></div>
+    </div>
+    <div class="lcars-panel-bar">
+        <div class="pbar-seg" style="flex:3;background:var(--lcars-ice)"></div>
+        <div class="pbar-seg animated" style="flex:2"></div>
+        <div class="pbar-seg" style="flex:1;background:var(--lcars-blue-3)"></div>
+    </div>
+    <div class="panel-body">
+        <div id="weatherDetailContent">
+            <div class="data-row"><span class="label">Loading...</span></div>
+        </div>
+    </div>
+    <div class="lcars-panel-frame-bottom">
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-ice);border-radius:0 0 0 12px"></div>
+        <div class="pbot-seg" style="flex:2;background:var(--lcars-blue-3)"></div>
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-blue-1);border-radius:0 0 12px 0"></div>
+    </div>
+</div>
+
 <script>
 // ========== CONFIG ==========
 
@@ -4896,6 +5442,57 @@ function cascadePanel(panelEl) {
     }
     panelEl.style.transform = 'none';
     _panelCascadeIndex++;
+}
+
+// ========== PANEL POSITION MEMORY ==========
+
+function savePanelPosition(panelEl) {
+    if (!panelEl || !panelEl.id) return;
+    var prefs = JSON.parse(localStorage.getItem('aegis_panel_positions') || '{}');
+    var rect = panelEl.getBoundingClientRect();
+    prefs[panelEl.id] = {
+        left: parseInt(panelEl.style.left) || Math.round(rect.left),
+        top: parseInt(panelEl.style.top) || Math.round(rect.top),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height)
+    };
+    localStorage.setItem('aegis_panel_positions', JSON.stringify(prefs));
+}
+
+function restorePanelPosition(panelEl) {
+    if (!panelEl) return;
+    var prefs = JSON.parse(localStorage.getItem('aegis_panel_positions') || '{}');
+    var saved = prefs[panelEl.id];
+    if (saved) {
+        panelEl.style.left = saved.left + 'px';
+        panelEl.style.top = saved.top + 'px';
+        panelEl.style.transform = 'none';
+        if (saved.width) panelEl.style.width = saved.width + 'px';
+        if (saved.height) panelEl.style.height = saved.height + 'px';
+        // Clamp to viewport
+        var vw = window.innerWidth, vh = window.innerHeight;
+        if (saved.left + (saved.width || 400) < 80) panelEl.style.left = '20px';
+        if (saved.top < 0) panelEl.style.top = '0px';
+        if (saved.left > vw - 80) panelEl.style.left = (vw - 200) + 'px';
+        if (saved.top > vh - 40) panelEl.style.top = (vh - 100) + 'px';
+    }
+    // else: leave CSS defaults (centered)
+    bringToFront(panelEl);
+    pushPanelStack(panelEl.id.replace('Panel', 'PanelOverlay'));
+}
+
+var _panelResizeTimers = {};
+function initPanelResizeObserver(panelEl) {
+    if (!panelEl || !window.ResizeObserver) return;
+    var observer = new ResizeObserver(function() {
+        clearTimeout(_panelResizeTimers[panelEl.id]);
+        _panelResizeTimers[panelEl.id] = setTimeout(function() {
+            if (panelEl.classList.contains('open')) {
+                savePanelPosition(panelEl);
+            }
+        }, 500);
+    });
+    observer.observe(panelEl);
 }
 
 // ========== SNAP GRID ==========
@@ -5050,6 +5647,10 @@ function initDrag(panelEl, handleEl) {
         } else if (clamped) {
             panelEl.style.left = newLeft + 'px';
             panelEl.style.top = newTop + 'px';
+        }
+        // Save position after drag
+        if (isPanel && movedEnough) {
+            setTimeout(function() { savePanelPosition(panelEl); }, 250);
         }
     }
 
@@ -5813,9 +6414,7 @@ function openTaskPanel() {
     document.getElementById('taskPanelOverlay').classList.add('open');
     var panel = document.getElementById('taskPanel');
     panel.classList.add('open');
-    cascadePanel(panel);
-    bringToFront(panel);
-    pushPanelStack('taskPanelOverlay');
+    restorePanelPosition(panel);
     loadTasks();
 }
 
@@ -6096,9 +6695,7 @@ function openCalendarPanel() {
     document.getElementById('calendarPanelOverlay').classList.add('open');
     var panel = document.getElementById('calendarPanel');
     panel.classList.add('open');
-    cascadePanel(panel);
-    bringToFront(panel);
-    pushPanelStack('calendarPanelOverlay');
+    restorePanelPosition(panel);
     calCurrentDate = new Date();
     _calSelectedDay = null;
     calRenderMonth();
@@ -6309,9 +6906,7 @@ function openHistoryPanel() {
     document.getElementById('historyPanelOverlay').classList.add('open');
     var panel = document.getElementById('historyPanel');
     panel.classList.add('open');
-    cascadePanel(panel);
-    bringToFront(panel);
-    pushPanelStack('historyPanelOverlay');
+    restorePanelPosition(panel);
     historyViewingTranscript = false;
     document.getElementById('historyBackBtn').style.display = 'none';
     document.getElementById('historyTitle').textContent = 'Session History';
@@ -6385,9 +6980,7 @@ function openProtocolPanel() {
     document.getElementById('protoPanelOverlay').classList.add('open');
     var panel = document.getElementById('protoPanel');
     panel.classList.add('open');
-    cascadePanel(panel);
-    bringToFront(panel);
-    pushPanelStack('protoPanelOverlay');
+    restorePanelPosition(panel);
     loadProtocolDetails();
 }
 
@@ -6488,9 +7081,7 @@ function openGpuPanel() {
     document.getElementById('gpuPanelOverlay').classList.add('open');
     var panel = document.getElementById('gpuPanel');
     panel.classList.add('open');
-    cascadePanel(panel);
-    bringToFront(panel);
-    pushPanelStack('gpuPanelOverlay');
+    restorePanelPosition(panel);
     loadGpuDetails();
 }
 
@@ -6556,9 +7147,7 @@ function openPackPanel() {
     document.getElementById('packPanelOverlay').classList.add('open');
     var panel = document.getElementById('packPanel');
     panel.classList.add('open');
-    cascadePanel(panel);
-    bringToFront(panel);
-    pushPanelStack('packPanelOverlay');
+    restorePanelPosition(panel);
     packViewingDetail = false;
     document.getElementById('packBackBtn').style.display = 'none';
     document.getElementById('packPanelTitle').textContent = 'Pack Manager';
@@ -6671,9 +7260,7 @@ function openSystemPanel() {
     document.getElementById('systemPanelOverlay').classList.add('open');
     var panel = document.getElementById('systemPanel');
     panel.classList.add('open');
-    cascadePanel(panel);
-    bringToFront(panel);
-    pushPanelStack('systemPanelOverlay');
+    restorePanelPosition(panel);
     loadSystemDetails();
 }
 
@@ -6833,9 +7420,7 @@ function openSettingsPanel() {
     document.getElementById('settingsPanelOverlay').classList.add('open');
     var panel = document.getElementById('settingsPanel');
     panel.classList.add('open');
-    cascadePanel(panel);
-    bringToFront(panel);
-    pushPanelStack('settingsPanelOverlay');
+    restorePanelPosition(panel);
     loadSettings();
 }
 
@@ -7301,9 +7886,7 @@ function openVaultPanel() {
     document.getElementById('vaultPanelOverlay').classList.add('open');
     var panel = document.getElementById('vaultPanel');
     panel.classList.add('open');
-    cascadePanel(panel);
-    bringToFront(panel);
-    pushPanelStack('vaultPanelOverlay');
+    restorePanelPosition(panel);
     loadVaultTab('profile');
 }
 
@@ -7363,6 +7946,9 @@ async function loadVaultTab(tab) {
             if (pinData.has_pin && !vaultToken) {
                 showPinModal(function() { loadVaultTab('logs'); });
                 return;
+            }
+            if (!pinData.has_pin) {
+                showToast('Set a PIN in Account tab to protect your logs', 'warning', 4000);
             }
             let html = '<div class="vault-subtabs">';
             html += '<button class="vault-subtab' + (currentLogsSubtab === 'personal' ? ' active' : '') + '" onclick="logsSubtab(\'personal\')">PERSONAL LOGS</button>';
@@ -7516,25 +8102,65 @@ async function loadLogsSubtab(sub) {
             html += '<div class="plog-device-row"><label>MIC</label><select id="plogDeviceSelect"><option value="">Default</option></select></div>';
             html += '<div class="plog-compose-actions">';
             html += '<button class="plog-rec-btn" id="plogRecBtn" onclick="plogToggleRecord()">RECORD</button>';
+            html += '<button class="plog-video-btn" id="plogVideoBtn" onclick="plogToggleVideo()">VIDEO</button>';
             html += '<span class="plog-rec-info" id="plogRecInfo"></span>';
             html += '<button class="plog-save-btn" onclick="plogSave()">SAVE</button>';
-            html += '</div></div>';
-            // Log list
+            html += '</div>';
+            html += '<video id="plogVideoPreview" class="plog-video-preview" style="display:none" muted></video>';
+            html += '<span class="plog-video-countdown" id="plogVideoCountdown" style="display:none"></span>';
+            html += '</div>';
+            // Group logs by date
             if (logs.length > 0) {
+                var groups = {};
                 logs.forEach(function(l) {
-                    html += '<div class="plog-card" onclick="plogView(\'' + escapeHtml(l.id) + '\')">';
-                    html += '<div class="plog-card-header">';
-                    html += '<span class="plog-card-date">' + escapeHtml(l.created.substring(0, 16).replace('T', ' ')) + '</span>';
-                    if (l.has_audio) html += '<span class="plog-audio-badge">AUDIO</span>';
-                    html += '</div>';
-                    html += '<div class="plog-card-preview">' + escapeHtml(l.preview || '(no text)') + '</div>';
-                    html += '</div>';
+                    var dateKey = (l.created || '').substring(0, 10);
+                    if (!groups[dateKey]) groups[dateKey] = [];
+                    groups[dateKey].push(l);
                 });
+                var dateKeys = Object.keys(groups).sort().reverse();
+                // Pagination: show first 50 logs worth of groups
+                var totalShown = 0;
+                var maxToShow = 50;
+                dateKeys.forEach(function(dateKey) {
+                    if (totalShown >= maxToShow) return;
+                    var groupLogs = groups[dateKey];
+                    var remaining = maxToShow - totalShown;
+                    var showLogs = groupLogs.slice(0, remaining);
+                    totalShown += showLogs.length;
+                    // Date header
+                    var dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+                    var d = new Date(dateKey + 'T12:00:00');
+                    var dayName = dayNames[d.getDay()] || '';
+                    html += '<div class="plog-date-group" data-date="' + dateKey + '">';
+                    html += '<div class="plog-date-header" onclick="this.parentNode.classList.toggle(\'collapsed\')">';
+                    html += '<span class="plog-date-chevron">&#9660;</span>';
+                    html += '<span class="plog-date-label">' + dayName + ' ' + dateKey + '</span>';
+                    html += '<span class="plog-date-count">' + groupLogs.length + ' entries</span>';
+                    html += '</div>';
+                    html += '<div class="plog-date-separator"></div>';
+                    html += '<div class="plog-date-entries">';
+                    showLogs.forEach(function(l) {
+                        html += '<div class="plog-card" onclick="plogView(\'' + escapeHtml(l.id) + '\')">';
+                        html += '<div class="plog-card-header">';
+                        html += '<span class="plog-card-date">' + escapeHtml(l.created.substring(11, 16)) + '</span>';
+                        if (l.has_audio) html += '<span class="plog-audio-badge">AUDIO</span>';
+                        if (l.has_video) html += '<span class="plog-audio-badge" style="background:var(--lcars-purple-1)">VIDEO</span>';
+                        html += '</div>';
+                        html += '<div class="plog-card-preview">' + escapeHtml(l.preview || '(no text)') + '</div>';
+                        html += '</div>';
+                    });
+                    html += '</div></div>';
+                });
+                if (totalShown >= maxToShow) {
+                    html += '<button class="widget-quick-btn" style="margin-top:8px" onclick="loadMoreLogs()">LOAD MORE</button>';
+                }
             } else {
                 html += '<div class="data-row" style="margin-top:8px"><span class="label">No personal logs yet</span></div>';
             }
             el.innerHTML = html;
             plogEnumerateDevices();
+            // Merge mood entries into timeline
+            loadLogsWithMoods();
         } catch (e) {
             el.innerHTML = '<div class="data-row"><span class="label">Error loading logs</span></div>';
         }
@@ -7624,13 +8250,21 @@ function plogToggleRecord() {
 
 async function plogSave() {
     var text = document.getElementById('plogText').value.trim();
-    if (!text && !_plogAudioBlob) return;
+    if (!text && !_plogAudioBlob && !_plogVideoBlob) return;
 
     var saveBtn = document.querySelector('.plog-save-btn');
     if (saveBtn) saveBtn.textContent = 'SAVING...';
 
     try {
-        if (_plogAudioBlob) {
+        if (_plogVideoBlob) {
+            // Video upload
+            var fd = new FormData();
+            fd.append('video', _plogVideoBlob, 'recording.webm');
+            fd.append('text', text);
+            await authFetch(API + '/personal-logs/video', {method: 'POST', body: fd});
+            _plogVideoBlob = null;
+            _plogVideoChunks = [];
+        } else if (_plogAudioBlob) {
             var fd = new FormData();
             fd.append('audio', _plogAudioBlob, 'recording.webm');
             fd.append('text', text);
@@ -7665,6 +8299,12 @@ async function plogView(logId) {
         if (data.text) {
             html += '<div style="white-space:pre-wrap;font-size:13px;line-height:1.6;color:var(--lcars-text);margin-bottom:12px">' + escapeHtml(data.text) + '</div>';
         }
+        if (data.has_video) {
+            html += '<div style="margin-bottom:12px">';
+            html += '<div style="color:var(--lcars-text-dim);font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Video Recording</div>';
+            html += '<video controls style="width:100%;max-height:300px" id="plogVideoPlayer"></video>';
+            html += '</div>';
+        }
         if (data.has_audio) {
             html += '<div style="margin-bottom:12px">';
             html += '<div style="color:var(--lcars-text-dim);font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Audio Recording</div>';
@@ -7679,6 +8319,17 @@ async function plogView(logId) {
         }
         html += '<div style="margin-top:16px"><button class="vault-btn danger" onclick="plogDelete(\'' + escapeHtml(logId) + '\')">DELETE LOG</button></div>';
         el.innerHTML = html;
+        // Load video via authenticated fetch
+        if (data.has_video) {
+            try {
+                var videoRes = await authFetch(API + '/personal-logs/' + encodeURIComponent(logId) + '/video');
+                if (videoRes.ok) {
+                    var videoBlob = await videoRes.blob();
+                    var vPlayer = document.getElementById('plogVideoPlayer');
+                    if (vPlayer) vPlayer.src = URL.createObjectURL(videoBlob);
+                }
+            } catch (ve) {}
+        }
         // Load audio via authenticated fetch and set as blob URL
         if (data.has_audio) {
             try {
@@ -7934,11 +8585,13 @@ async function init() {
     initChatCollapse();
     setInterval(checkAlarms, 30000);
     setInterval(loadWeather, 300000); // refresh weather every 5 min
+    setInterval(function() { if (_currentLayout !== 'focus') renderWidgetSysperf(); }, 5000); // refresh sysperf widget every 5s
 
     // Init drag on all panels + floating chat window
     document.querySelectorAll('.lcars-panel').forEach(function(panel) {
         var handle = panel.querySelector('.lcars-panel-frame-top');
         if (handle) initDrag(panel, handle);
+        initPanelResizeObserver(panel);
     });
     var chatWin = document.getElementById('chatWindow');
     if (chatWin) {
@@ -8144,9 +8797,7 @@ function openBriefingPanel() {
     document.getElementById('briefingPanelOverlay').classList.add('open');
     var panel = document.getElementById('briefingPanel');
     panel.classList.add('open');
-    cascadePanel(panel);
-    bringToFront(panel);
-    pushPanelStack('briefingPanelOverlay');
+    restorePanelPosition(panel);
     loadBriefing();
 }
 
@@ -8387,6 +9038,9 @@ document.addEventListener('keydown', function(e) {
             'alarmPanelOverlay': closeAlarmPanel,
             'filePanelOverlay': closeFilePanel,
             'socialPanelOverlay': closeSocialPanel,
+            'sysperfPanelOverlay': closeSysperfPanel,
+            'newsPanelOverlay': closeNewsPanel,
+            'weatherPanelOverlay': closeWeatherPanel,
         };
         if (_openPanelStack.length > 0) {
             var topId = _openPanelStack[_openPanelStack.length - 1];
@@ -8534,15 +9188,15 @@ function initColorScheme() {
 var LAYOUT_WIDGET_MAP = {
     bridge: {
         primary: ['widget-clock', 'widget-tasks', 'widget-calendar', 'widget-habits', 'widget-mood',
-                   'widget-weather', 'widget-system', 'widget-gpu', 'widget-timer']
+                   'widget-weather', 'widget-system', 'widget-gpu', 'widget-timer', 'widget-sysperf', 'widget-news']
     },
     ops: {
         primary: ['widget-clock', 'widget-tasks', 'widget-calendar', 'widget-weather',
-                   'widget-system', 'widget-gpu', 'widget-timer']
+                   'widget-system', 'widget-gpu', 'widget-timer', 'widget-sysperf', 'widget-news']
     },
     science: {
         primary: ['widget-clock', 'widget-tasks', 'widget-calendar', 'widget-habits',
-                   'widget-mood', 'widget-weather', 'widget-system', 'widget-gpu', 'widget-timer']
+                   'widget-mood', 'widget-weather', 'widget-system', 'widget-gpu', 'widget-timer', 'widget-sysperf', 'widget-news']
     },
     focus: {
         primary: []
@@ -8557,12 +9211,208 @@ var _tickerInterval = null;
 
 var ALL_WIDGET_IDS = ['widget-tasks', 'widget-calendar', 'widget-habits', 'widget-mood',
                       'widget-system', 'widget-gpu', 'widget-weather', 'widget-timer',
-                      'widget-clock'];
+                      'widget-clock', 'widget-sysperf', 'widget-news'];
+
+// ========== WIDGET PREFS (consolidated localStorage) ==========
+function loadWidgetPrefs() {
+    try { return JSON.parse(localStorage.getItem('aegis_widget_prefs') || '{}'); } catch(e) { return {}; }
+}
+function saveWidgetPrefs(prefs) {
+    localStorage.setItem('aegis_widget_prefs', JSON.stringify(prefs));
+}
+
+var _widgetThemes = ['amber', 'blue', 'purple', 'green', 'pink', 'ice'];
+
+function saveWidgetDockState() {
+    var prefs = loadWidgetPrefs();
+    var leftOrder = [];
+    var rightOrder = [];
+    var leftDock = document.getElementById('widgetDock');
+    var rightDock = document.getElementById('widgetDockRight');
+    if (leftDock) {
+        leftDock.querySelectorAll('.lcars-widget').forEach(function(child) {
+            if (child.id) leftOrder.push(child.id);
+        });
+    }
+    if (rightDock) {
+        rightDock.querySelectorAll('.lcars-widget').forEach(function(child) {
+            if (child.id) rightOrder.push(child.id);
+        });
+    }
+    prefs._order = leftOrder;
+    prefs._rightOrder = rightOrder;
+    // Track dock per widget
+    leftOrder.forEach(function(wid) {
+        prefs[wid] = prefs[wid] || {};
+        prefs[wid].dock = 'left';
+    });
+    rightOrder.forEach(function(wid) {
+        prefs[wid] = prefs[wid] || {};
+        prefs[wid].dock = 'right';
+    });
+    saveWidgetPrefs(prefs);
+}
+
+function initDockDropTargets() {
+    ['widgetDock', 'widgetDockRight'].forEach(function(dockId) {
+        var dock = document.getElementById(dockId);
+        if (!dock) return;
+        dock.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            // Only show placeholder if dropping directly on dock (not on a widget child)
+            if (e.target !== dock) return;
+            document.querySelectorAll('.widget-drag-placeholder').forEach(function(p) { p.remove(); });
+            var placeholder = document.createElement('div');
+            placeholder.className = 'widget-drag-placeholder';
+            dock.appendChild(placeholder);
+        });
+        dock.addEventListener('drop', function(e) {
+            e.preventDefault();
+            var draggedId = e.dataTransfer.getData('text/plain');
+            var draggedEl = _widgetElements[draggedId];
+            if (!draggedEl) return;
+            document.querySelectorAll('.widget-drag-placeholder').forEach(function(p) { p.remove(); });
+            dock.appendChild(draggedEl);
+            saveWidgetDockState();
+        });
+    });
+}
 
 function cacheWidgetElements() {
     ALL_WIDGET_IDS.forEach(function(id) {
         var el = document.getElementById(id);
         if (el) _widgetElements[id] = el;
+    });
+    // Inject collapse, settings, and drag handles into each widget
+    ALL_WIDGET_IDS.forEach(function(id) {
+        var w = _widgetElements[id];
+        if (!w) return;
+        var header = w.querySelector('.widget-header');
+        if (!header || header.dataset.injected) return;
+        header.dataset.injected = '1';
+
+        // Collapse button (before expand button)
+        var collapseBtn = document.createElement('button');
+        collapseBtn.className = 'widget-collapse-btn';
+        collapseBtn.innerHTML = '&#9660;';
+        collapseBtn.title = 'Collapse/Expand';
+        collapseBtn.onclick = function(e) {
+            e.stopPropagation();
+            w.classList.toggle('collapsed');
+            var prefs = loadWidgetPrefs();
+            prefs[id] = prefs[id] || {};
+            prefs[id].collapsed = w.classList.contains('collapsed');
+            saveWidgetPrefs(prefs);
+        };
+        var expandBtn = header.querySelector('.widget-expand-btn');
+        if (expandBtn) header.insertBefore(collapseBtn, expandBtn);
+        else header.appendChild(collapseBtn);
+
+        // Settings gear button
+        var gearBtn = document.createElement('button');
+        gearBtn.className = 'widget-settings-btn';
+        gearBtn.innerHTML = '&#9881;';
+        gearBtn.title = 'Widget color';
+        gearBtn.onclick = function(e) {
+            e.stopPropagation();
+            // Close any other open dropdowns
+            document.querySelectorAll('.widget-settings-dropdown.open').forEach(function(d) {
+                if (d.parentNode !== header) d.classList.remove('open');
+            });
+            var dd = header.querySelector('.widget-settings-dropdown');
+            if (dd) dd.classList.toggle('open');
+        };
+        header.appendChild(gearBtn);
+
+        // Settings dropdown with color swatches
+        var dropdown = document.createElement('div');
+        dropdown.className = 'widget-settings-dropdown';
+        _widgetThemes.forEach(function(theme) {
+            var swatch = document.createElement('div');
+            swatch.className = 'widget-color-swatch sw-' + theme;
+            swatch.title = theme;
+            swatch.onclick = function(e) {
+                e.stopPropagation();
+                _widgetThemes.forEach(function(t) { w.classList.remove('theme-' + t); });
+                w.classList.add('theme-' + theme);
+                dropdown.querySelectorAll('.widget-color-swatch').forEach(function(s) { s.classList.remove('active'); });
+                swatch.classList.add('active');
+                dropdown.classList.remove('open');
+                var prefs = loadWidgetPrefs();
+                prefs[id] = prefs[id] || {};
+                prefs[id].theme = theme;
+                saveWidgetPrefs(prefs);
+            };
+            dropdown.appendChild(swatch);
+        });
+        header.style.position = 'relative';
+        header.appendChild(dropdown);
+
+        // Clock format toggle (only for clock widget)
+        if (id === 'widget-clock') {
+            var fmtBtn = document.createElement('button');
+            fmtBtn.className = 'clock-format-btn';
+            fmtBtn.id = 'clockFormatBtn';
+            fmtBtn.textContent = _clockFormat === '24h' ? '24H' : '12H';
+            fmtBtn.title = 'Toggle 12/24h';
+            fmtBtn.onclick = function(e) { e.stopPropagation(); toggleClockFormat(); };
+            if (expandBtn) header.insertBefore(fmtBtn, expandBtn);
+            else header.insertBefore(fmtBtn, collapseBtn);
+        }
+
+        // Drag reorder (on header)
+        w.setAttribute('draggable', 'true');
+        w.addEventListener('dragstart', function(e) {
+            e.dataTransfer.setData('text/plain', id);
+            w.classList.add('dragging');
+        });
+        w.addEventListener('dragend', function() {
+            w.classList.remove('dragging');
+            document.querySelectorAll('.widget-drag-placeholder').forEach(function(p) { p.remove(); });
+        });
+        w.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            var draggingId = e.dataTransfer.types.indexOf('text/plain') >= 0;
+            if (!draggingId) return;
+            var dock = w.closest('.widget-dock, .widget-dock-right') || document.getElementById('widgetDock');
+            if (!dock) return;
+            // Remove old placeholders from both docks
+            document.querySelectorAll('.widget-drag-placeholder').forEach(function(p) { p.remove(); });
+            var rect = w.getBoundingClientRect();
+            var midY = rect.top + rect.height / 2;
+            var placeholder = document.createElement('div');
+            placeholder.className = 'widget-drag-placeholder';
+            if (e.clientY < midY) {
+                dock.insertBefore(placeholder, w);
+            } else {
+                dock.insertBefore(placeholder, w.nextSibling);
+            }
+        });
+        w.addEventListener('drop', function(e) {
+            e.preventDefault();
+            var draggedId = e.dataTransfer.getData('text/plain');
+            var draggedEl = _widgetElements[draggedId];
+            if (!draggedEl || draggedId === id) return;
+            var dock = w.closest('.widget-dock, .widget-dock-right') || document.getElementById('widgetDock');
+            if (!dock) return;
+            var rect = w.getBoundingClientRect();
+            var midY = rect.top + rect.height / 2;
+            if (e.clientY < midY) {
+                dock.insertBefore(draggedEl, w);
+            } else {
+                dock.insertBefore(draggedEl, w.nextSibling);
+            }
+            document.querySelectorAll('.widget-drag-placeholder').forEach(function(p) { p.remove(); });
+            // Save order and dock assignments
+            saveWidgetDockState();
+        });
+    });
+
+    // Close settings dropdowns on click-outside
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.widget-settings-btn') && !e.target.closest('.widget-settings-dropdown')) {
+            document.querySelectorAll('.widget-settings-dropdown.open').forEach(function(d) { d.classList.remove('open'); });
+        }
     });
 }
 
@@ -8578,6 +9428,7 @@ function applyLayout(name) {
     content.classList.add('layout-' + name);
 
     var dockPrimary = document.getElementById('widgetDock');
+    var dockRight = document.getElementById('widgetDockRight');
     var map = LAYOUT_WIDGET_MAP[name];
 
     // Hide all widgets first — use cached refs
@@ -8591,14 +9442,62 @@ function applyLayout(name) {
         }
     });
 
-    // Move widgets to dock
-    map.primary.forEach(function(id) {
-        var w = _widgetElements[id];
-        if (w && dockPrimary) {
-            dockPrimary.appendChild(w);
-            w.style.display = '';
+    // Sort widgets by saved order if available
+    var prefs = loadWidgetPrefs();
+    var savedOrder = prefs._order || [];
+    var savedRightOrder = prefs._rightOrder || [];
+
+    // Separate widgets into left and right based on saved dock preference
+    var leftWidgets = [];
+    var rightWidgets = [];
+    var allForLayout = map.primary.slice();
+
+    allForLayout.forEach(function(id) {
+        var wp = prefs[id] || {};
+        if (wp.dock === 'right') {
+            rightWidgets.push(id);
+        } else {
+            leftWidgets.push(id);
         }
     });
+
+    // Sort left widgets by saved left order
+    leftWidgets.sort(function(a, b) {
+        var ia = savedOrder.indexOf(a);
+        var ib = savedOrder.indexOf(b);
+        if (ia === -1 && ib === -1) return 0;
+        if (ia === -1) return 1;
+        if (ib === -1) return -1;
+        return ia - ib;
+    });
+
+    // Sort right widgets by saved right order
+    rightWidgets.sort(function(a, b) {
+        var ia = savedRightOrder.indexOf(a);
+        var ib = savedRightOrder.indexOf(b);
+        if (ia === -1 && ib === -1) return 0;
+        if (ia === -1) return 1;
+        if (ib === -1) return -1;
+        return ia - ib;
+    });
+
+    // Place widgets in their respective docks
+    function placeWidget(id, dock) {
+        var w = _widgetElements[id];
+        if (w && dock) {
+            dock.appendChild(w);
+            w.style.display = '';
+            var wp = prefs[id] || {};
+            if (wp.collapsed) w.classList.add('collapsed');
+            else w.classList.remove('collapsed');
+            if (wp.theme) {
+                _widgetThemes.forEach(function(t) { w.classList.remove('theme-' + t); });
+                w.classList.add('theme-' + wp.theme);
+            }
+        }
+    }
+    leftWidgets.forEach(function(id) { placeWidget(id, dockPrimary); });
+    rightWidgets.forEach(function(id) { placeWidget(id, dockRight); });
 
     // Show/hide ticker
     var ticker = document.getElementById('lcarsTicker');
@@ -8618,12 +9517,21 @@ function applyLayout(name) {
         applyFeatureVisibility();
     }
 
+    // Restore clock format from prefs
+    var clockPrefs = prefs['widget-clock'] || {};
+    if (clockPrefs.clockFormat) {
+        _clockFormat = clockPrefs.clockFormat;
+        var fmtBtn = document.getElementById('clockFormatBtn');
+        if (fmtBtn) fmtBtn.textContent = _clockFormat === '24h' ? '24H' : '12H';
+    }
+
     // Refresh widget data
     refreshAllWidgets();
 }
 
 function initLayout() {
     cacheWidgetElements();
+    initDockDropTargets();
     var saved = localStorage.getItem('aegis_layout');
     applyLayout(saved || 'bridge');
 }
@@ -8751,13 +9659,22 @@ function computeStardate() {
     return sd.toFixed(1);
 }
 
+var _clockFormat = '24h'; // cached, avoid reading localStorage every second
+
 function renderClock() {
     var now = new Date();
-    var h = String(now.getHours()).padStart(2, '0');
+    var hours = now.getHours();
+    var suffix = '';
+    if (_clockFormat === '12h') {
+        suffix = hours >= 12 ? ' PM' : ' AM';
+        hours = hours % 12;
+        if (hours === 0) hours = 12;
+    }
+    var h = String(hours).padStart(2, '0');
     var m = String(now.getMinutes()).padStart(2, '0');
     var s = String(now.getSeconds()).padStart(2, '0');
     var timeEl = document.getElementById('clockTime');
-    if (timeEl) timeEl.textContent = h + ':' + m + ':' + s;
+    if (timeEl) timeEl.textContent = h + ':' + m + ':' + s + suffix;
 
     var sdEl = document.getElementById('clockStardate');
     if (sdEl) sdEl.textContent = 'STARDATE ' + computeStardate();
@@ -8768,6 +9685,17 @@ function renderClock() {
         var months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
         dateEl.textContent = days[now.getDay()] + ' ' + now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear();
     }
+}
+
+function toggleClockFormat() {
+    _clockFormat = (_clockFormat === '24h') ? '12h' : '24h';
+    var prefs = loadWidgetPrefs();
+    prefs['widget-clock'] = prefs['widget-clock'] || {};
+    prefs['widget-clock'].clockFormat = _clockFormat;
+    saveWidgetPrefs(prefs);
+    var btn = document.getElementById('clockFormatBtn');
+    if (btn) btn.textContent = _clockFormat === '24h' ? '24H' : '12H';
+    renderClock();
 }
 
 function initClock() {
@@ -9010,7 +9938,7 @@ async function renderWidgetWeather() {
             }
             body.innerHTML = html;
         }
-    } catch (e) {}
+    } catch (e) { console.error('Weather widget error:', e); }
 }
 
 function renderWidgetTimer() {
@@ -9054,7 +9982,7 @@ function refreshAllWidgets() {
     var map = LAYOUT_WIDGET_MAP[_currentLayout];
     if (!map) return;
 
-    var visible = map.primary.concat(map.right);
+    var visible = map.primary.concat(map.right || []);
 
     if (visible.indexOf('widget-tasks') >= 0) renderWidgetTasks();
     if (visible.indexOf('widget-calendar') >= 0) renderWidgetCalendar();
@@ -9064,6 +9992,8 @@ function refreshAllWidgets() {
     if (visible.indexOf('widget-gpu') >= 0) renderWidgetGpu();
     if (visible.indexOf('widget-weather') >= 0) renderWidgetWeather();
     if (visible.indexOf('widget-timer') >= 0) renderWidgetTimer();
+    if (visible.indexOf('widget-sysperf') >= 0) renderWidgetSysperf();
+    if (visible.indexOf('widget-news') >= 0) renderWidgetNews();
 
     // Ticker refreshes from cached data
     refreshTicker();
@@ -9137,12 +10067,16 @@ function loadSidebarWidgets() {
 
 // ========== SIDEBAR TABS ==========
 
+var SIDEBAR_TAB_NAMES = { ops: 'OPERATIONS', msn: 'MISSION', per: 'PERSONNEL', dat: 'DATABASE' };
+
 function switchSidebarTab(tabId, btn) {
     document.querySelectorAll('.sidebar-tab').forEach(function(t) { t.classList.remove('active'); });
     document.querySelectorAll('.sidebar-tab-content').forEach(function(c) { c.classList.remove('active'); });
     if (btn) btn.classList.add('active');
     var content = document.getElementById('sidebarTab-' + tabId);
     if (content) content.classList.add('active');
+    var title = document.getElementById('sidebarTabTitle');
+    if (title) title.textContent = SIDEBAR_TAB_NAMES[tabId] || tabId.toUpperCase();
     localStorage.setItem('aegis_sidebar_tab', tabId);
 }
 
@@ -9242,9 +10176,7 @@ function openMoodPanel() {
     document.getElementById('moodPanelOverlay').classList.add('open');
     var panel = document.getElementById('moodPanel');
     panel.classList.add('open');
-    cascadePanel(panel);
-    bringToFront(panel);
-    pushPanelStack('moodPanelOverlay');
+    restorePanelPosition(panel);
     renderMoodChips();
     loadMoods();
 }
@@ -9325,9 +10257,7 @@ function openContactPanel() {
     document.getElementById('contactPanelOverlay').classList.add('open');
     var panel = document.getElementById('contactPanel');
     panel.classList.add('open');
-    cascadePanel(panel);
-    bringToFront(panel);
-    pushPanelStack('contactPanelOverlay');
+    restorePanelPosition(panel);
     loadContacts();
 }
 function closeContactPanel() {
@@ -9396,9 +10326,7 @@ function openHabitPanel() {
     document.getElementById('habitPanelOverlay').classList.add('open');
     var panel = document.getElementById('habitPanel');
     panel.classList.add('open');
-    cascadePanel(panel);
-    bringToFront(panel);
-    pushPanelStack('habitPanelOverlay');
+    restorePanelPosition(panel);
     loadHabits();
 }
 function closeHabitPanel() {
@@ -9473,9 +10401,7 @@ function openBehaviorPanel() {
     document.getElementById('behaviorPanelOverlay').classList.add('open');
     var panel = document.getElementById('behaviorPanel');
     panel.classList.add('open');
-    cascadePanel(panel);
-    bringToFront(panel);
-    pushPanelStack('behaviorPanelOverlay');
+    restorePanelPosition(panel);
     loadBehaviors();
 }
 function closeBehaviorPanel() {
@@ -9554,9 +10480,7 @@ function openPinnedPanel() {
     document.getElementById('pinnedPanelOverlay').classList.add('open');
     var panel = document.getElementById('pinnedPanel');
     panel.classList.add('open');
-    cascadePanel(panel);
-    bringToFront(panel);
-    pushPanelStack('pinnedPanelOverlay');
+    restorePanelPosition(panel);
     loadPinned();
 }
 function closePinnedPanel() {
@@ -9614,9 +10538,7 @@ function openTimerPanel() {
     document.getElementById('timerPanelOverlay').classList.add('open');
     var panel = document.getElementById('timerPanel');
     panel.classList.add('open');
-    cascadePanel(panel);
-    bringToFront(panel);
-    pushPanelStack('timerPanelOverlay');
+    restorePanelPosition(panel);
     loadTimerState();
     loadTimerHistory();
 }
@@ -9738,9 +10660,7 @@ function openAlarmPanel() {
     document.getElementById('alarmPanelOverlay').classList.add('open');
     var panel = document.getElementById('alarmPanel');
     panel.classList.add('open');
-    cascadePanel(panel);
-    bringToFront(panel);
-    pushPanelStack('alarmPanelOverlay');
+    restorePanelPosition(panel);
     loadAlarms();
 }
 function closeAlarmPanel() {
@@ -9836,9 +10756,7 @@ function openFilePanel() {
     document.getElementById('filePanelOverlay').classList.add('open');
     var panel = document.getElementById('filePanel');
     panel.classList.add('open');
-    cascadePanel(panel);
-    bringToFront(panel);
-    pushPanelStack('filePanelOverlay');
+    restorePanelPosition(panel);
     loadFiles();
 }
 function closeFilePanel() {
@@ -9914,9 +10832,7 @@ function openSocialPanel() {
     document.getElementById('socialPanelOverlay').classList.add('open');
     var panel = document.getElementById('socialPanel');
     panel.classList.add('open');
-    cascadePanel(panel);
-    bringToFront(panel);
-    pushPanelStack('socialPanelOverlay');
+    restorePanelPosition(panel);
     loadSocialProjects();
 }
 function closeSocialPanel() {
@@ -9992,6 +10908,596 @@ async function deleteSocialProject(id) {
         await authFetch(API + '/social/projects/' + id, { method: 'DELETE' });
         loadSocialProjects();
     } catch (e) {}
+}
+
+// ========== PHASE 1G: PERSONAL LOG FROM SIDEBAR ==========
+
+function openPersonalLogFromSidebar() {
+    requirePinForLogs(function() {
+        openVaultPanel();
+        setTimeout(function() {
+            vaultTab('logs', document.querySelector('.vault-tab:nth-child(2)'));
+        }, 150);
+    });
+}
+
+async function requirePinForLogs(onSuccess) {
+    try {
+        var res = await authFetch(API + '/vault/pin/status');
+        var data = await res.json();
+        if (data.has_pin && !vaultToken) {
+            // Has PIN but not unlocked — show PIN modal
+            showPinModal(function() {
+                if (onSuccess) onSuccess();
+            });
+        } else if (!data.has_pin) {
+            // No PIN set — prompt user to set one, open vault to Account tab
+            showToast('Set a PIN in Vault > Account to protect your logs', 'warning', 5000);
+            openVaultPanel();
+            setTimeout(function() {
+                vaultTab('account', document.querySelector('.vault-tab:last-child'));
+            }, 150);
+        } else {
+            // Has PIN and already unlocked
+            if (onSuccess) onSuccess();
+        }
+    } catch (e) {
+        console.error('PIN status check error:', e);
+        // On error, still allow access
+        if (onSuccess) onSuccess();
+    }
+}
+
+// ========== PHASE 2A: SYSTEM PERFORMANCE ==========
+
+var _sysperfInterval = null;
+var _sysperfPanelInterval = null;
+
+async function renderWidgetSysperf() {
+    try {
+        var res = await authFetch(API + '/system/perf');
+        var data = await res.json();
+        var body = document.getElementById('widgetSysperfBody');
+        if (!body) return;
+        if (data.error) {
+            body.innerHTML = '<div style="color:var(--lcars-text-dim);font-size:11px">No perf data</div>';
+            return;
+        }
+        var cpuPct = Math.round(data.cpu_percent || 0);
+        var ramPct = Math.round(data.ram_percent || 0);
+        var diskPct = Math.round(data.disk_percent || 0);
+
+        function perfBar(label, pct) {
+            var color = pct > 80 ? 'var(--lcars-error)' : pct > 60 ? 'var(--lcars-warning)' : 'var(--lcars-success)';
+            return '<div class="sysperf-bar">' +
+                '<span class="sysperf-label">' + label + '</span>' +
+                '<div class="sysperf-track"><div class="sysperf-fill" style="width:' + pct + '%;background:' + color + '"></div></div>' +
+                '<span class="sysperf-pct">' + pct + '%</span></div>';
+        }
+
+        body.innerHTML = perfBar('CPU', cpuPct) + perfBar('RAM', ramPct) + perfBar('DISK', diskPct);
+    } catch (e) {
+        var body = document.getElementById('widgetSysperfBody');
+        if (body) body.innerHTML = '<div style="color:var(--lcars-text-dim);font-size:11px">--</div>';
+    }
+}
+
+function openSysperfPanel() {
+    document.getElementById('sysperfPanelOverlay').classList.add('open');
+    var panel = document.getElementById('sysperfPanel');
+    panel.classList.add('open');
+    restorePanelPosition(panel);
+    loadSysperfDetails();
+    if (_sysperfPanelInterval) clearInterval(_sysperfPanelInterval);
+    _sysperfPanelInterval = setInterval(loadSysperfDetails, 3000);
+}
+
+function closeSysperfPanel() {
+    document.getElementById('sysperfPanelOverlay').classList.remove('open');
+    document.getElementById('sysperfPanel').classList.remove('open');
+    popPanelStack('sysperfPanelOverlay');
+    if (_sysperfPanelInterval) { clearInterval(_sysperfPanelInterval); _sysperfPanelInterval = null; }
+}
+
+async function loadSysperfDetails() {
+    var container = document.getElementById('sysperfDetailContent');
+    if (!container) return;
+    try {
+        var res = await authFetch(API + '/system/perf');
+        var data = await res.json();
+        if (data.error) {
+            container.innerHTML = '<div class="data-row"><span class="label">' + escapeHtml(data.error) + '</span></div>';
+            return;
+        }
+        var html = '';
+
+        // CPU
+        html += '<div class="sysperf-detail-section">';
+        html += '<div class="sysperf-detail-title">CPU</div>';
+        html += lcarsDataRow('USAGE', Math.round(data.cpu_percent || 0) + '%');
+        if (data.cpu_cores) {
+            data.cpu_cores.forEach(function(pct, i) {
+                html += lcarsDataRow('CORE ' + i, Math.round(pct) + '%');
+            });
+        }
+        html += '</div>';
+
+        // RAM
+        html += '<div class="sysperf-detail-section">';
+        html += '<div class="sysperf-detail-title">Memory</div>';
+        html += lcarsDataRow('USAGE', Math.round(data.ram_percent || 0) + '%');
+        html += lcarsDataRow('USED', (data.ram_used_gb || 0).toFixed(1) + ' GB');
+        html += lcarsDataRow('TOTAL', (data.ram_total_gb || 0).toFixed(1) + ' GB');
+        html += '</div>';
+
+        // Disk
+        html += '<div class="sysperf-detail-section">';
+        html += '<div class="sysperf-detail-title">Disk</div>';
+        html += lcarsDataRow('USAGE', Math.round(data.disk_percent || 0) + '%');
+        html += lcarsDataRow('USED', (data.disk_used_gb || 0).toFixed(1) + ' GB');
+        html += lcarsDataRow('TOTAL', (data.disk_total_gb || 0).toFixed(1) + ' GB');
+        html += '</div>';
+
+        // Network
+        if (data.net_sent_mb != null) {
+            html += '<div class="sysperf-detail-section">';
+            html += '<div class="sysperf-detail-title">Network</div>';
+            html += lcarsDataRow('SENT', (data.net_sent_mb || 0).toFixed(1) + ' MB');
+            html += lcarsDataRow('RECV', (data.net_recv_mb || 0).toFixed(1) + ' MB');
+            html += '</div>';
+        }
+
+        // Top processes
+        if (data.top_processes && data.top_processes.length > 0) {
+            html += '<div class="sysperf-detail-section">';
+            html += '<div class="sysperf-detail-title">Top Processes (CPU)</div>';
+            data.top_processes.forEach(function(p) {
+                html += '<div class="sysperf-proc-row"><span class="sysperf-proc-name">' + escapeHtml(p.name) + '</span><span class="sysperf-proc-val">' + p.cpu.toFixed(1) + '%</span></div>';
+            });
+            html += '</div>';
+        }
+
+        container.innerHTML = html;
+    } catch (e) {
+        container.innerHTML = '<div class="data-row"><span class="label">Error loading performance data</span></div>';
+    }
+}
+
+// ========== PHASE 2B: NEWS FEED ==========
+
+var _newsCurrentSource = 'ddgs';
+var _newsCurrentCategory = 'local';
+
+async function renderWidgetNews() {
+    var body = document.getElementById('widgetNewsBody');
+    if (!body) return;
+    try {
+        var loc = '';
+        try {
+            var locRes = await authFetch(API + '/weather/location');
+            var locData = await locRes.json();
+            if (locData.location && locData.location.name) loc = locData.location.name;
+        } catch(e) {}
+        var url = API + '/news?source=' + encodeURIComponent(_newsCurrentSource) +
+            '&category=' + encodeURIComponent(_newsCurrentCategory);
+        if (loc) url += '&location=' + encodeURIComponent(loc);
+        var res = await authFetch(url);
+        var data = await res.json();
+        var articles = data.articles || [];
+        if (articles.length === 0) {
+            body.innerHTML = '<div style="color:var(--lcars-text-dim);font-size:11px">No headlines available</div>';
+            return;
+        }
+        var html = '';
+        articles.slice(0, 5).forEach(function(a) {
+            html += '<div class="news-headline"><a href="' + escapeHtml(a.url || '#') + '" target="_blank" rel="noopener">' + escapeHtml(a.title || 'Untitled') + '</a></div>';
+        });
+        body.innerHTML = html;
+    } catch (e) {
+        body.innerHTML = '<div style="color:var(--lcars-text-dim);font-size:11px">--</div>';
+    }
+}
+
+function openNewsPanel() {
+    document.getElementById('newsPanelOverlay').classList.add('open');
+    var panel = document.getElementById('newsPanel');
+    panel.classList.add('open');
+    restorePanelPosition(panel);
+    loadNewsDetails();
+}
+
+function closeNewsPanel() {
+    document.getElementById('newsPanelOverlay').classList.remove('open');
+    document.getElementById('newsPanel').classList.remove('open');
+    popPanelStack('newsPanelOverlay');
+}
+
+async function loadNewsDetails() {
+    var container = document.getElementById('newsDetailContent');
+    if (!container) return;
+    container.innerHTML = '<div class="data-row"><span class="label">Loading...</span></div>';
+    try {
+        var loc = '';
+        try {
+            var locRes = await authFetch(API + '/weather/location');
+            var locData = await locRes.json();
+            if (locData.location && locData.location.name) loc = locData.location.name;
+        } catch(e) {}
+
+        // Source tabs
+        var html = '<div class="news-source-tabs">';
+        ['ddgs', 'rss', 'newsapi'].forEach(function(src) {
+            var label = { ddgs: 'DDG', rss: 'RSS', newsapi: 'API' }[src];
+            html += '<button class="news-source-tab' + (src === _newsCurrentSource ? ' active' : '') + '" onclick="switchNewsSource(\'' + src + '\')">' + label + '</button>';
+        });
+        html += '</div>';
+
+        // Category tabs
+        html += '<div class="news-source-tabs" style="margin-bottom:12px">';
+        ['local', 'international'].forEach(function(cat) {
+            html += '<button class="news-source-tab' + (cat === _newsCurrentCategory ? ' active' : '') + '" onclick="switchNewsCategory(\'' + cat + '\')">' + cat.toUpperCase() + '</button>';
+        });
+        html += '</div>';
+
+        var url = API + '/news?source=' + encodeURIComponent(_newsCurrentSource) +
+            '&category=' + encodeURIComponent(_newsCurrentCategory);
+        if (loc) url += '&location=' + encodeURIComponent(loc);
+        var res = await authFetch(url);
+        var data = await res.json();
+        var articles = data.articles || [];
+
+        if (articles.length === 0) {
+            html += '<div class="data-row"><span class="label">No articles available for this source</span></div>';
+        } else {
+            articles.forEach(function(a) {
+                html += '<div style="margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--lcars-grey-1)">';
+                html += '<a href="' + escapeHtml(a.url || '#') + '" target="_blank" rel="noopener" style="color:var(--lcars-blue-3);text-decoration:none;font-size:13px;font-weight:600">' + escapeHtml(a.title || 'Untitled') + '</a>';
+                if (a.snippet) html += '<div style="font-size:11px;color:var(--lcars-text-dim);margin-top:4px">' + escapeHtml(a.snippet) + '</div>';
+                var meta = [];
+                if (a.source) meta.push(a.source);
+                if (a.published) meta.push(a.published.substring(0, 16));
+                if (meta.length) html += '<div style="font-size:9px;color:var(--lcars-grey-2);margin-top:2px">' + escapeHtml(meta.join(' // ')) + '</div>';
+                html += '</div>';
+            });
+        }
+
+        container.innerHTML = html;
+    } catch (e) {
+        container.innerHTML = '<div class="data-row"><span class="label">Error loading news</span></div>';
+    }
+}
+
+function switchNewsSource(src) {
+    _newsCurrentSource = src;
+    loadNewsDetails();
+}
+
+function switchNewsCategory(cat) {
+    _newsCurrentCategory = cat;
+    loadNewsDetails();
+}
+
+// ========== PHASE 3: WEATHER PANEL ==========
+
+function openWeatherPanel() {
+    document.getElementById('weatherPanelOverlay').classList.add('open');
+    var panel = document.getElementById('weatherPanel');
+    panel.classList.add('open');
+    restorePanelPosition(panel);
+    loadWeatherDetails();
+}
+
+function closeWeatherPanel() {
+    document.getElementById('weatherPanelOverlay').classList.remove('open');
+    document.getElementById('weatherPanel').classList.remove('open');
+    popPanelStack('weatherPanelOverlay');
+}
+
+async function loadWeatherDetails() {
+    var container = document.getElementById('weatherDetailContent');
+    if (!container) return;
+    container.innerHTML = '<div class="data-row"><span class="label">Loading forecast...</span></div>';
+    try {
+        var res = await authFetch(API + '/weather?detail=full');
+        var data = await res.json();
+        if (data.error) {
+            container.innerHTML = '<div class="data-row"><span class="label">' + escapeHtml(data.error) + '</span></div>';
+            return;
+        }
+        var html = '';
+        var current = data.current || data;
+
+        // Current conditions card
+        var temp = current.temperature != null ? Math.round(current.temperature) : '--';
+        var cond = current.condition || '--';
+        var loc = current.location || '';
+        html += '<div class="weather-current-card">';
+        html += '<div class="weather-temp-big">' + temp + '&deg;F</div>';
+        html += '<div>';
+        html += '<div class="weather-cond-text">' + escapeHtml(cond) + '</div>';
+        if (current.feels_like != null) html += '<div class="weather-sub-detail">FEELS LIKE ' + Math.round(current.feels_like) + '&deg;F</div>';
+        if (current.humidity != null) html += '<div class="weather-sub-detail">HUMIDITY ' + current.humidity + '%</div>';
+        if (current.wind_speed != null) html += '<div class="weather-sub-detail">WIND ' + Math.round(current.wind_speed) + ' MPH</div>';
+        if (loc) html += '<div class="weather-sub-detail" style="margin-top:4px;color:var(--lcars-text)">' + escapeHtml(loc) + '</div>';
+        html += '</div></div>';
+
+        // Hourly forecast (SVG chart)
+        var hourly = data.hourly || [];
+        if (hourly.length > 0) {
+            html += '<div style="font-family:var(--font-display);font-size:12px;color:var(--lcars-ice);text-transform:uppercase;letter-spacing:2px;margin:12px 0 6px">24-Hour Forecast</div>';
+            html += buildWeatherChart(hourly);
+        }
+
+        // Daily forecast (7-day cards)
+        var daily = data.daily || [];
+        if (daily.length > 0) {
+            html += '<div style="font-family:var(--font-display);font-size:12px;color:var(--lcars-ice);text-transform:uppercase;letter-spacing:2px;margin:16px 0 6px">7-Day Outlook</div>';
+            var dayNames = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+            daily.forEach(function(d) {
+                var dd = new Date(d.date + 'T12:00:00');
+                var dayName = dayNames[dd.getDay()] || '';
+                html += '<div class="weather-daily-card">';
+                html += '<span class="weather-daily-day">' + dayName + '</span>';
+                html += '<span class="weather-daily-temps">' + Math.round(d.high) + '&deg; / ' + Math.round(d.low) + '&deg;</span>';
+                html += '<span class="weather-daily-cond">' + escapeHtml(d.condition || '') + '</span>';
+                if (d.precip_sum > 0) html += '<span style="font-family:var(--font-mono);font-size:10px;color:var(--lcars-blue-3)">' + d.precip_sum.toFixed(1) + '"</span>';
+                html += '</div>';
+            });
+        }
+
+        container.innerHTML = html;
+    } catch (e) {
+        console.error('Weather details error:', e);
+        container.innerHTML = '<div class="data-row"><span class="label">Error loading forecast</span></div>';
+    }
+}
+
+function buildWeatherChart(hourly) {
+    if (!hourly || hourly.length === 0) return '';
+    var temps = hourly.map(function(h) { return h.temp; });
+    var precips = hourly.map(function(h) { return h.precip_prob || 0; });
+    var minT = Math.min.apply(null, temps) - 5;
+    var maxT = Math.max.apply(null, temps) + 5;
+    var rangeT = maxT - minT || 1;
+
+    var svgW = 560, svgH = 140, padL = 30, padR = 10, padT = 10, padB = 30;
+    var plotW = svgW - padL - padR;
+    var plotH = svgH - padT - padB;
+    var barW = plotW / hourly.length;
+
+    var html = '<div class="weather-chart-container"><svg viewBox="0 0 ' + svgW + ' ' + svgH + '" xmlns="http://www.w3.org/2000/svg">';
+
+    // Precip bars
+    hourly.forEach(function(h, i) {
+        var x = padL + i * barW;
+        var barH = (h.precip_prob / 100) * plotH;
+        html += '<rect x="' + (x + 1) + '" y="' + (padT + plotH - barH) + '" width="' + (barW - 2) + '" height="' + barH + '" fill="rgba(59,130,246,0.3)" rx="1"/>';
+    });
+
+    // Temp line
+    var points = hourly.map(function(h, i) {
+        var x = padL + i * barW + barW / 2;
+        var y = padT + plotH - ((h.temp - minT) / rangeT) * plotH;
+        return x + ',' + y;
+    });
+    html += '<polyline points="' + points.join(' ') + '" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linejoin="round"/>';
+
+    // Temp dots
+    hourly.forEach(function(h, i) {
+        var x = padL + i * barW + barW / 2;
+        var y = padT + plotH - ((h.temp - minT) / rangeT) * plotH;
+        html += '<circle cx="' + x + '" cy="' + y + '" r="2.5" fill="#f59e0b"/>';
+    });
+
+    // Hour labels (every 3 hours)
+    hourly.forEach(function(h, i) {
+        if (i % 3 !== 0) return;
+        var x = padL + i * barW + barW / 2;
+        var label = (h.hour || '').substring(11, 16);
+        html += '<text x="' + x + '" y="' + (svgH - 4) + '" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="8" fill="#9CA3AF">' + label + '</text>';
+    });
+
+    // Temp axis labels
+    var steps = 5;
+    for (var s = 0; s <= steps; s++) {
+        var tVal = minT + (rangeT * s / steps);
+        var y = padT + plotH - (s / steps) * plotH;
+        html += '<text x="' + (padL - 4) + '" y="' + (y + 3) + '" text-anchor="end" font-family="JetBrains Mono,monospace" font-size="8" fill="#9CA3AF">' + Math.round(tVal) + '</text>';
+    }
+
+    html += '</svg></div>';
+    return html;
+}
+
+async function openWeatherLocationSearch() {
+    var container = document.getElementById('weatherDetailContent');
+    if (!container) return;
+    var html = '<div style="margin-bottom:12px">';
+    html += '<div style="font-family:var(--font-display);font-size:12px;color:var(--lcars-ice);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px">Set Location</div>';
+    html += '<div class="lcars-input-row"><input type="text" id="weatherLocSearch" placeholder="Search city or zip..."><button class="lcars-btn sm ice" onclick="searchWeatherLocation()">SEARCH</button></div>';
+    html += '<div id="weatherLocResults" style="margin-top:8px"></div>';
+    html += '<button class="widget-quick-btn" style="margin-top:12px" onclick="loadWeatherDetails()">BACK</button>';
+    html += '</div>';
+    container.innerHTML = html;
+    document.getElementById('weatherLocSearch').focus();
+}
+
+async function searchWeatherLocation() {
+    var q = document.getElementById('weatherLocSearch').value.trim();
+    if (!q) return;
+    var results = document.getElementById('weatherLocResults');
+    results.innerHTML = '<div class="data-row"><span class="label">Searching...</span></div>';
+    try {
+        var res = await fetch('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(q) + '&count=5&language=en');
+        var data = await res.json();
+        var places = data.results || [];
+        if (places.length === 0) {
+            results.innerHTML = '<div class="data-row"><span class="label">No results found</span></div>';
+            return;
+        }
+        var html = '';
+        places.forEach(function(p) {
+            var name = [p.name, p.admin1, p.country].filter(Boolean).join(', ');
+            html += '<button class="widget-quick-btn" style="text-align:left;margin-bottom:4px" onclick="selectWeatherLocation(' + p.latitude + ',' + p.longitude + ',\'' + escapeHtml(name).replace(/'/g, "\\'") + '\')">' + escapeHtml(name) + '</button>';
+        });
+        results.innerHTML = html;
+    } catch (e) {
+        results.innerHTML = '<div class="data-row"><span class="label">Search failed</span></div>';
+    }
+}
+
+async function selectWeatherLocation(lat, lon, name) {
+    try {
+        await authFetch(API + '/weather/location', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ lat: lat, lon: lon, name: name }),
+        });
+        showToast('Location saved', 'success');
+        loadWeatherDetails();
+        renderWidgetWeather();
+    } catch (e) {
+        console.error('Weather location error:', e);
+        showToast('Failed to save location', 'error');
+    }
+}
+
+// ========== PHASE 4A: VIDEO LOG RECORDING ==========
+
+var _plogVideoRecorder = null;
+var _plogVideoChunks = [];
+var _plogVideoBlob = null;
+var _plogVideoStream = null;
+var _plogVideoTimer = null;
+var _plogVideoSecsLeft = 0;
+
+function plogToggleVideo() {
+    if (_plogVideoRecorder && _plogVideoRecorder.state === 'recording') {
+        plogStopVideo();
+    } else {
+        plogStartVideo();
+    }
+}
+
+async function plogStartVideo() {
+    try {
+        var constraints = { video: true, audio: true };
+        // Use preferred camera from device settings if available
+        var camPref = localStorage.getItem('aegis_pref_camera');
+        if (camPref) constraints.video = { deviceId: { ideal: camPref } };
+        // Use preferred microphone from device settings if available
+        var micPref = localStorage.getItem('aegis_pref_audio');
+        if (micPref) constraints.audio = { deviceId: { ideal: micPref } };
+        _plogVideoStream = await navigator.mediaDevices.getUserMedia(constraints);
+        var preview = document.getElementById('plogVideoPreview');
+        if (preview) {
+            preview.srcObject = _plogVideoStream;
+            preview.style.display = 'block';
+            preview.play();
+        }
+        _plogVideoChunks = [];
+        _plogVideoRecorder = new MediaRecorder(_plogVideoStream);
+        _plogVideoRecorder.ondataavailable = function(e) {
+            if (e.data.size > 0) _plogVideoChunks.push(e.data);
+        };
+        _plogVideoRecorder.onstop = function() {
+            _plogVideoBlob = new Blob(_plogVideoChunks, { type: 'video/webm' });
+            _plogVideoChunks = [];
+            if (_plogVideoStream) {
+                _plogVideoStream.getTracks().forEach(function(t) { t.stop(); });
+                _plogVideoStream = null;
+            }
+            if (preview) {
+                preview.srcObject = null;
+                preview.src = URL.createObjectURL(_plogVideoBlob);
+                preview.muted = false;
+                preview.controls = true;
+            }
+        };
+        _plogVideoRecorder.start();
+        var btn = document.getElementById('plogVideoBtn');
+        if (btn) { btn.textContent = 'STOP'; btn.classList.add('recording'); }
+        // 5-minute countdown
+        _plogVideoSecsLeft = 300;
+        var countdown = document.getElementById('plogVideoCountdown');
+        if (countdown) countdown.style.display = 'inline';
+        _plogVideoTimer = setInterval(function() {
+            _plogVideoSecsLeft--;
+            var cd = document.getElementById('plogVideoCountdown');
+            if (cd) {
+                var mm = String(Math.floor(_plogVideoSecsLeft / 60)).padStart(2, '0');
+                var ss = String(_plogVideoSecsLeft % 60).padStart(2, '0');
+                cd.textContent = mm + ':' + ss;
+            }
+            if (_plogVideoSecsLeft <= 0) plogStopVideo();
+        }, 1000);
+    } catch (e) {
+        console.error('Video recording error:', e);
+        var info = document.getElementById('plogRecInfo');
+        if (info) info.textContent = 'Camera access denied';
+    }
+}
+
+function plogStopVideo() {
+    if (_plogVideoRecorder && _plogVideoRecorder.state === 'recording') {
+        _plogVideoRecorder.stop();
+    }
+    if (_plogVideoTimer) { clearInterval(_plogVideoTimer); _plogVideoTimer = null; }
+    var btn = document.getElementById('plogVideoBtn');
+    if (btn) { btn.textContent = 'VIDEO'; btn.classList.remove('recording'); }
+    var countdown = document.getElementById('plogVideoCountdown');
+    if (countdown) countdown.style.display = 'none';
+}
+
+// Override plogSave to also handle video
+var _originalPlogSave = typeof plogSave === 'function' ? plogSave : null;
+
+// ========== PHASE 4B: MOOD POSTS IN LOG TIMELINE ==========
+// (Merged into loadLogsSubtab date grouping above — mood fetching added here)
+
+async function loadLogsWithMoods() {
+    var el = document.getElementById('logsSubContent');
+    if (!el) return;
+    // This is called after the personal logs subtab loads
+    // Fetch moods and merge them into the date groups
+    try {
+        var moodRes = await authFetch(API + '/moods', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ action: 'list' }),
+        });
+        var moodData = await moodRes.json();
+        var moods = moodData.moods || [];
+        if (moods.length === 0) return;
+
+        // Insert mood cards into date groups
+        moods.forEach(function(m) {
+            var dateKey = (m.date || '').substring(0, 10);
+            var group = el.querySelector('.plog-date-group[data-date="' + dateKey + '"]');
+            if (!group) return;
+            var entries = group.querySelector('.plog-date-entries');
+            if (!entries) return;
+            var moodHtml = '<div class="plog-mood-card">';
+            var chips = (m.moods || []).map(function(mood) {
+                var colors = { happy: '#22c55e', sad: '#3b82f6', anxious: '#f59e0b', angry: '#ef4444', calm: '#06b6d4', excited: '#ec4899', tired: '#9ca3af', grateful: '#a855f7' };
+                var bg = colors[mood.toLowerCase()] || 'var(--lcars-grey-2)';
+                return '<span class="plog-mood-chip" style="background:' + bg + ';color:#000">' + escapeHtml(mood) + '</span>';
+            }).join('');
+            moodHtml += '<div style="margin-bottom:3px">' + chips + '</div>';
+            if (m.energy != null) {
+                moodHtml += '<div class="plog-energy-bar"><div class="plog-energy-fill" style="width:' + (m.energy * 10) + '%"></div></div>';
+            }
+            if (m.note) moodHtml += '<div style="font-size:10px;color:var(--lcars-text-dim);margin-top:3px">' + escapeHtml(m.note) + '</div>';
+            moodHtml += '<div style="font-size:8px;color:var(--lcars-grey-2);margin-top:2px">' + escapeHtml(m.time || '') + ' MOOD</div>';
+            moodHtml += '</div>';
+            entries.insertAdjacentHTML('afterbegin', moodHtml);
+        });
+    } catch (e) {}
+}
+
+function loadMoreLogs() {
+    // Simple: reload with more entries (future: proper pagination)
+    loadLogsSubtab('personal');
 }
 
 init();
