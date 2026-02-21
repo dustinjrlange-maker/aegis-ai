@@ -307,6 +307,43 @@
             color: var(--lcars-text);
         }
 
+        /* Sidebar category tabs */
+        .sidebar-tabs {
+            display: flex;
+            gap: 2px;
+            padding: 8px 8px 0 4px;
+            flex-shrink: 0;
+        }
+        .sidebar-tab {
+            flex: 1;
+            background: var(--lcars-grey-1);
+            border: none;
+            border-radius: 8px 8px 0 0;
+            color: var(--lcars-text-dim);
+            font-family: var(--font-display);
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            padding: 6px 2px;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s;
+            text-align: center;
+        }
+        .sidebar-tab:hover {
+            background: var(--lcars-grey-2);
+            color: var(--lcars-text);
+        }
+        .sidebar-tab.active {
+            background: var(--lcars-blue-1);
+            color: #000;
+        }
+        .sidebar-tab-content {
+            display: none;
+        }
+        .sidebar-tab-content.active {
+            display: block;
+        }
+
         /* GPU gauge */
         .gpu-gauge {
             margin-top: 4px;
@@ -2602,13 +2639,104 @@
             }
         }
 
+        /* ========== WELCOME DASHBOARD ========== */
+
+        .welcome-dashboard {
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; min-height: 70vh; padding: 24px;
+            animation: welcomeFadeIn 0.6s ease-out;
+        }
+        .welcome-dashboard.hidden { display: none; }
+        @keyframes welcomeFadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .welcome-logo {
+            font-family: var(--font-display); font-size: 48px; font-weight: 700;
+            letter-spacing: 12px; text-transform: uppercase;
+            color: var(--lcars-amber); margin-bottom: 4px;
+            text-shadow: 0 0 30px rgba(255, 204, 102, 0.3);
+        }
+        .welcome-subtitle {
+            font-family: var(--font-display); font-size: 13px; font-weight: 700;
+            letter-spacing: 4px; text-transform: uppercase;
+            color: var(--lcars-text-dim); margin-bottom: 32px;
+        }
+        .welcome-stardate {
+            font-family: var(--font-mono); font-size: 12px;
+            color: var(--lcars-blue-3); letter-spacing: 2px; margin-bottom: 28px;
+        }
+
+        /* Quick status cards row */
+        .welcome-cards {
+            display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
+            max-width: 600px; width: 100%; margin-bottom: 24px;
+        }
+        .welcome-card {
+            flex: 1; min-width: 120px; max-width: 180px;
+            padding: 14px 16px; cursor: pointer;
+            border-left: 4px solid var(--lcars-blue-1);
+            background: rgba(59, 130, 246, 0.04);
+            transition: all 0.2s;
+        }
+        .welcome-card:hover {
+            background: rgba(59, 130, 246, 0.1);
+            border-left-width: 6px;
+        }
+        .welcome-card-value {
+            font-family: var(--font-mono); font-size: 24px; font-weight: 700;
+            color: var(--lcars-amber); line-height: 1;
+        }
+        .welcome-card-label {
+            font-family: var(--font-display); font-size: 10px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 2px;
+            color: var(--lcars-text-dim); margin-top: 4px;
+        }
+        .welcome-card.amber { border-left-color: var(--lcars-amber); }
+        .welcome-card.green { border-left-color: var(--lcars-success); }
+        .welcome-card.purple { border-left-color: var(--lcars-purple-1); }
+        .welcome-card.pink { border-left-color: var(--lcars-pink-1); }
+        .welcome-card.ice { border-left-color: var(--lcars-ice); }
+
+        /* Decorative LCARS bars */
+        .welcome-bars {
+            display: flex; gap: 3px; width: 100%; max-width: 500px;
+            margin-bottom: 24px;
+        }
+        .welcome-bars .wb-seg { height: 6px; border-radius: 3px; }
+
+        /* Quick action buttons */
+        .welcome-actions {
+            display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+        }
+
+        @media (max-width: 600px) {
+            .welcome-logo { font-size: 32px; letter-spacing: 8px; }
+            .welcome-cards { gap: 8px; }
+            .welcome-card { min-width: 100px; padding: 10px 12px; }
+            .welcome-card-value { font-size: 20px; }
+        }
+
+        /* ========== PHASE 10: LCARS EXTENDED PALETTE ========== */
+
+        :root {
+            --lcars-amber: #FFCC66;
+            --lcars-gold: #FFAA00;
+            --lcars-orange: #FF9933;
+            --lcars-peach: #FF8866;
+            --lcars-lilac: #CC99FF;
+            --lcars-ice: #99CCFF;
+            --lcars-magenta: #CC5599;
+        }
+
         /* ========== PHASE 10: NIGHT MODE ========== */
 
         body.light-mode {
             --lcars-bg: #f0f0f0;
             --lcars-surface: #e8e8e8;
             --lcars-text: #1a1a1a;
-            --lcars-text-dim: #666666;
+            --lcars-text-dim: #555555;
             --lcars-grey-1: #cccccc;
             --lcars-grey-2: #999999;
             --lcars-grey-3: #333333;
@@ -2616,119 +2744,830 @@
         }
         body.light-mode .msg.user { background: #dbeafe; color: #1a1a1a; }
         body.light-mode .msg.agent { background: #e8e8e8; color: #1a1a1a; }
-        body.light-mode .panel { background: #f5f5f5; border-color: var(--lcars-blue-1); }
-        body.light-mode .panel-header { color: #fff; }
+        body.light-mode .lcars-panel { background: #f5f5f5; }
+        body.light-mode .lcars-panel-header { color: #000; }
         body.light-mode .login-box { background: #ffffff; }
 
-        /* ========== PHASE 10: MOOD GRID ========== */
+        /* ========== PHASE 10: LCARS PANEL SYSTEM ========== */
 
-        .mood-grid { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
-        .mood-chip {
-            padding: 4px 10px; border-radius: 12px; font-size: 11px;
-            background: var(--lcars-grey-1); color: var(--lcars-text); cursor: pointer;
-            border: 1px solid transparent; transition: all 0.2s;
+        .lcars-panel {
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: min(640px, 94vw);
+            max-height: 85vh;
+            background: var(--lcars-bg);
+            border: none;
+            border-radius: 0;
+            z-index: 300;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 0 60px rgba(59, 130, 246, 0.15), 0 0 2px rgba(59, 130, 246, 0.4);
         }
-        .mood-chip.selected { background: var(--lcars-blue-1); color: #fff; border-color: var(--lcars-blue-3); }
-        .mood-entry { padding: 8px; border-bottom: 1px solid var(--lcars-grey-1); }
-        .mood-entry .mood-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
-        .mood-entry .mood-tag { font-size: 10px; background: var(--lcars-purple-2); color: var(--lcars-purple-3); padding: 2px 6px; border-radius: 8px; }
-        .mood-entry .mood-time { font-size: 10px; color: var(--lcars-text-dim); }
-        .mood-entry .mood-note { font-size: 11px; color: var(--lcars-text-dim); margin-top: 2px; }
+        .lcars-panel.open { display: flex; }
 
-        /* ========== PHASE 10: HABIT CHECKLIST ========== */
+        /* Top frame bar with elbow curve */
+        .lcars-panel-frame-top {
+            display: flex; height: 40px; flex-shrink: 0;
+        }
+        .lcars-panel-elbow {
+            width: 48px; flex-shrink: 0;
+            border-radius: 20px 0 0 0;
+        }
+        .lcars-panel-header {
+            flex: 1; display: flex; align-items: center; justify-content: space-between;
+            padding: 0 16px; color: #000;
+            font-family: var(--font-display); font-size: 15px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 3px;
+        }
+        .lcars-panel-header .panel-close-btn {
+            background: none; border: none; color: #000;
+            font-size: 22px; cursor: pointer; line-height: 1;
+        }
+        .lcars-panel-header .panel-back-btn {
+            background: none; border: none; color: #000;
+            font-family: var(--font-display); font-size: 11px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 1px;
+            cursor: pointer; padding: 2px 8px;
+        }
+        .lcars-panel-endcap {
+            width: 28px; flex-shrink: 0;
+            border-radius: 0 0 16px 0;
+        }
+
+        /* Decorative bar below header */
+        .lcars-panel-bar {
+            display: flex; gap: 3px; padding: 3px 0; flex-shrink: 0;
+        }
+        .lcars-panel-bar .pbar-seg {
+            height: 6px;
+        }
+
+        /* Panel body */
+        .lcars-panel .panel-body {
+            flex: 1; overflow-y: auto; padding: 16px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--lcars-grey-1) transparent;
+            border-left: 4px solid var(--lcars-grey-1);
+            margin-left: 12px;
+        }
+        .lcars-panel .panel-body::-webkit-scrollbar { width: 5px; }
+        .lcars-panel .panel-body::-webkit-scrollbar-track { background: transparent; }
+        .lcars-panel .panel-body::-webkit-scrollbar-thumb { background: var(--lcars-grey-1); border-radius: 3px; }
+
+        /* Bottom frame */
+        .lcars-panel-frame-bottom {
+            display: flex; height: 14px; flex-shrink: 0; gap: 3px;
+        }
+        .lcars-panel-frame-bottom .pbot-seg { height: 100%; }
+
+        /* Color-coded panel themes */
+        .lcars-panel.theme-amber .lcars-panel-elbow { background: var(--lcars-amber); }
+        .lcars-panel.theme-amber .lcars-panel-header { background: var(--lcars-amber); }
+        .lcars-panel.theme-amber .lcars-panel-endcap { background: var(--lcars-orange); }
+        .lcars-panel.theme-amber .panel-body { border-left-color: var(--lcars-amber); }
+
+        .lcars-panel.theme-blue .lcars-panel-elbow { background: var(--lcars-blue-1); }
+        .lcars-panel.theme-blue .lcars-panel-header { background: var(--lcars-blue-1); }
+        .lcars-panel.theme-blue .lcars-panel-endcap { background: var(--lcars-purple-1); }
+        .lcars-panel.theme-blue .panel-body { border-left-color: var(--lcars-blue-2); }
+
+        .lcars-panel.theme-purple .lcars-panel-elbow { background: var(--lcars-purple-1); }
+        .lcars-panel.theme-purple .lcars-panel-header { background: var(--lcars-purple-1); }
+        .lcars-panel.theme-purple .lcars-panel-endcap { background: var(--lcars-lilac); }
+        .lcars-panel.theme-purple .panel-body { border-left-color: var(--lcars-purple-2); }
+
+        .lcars-panel.theme-pink .lcars-panel-elbow { background: var(--lcars-pink-1); }
+        .lcars-panel.theme-pink .lcars-panel-header { background: var(--lcars-pink-1); }
+        .lcars-panel.theme-pink .lcars-panel-endcap { background: var(--lcars-magenta); }
+        .lcars-panel.theme-pink .panel-body { border-left-color: var(--lcars-pink-2); }
+
+        .lcars-panel.theme-green .lcars-panel-elbow { background: var(--lcars-success); }
+        .lcars-panel.theme-green .lcars-panel-header { background: var(--lcars-success); }
+        .lcars-panel.theme-green .lcars-panel-endcap { background: #15803d; }
+        .lcars-panel.theme-green .panel-body { border-left-color: var(--lcars-success); }
+
+        .lcars-panel.theme-ice .lcars-panel-elbow { background: var(--lcars-ice); }
+        .lcars-panel.theme-ice .lcars-panel-header { background: var(--lcars-ice); }
+        .lcars-panel.theme-ice .lcars-panel-endcap { background: var(--lcars-blue-3); }
+        .lcars-panel.theme-ice .panel-body { border-left-color: var(--lcars-ice); }
+
+        /* ========== PHASE 10: LCARS PILL BUTTONS ========== */
+
+        .lcars-btn {
+            display: inline-block; border: none; cursor: pointer;
+            font-family: var(--font-display); font-size: 12px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 2px;
+            padding: 8px 20px; color: #000;
+            border-radius: 0 16px 16px 0;
+            transition: filter 0.15s, transform 0.1s;
+        }
+        .lcars-btn:hover { filter: brightness(1.2); }
+        .lcars-btn:active { transform: scale(0.97); }
+        .lcars-btn.pill { border-radius: 16px; }
+        .lcars-btn.pill-left { border-radius: 16px 0 0 16px; }
+        .lcars-btn.amber { background: var(--lcars-amber); }
+        .lcars-btn.blue { background: var(--lcars-blue-1); color: #fff; }
+        .lcars-btn.purple { background: var(--lcars-purple-1); color: #fff; }
+        .lcars-btn.pink { background: var(--lcars-pink-1); }
+        .lcars-btn.green { background: var(--lcars-success); }
+        .lcars-btn.orange { background: var(--lcars-orange); }
+        .lcars-btn.red { background: var(--lcars-error); color: #fff; }
+        .lcars-btn.sm { font-size: 10px; padding: 5px 12px; letter-spacing: 1px; }
+        .lcars-btn.wide { width: 100%; text-align: center; border-radius: 16px; }
+
+        /* ========== PHASE 10: SECTION DIVIDERS ========== */
+
+        .lcars-divider {
+            display: flex; align-items: center; gap: 8px;
+            margin: 14px 0 10px 0;
+        }
+        .lcars-divider .div-label {
+            font-family: var(--font-display); font-size: 13px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 2px; white-space: nowrap;
+        }
+        .lcars-divider .div-bar {
+            flex: 1; height: 4px; border-radius: 2px;
+        }
+        .lcars-divider .div-dot {
+            width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+            animation: statusPulse 2s ease-in-out infinite;
+        }
+
+        /* ========== PHASE 10: LCARS INPUT ROW ========== */
+
+        .lcars-input-row {
+            display: flex; gap: 6px; margin-bottom: 14px; align-items: stretch;
+        }
+        .lcars-input-row input, .lcars-input-row select {
+            flex: 1; background: #111; border: 2px solid var(--lcars-grey-1);
+            color: var(--lcars-text); padding: 8px 12px; font-size: 13px;
+            font-family: var(--font-body); border-radius: 0;
+            transition: border-color 0.2s;
+        }
+        .lcars-input-row input:focus, .lcars-input-row select:focus {
+            border-color: var(--lcars-amber); outline: none;
+        }
+        .lcars-input-row input::placeholder { color: var(--lcars-grey-2); }
+
+        /* ========== PHASE 10: MOOD TRACKER ========== */
+
+        .mood-grid { display: flex; flex-wrap: wrap; gap: 5px; margin: 10px 0; }
+        .mood-chip {
+            padding: 6px 14px; font-size: 11px; cursor: pointer;
+            font-family: var(--font-display); font-weight: 700;
+            text-transform: uppercase; letter-spacing: 1px;
+            border-radius: 14px; border: none; color: #000;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .mood-chip:nth-child(12n+1) { background: var(--lcars-amber); }
+        .mood-chip:nth-child(12n+2) { background: var(--lcars-blue-3); }
+        .mood-chip:nth-child(12n+3) { background: var(--lcars-lilac); }
+        .mood-chip:nth-child(12n+4) { background: var(--lcars-ice); }
+        .mood-chip:nth-child(12n+5) { background: var(--lcars-orange); }
+        .mood-chip:nth-child(12n+6) { background: var(--lcars-pink-3); }
+        .mood-chip:nth-child(12n+7) { background: var(--lcars-peach); }
+        .mood-chip:nth-child(12n+8) { background: var(--lcars-success); }
+        .mood-chip:nth-child(12n+9) { background: var(--lcars-purple-3); }
+        .mood-chip:nth-child(12n+10) { background: var(--lcars-blue-1); color: #fff; }
+        .mood-chip:nth-child(12n+11) { background: var(--lcars-gold); }
+        .mood-chip:nth-child(12n+12) { background: var(--lcars-magenta); color: #fff; }
+        .mood-chip.selected {
+            transform: scale(1.1);
+            box-shadow: 0 0 12px currentColor, inset 0 0 0 2px #000;
+        }
+        .mood-entry {
+            padding: 10px 12px; margin-bottom: 3px;
+            border-left: 4px solid var(--lcars-amber);
+            background: rgba(255, 204, 102, 0.04);
+        }
+        .mood-entry .mood-tags { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 5px; }
+        .mood-entry .mood-tag {
+            font-size: 10px; font-family: var(--font-display); text-transform: uppercase;
+            letter-spacing: 1px; padding: 3px 10px; border-radius: 10px;
+            background: var(--lcars-purple-2); color: var(--lcars-purple-3);
+        }
+        .mood-entry .mood-time {
+            font-size: 10px; color: var(--lcars-amber);
+            font-family: var(--font-mono); letter-spacing: 1px;
+        }
+        .mood-entry .mood-note { font-size: 12px; color: var(--lcars-text-dim); margin-top: 4px; }
+        .mood-entry .mood-energy {
+            background: var(--lcars-gold); color: #000; padding: 2px 8px;
+            border-radius: 10px; font-size: 10px; font-family: var(--font-mono); font-weight: 700;
+        }
+
+        /* ========== PHASE 10: HABIT TRACKER ========== */
 
         .habit-row {
-            display: flex; align-items: center; gap: 8px; padding: 8px 4px;
-            border-bottom: 1px solid var(--lcars-grey-1);
+            display: flex; align-items: center; gap: 10px; padding: 10px 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            transition: background 0.15s;
         }
-        .habit-check { width: 18px; height: 18px; cursor: pointer; accent-color: var(--lcars-success); }
-        .habit-name { flex: 1; font-size: 13px; }
-        .habit-streak { font-size: 10px; color: var(--lcars-warning); font-family: var(--font-mono); }
-        .habit-done .habit-name { text-decoration: line-through; color: var(--lcars-text-dim); }
+        .habit-row:hover { background: rgba(255, 204, 102, 0.03); }
+        .habit-indicator {
+            width: 14px; height: 14px; border-radius: 50%;
+            border: 2px solid var(--lcars-grey-2); cursor: pointer;
+            transition: all 0.2s; flex-shrink: 0;
+        }
+        .habit-indicator.done {
+            background: var(--lcars-success); border-color: var(--lcars-success);
+            box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
+        }
+        .habit-name {
+            flex: 1; font-size: 13px;
+            font-family: var(--font-body);
+        }
+        .habit-streak {
+            font-size: 11px; color: var(--lcars-amber);
+            font-family: var(--font-mono); font-weight: 700;
+        }
+        .habit-done .habit-name { color: var(--lcars-text-dim); }
+        .habit-freq {
+            font-size: 9px; padding: 2px 8px; border-radius: 8px;
+            background: var(--lcars-grey-1); color: var(--lcars-text-dim);
+            font-family: var(--font-display); text-transform: uppercase; letter-spacing: 1px;
+        }
 
-        /* ========== PHASE 10: TIMER DISPLAY ========== */
+        /* ========== PHASE 10: TIMER ========== */
 
         .timer-display {
-            font-family: var(--font-mono); font-size: 18px; color: var(--lcars-success);
-            text-align: center; padding: 8px; letter-spacing: 2px;
+            font-family: var(--font-mono); font-size: 42px; color: var(--lcars-amber);
+            text-align: center; padding: 20px 0 8px 0; letter-spacing: 4px;
+            text-shadow: 0 0 20px rgba(255, 204, 102, 0.3);
         }
-        .timer-activity { font-size: 11px; color: var(--lcars-text-dim); text-align: center; }
+        .timer-activity {
+            font-family: var(--font-display); font-size: 14px;
+            color: var(--lcars-ice); text-align: center;
+            text-transform: uppercase; letter-spacing: 3px; margin-bottom: 12px;
+        }
+        .timer-category-badge {
+            display: inline-block; padding: 3px 12px; border-radius: 10px;
+            font-size: 10px; font-family: var(--font-display);
+            text-transform: uppercase; letter-spacing: 1px;
+            background: var(--lcars-purple-2); color: var(--lcars-purple-3);
+        }
         .timer-sidebar { font-family: var(--font-mono); font-size: 12px; color: var(--lcars-success); }
+        .timer-history-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        .timer-history-item .th-activity { font-size: 12px; }
+        .timer-history-item .th-duration {
+            font-family: var(--font-mono); font-size: 13px;
+            color: var(--lcars-amber); font-weight: 700;
+        }
 
-        /* ========== PHASE 10: WEATHER WIDGET ========== */
+        /* ========== PHASE 10: WEATHER ========== */
 
-        .weather-widget { padding: 4px 0; }
-        .weather-temp { font-family: var(--font-display); font-size: 20px; color: var(--lcars-blue-3); }
-        .weather-condition { font-size: 11px; color: var(--lcars-text-dim); }
+        .weather-widget { padding: 6px 0; }
+        .weather-temp {
+            font-family: var(--font-display); font-size: 24px; font-weight: 700;
+            color: var(--lcars-amber); letter-spacing: 1px;
+        }
+        .weather-condition {
+            font-size: 11px; color: var(--lcars-ice);
+            font-family: var(--font-display); text-transform: uppercase; letter-spacing: 1px;
+        }
+        .weather-location {
+            font-size: 9px; color: var(--lcars-text-dim);
+            font-family: var(--font-mono);
+        }
 
         /* ========== PHASE 10: PIN BUTTON ========== */
 
         .msg-pin-btn {
-            position: absolute; top: 4px; right: 60px; background: none; border: none;
-            color: var(--lcars-text-dim); font-size: 10px; cursor: pointer;
-            font-family: var(--font-mono); padding: 2px 6px; opacity: 0;
-            transition: opacity 0.2s;
+            position: absolute; top: 4px; right: 58px;
+            background: var(--lcars-amber); border: none; border-radius: 8px;
+            color: #000; font-size: 9px; cursor: pointer;
+            font-family: var(--font-display); font-weight: 700;
+            text-transform: uppercase; letter-spacing: 1px;
+            padding: 2px 8px; opacity: 0;
+            transition: opacity 0.2s, transform 0.1s;
         }
-        .msg:hover .msg-pin-btn { opacity: 1; }
-        .msg-pin-btn:hover { color: var(--lcars-warning); }
+        .msg:hover .msg-pin-btn { opacity: 0.8; }
+        .msg-pin-btn:hover { opacity: 1 !important; transform: scale(1.05); }
 
         /* ========== PHASE 10: BEHAVIOR TRACKER ========== */
 
         .behavior-card {
-            padding: 10px; border: 1px solid var(--lcars-grey-1); border-radius: 6px;
-            margin-bottom: 8px;
+            padding: 14px; margin-bottom: 6px;
+            border-left: 5px solid var(--lcars-orange);
+            background: rgba(255, 153, 51, 0.04);
+            transition: background 0.15s;
         }
-        .behavior-name { font-size: 14px; font-weight: 500; }
-        .behavior-clean { font-size: 12px; color: var(--lcars-success); margin-top: 4px; }
-        .behavior-best { font-size: 10px; color: var(--lcars-text-dim); }
+        .behavior-card:hover { background: rgba(255, 153, 51, 0.08); }
+        .behavior-name {
+            font-family: var(--font-display); font-size: 16px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 2px;
+        }
+        .behavior-clean {
+            font-size: 22px; color: var(--lcars-success); margin-top: 6px;
+            font-family: var(--font-mono); font-weight: 700;
+        }
+        .behavior-clean-label {
+            font-size: 10px; color: var(--lcars-text-dim);
+            font-family: var(--font-display); text-transform: uppercase; letter-spacing: 2px;
+        }
+        .behavior-best {
+            font-size: 11px; color: var(--lcars-amber);
+            font-family: var(--font-mono); margin-top: 2px;
+        }
 
-        /* ========== PHASE 10: CONTACT CARD ========== */
+        /* ========== PHASE 10: CONTACTS ========== */
 
         .contact-card {
-            padding: 10px; border: 1px solid var(--lcars-grey-1); border-radius: 6px;
-            margin-bottom: 8px; cursor: pointer; transition: border-color 0.2s;
+            padding: 12px 14px; margin-bottom: 4px;
+            border-left: 4px solid var(--lcars-lilac);
+            background: rgba(204, 153, 255, 0.03);
+            cursor: pointer; transition: all 0.15s;
         }
-        .contact-card:hover { border-color: var(--lcars-blue-1); }
-        .contact-name { font-size: 14px; font-weight: 500; }
-        .contact-rel { font-size: 11px; color: var(--lcars-text-dim); }
+        .contact-card:hover {
+            background: rgba(204, 153, 255, 0.08);
+            border-left-color: var(--lcars-purple-1);
+        }
+        .contact-name {
+            font-family: var(--font-display); font-size: 15px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 2px;
+        }
+        .contact-rel {
+            font-size: 11px; color: var(--lcars-lilac);
+            font-family: var(--font-display); text-transform: uppercase;
+            letter-spacing: 1px; margin-top: 2px;
+        }
+        .contact-detail {
+            font-size: 11px; color: var(--lcars-text-dim); margin-top: 3px;
+            font-family: var(--font-mono);
+        }
+
+        /* ========== PHASE 10: PINNED MESSAGES ========== */
+
+        .pinned-item {
+            padding: 12px; margin-bottom: 4px;
+            border-left: 4px solid var(--lcars-gold);
+            background: rgba(255, 170, 0, 0.03);
+        }
+        .pinned-meta {
+            font-size: 10px; color: var(--lcars-amber);
+            font-family: var(--font-mono); letter-spacing: 1px; margin-bottom: 6px;
+        }
+        .pinned-text { font-size: 13px; line-height: 1.5; }
 
         /* ========== PHASE 10: SOCIAL MEDIA ========== */
 
-        .social-project { padding: 10px; border: 1px solid var(--lcars-grey-1); border-radius: 6px; margin-bottom: 8px; }
-        .social-project-name { font-size: 14px; font-weight: 500; margin-bottom: 6px; }
-        .social-post { padding: 6px; background: var(--lcars-surface); border-radius: 4px; margin-top: 6px; font-size: 12px; }
-        .social-post-status { font-size: 10px; color: var(--lcars-text-dim); }
+        .social-project {
+            padding: 14px; margin-bottom: 6px;
+            border-left: 5px solid var(--lcars-pink-1);
+            background: rgba(236, 72, 153, 0.03);
+        }
+        .social-project-name {
+            font-family: var(--font-display); font-size: 15px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px;
+        }
+        .social-accounts {
+            display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px;
+        }
+        .social-account-badge {
+            font-size: 10px; padding: 3px 10px; border-radius: 10px;
+            background: var(--lcars-pink-2); color: var(--lcars-pink-3);
+            font-family: var(--font-display); text-transform: uppercase; letter-spacing: 1px;
+        }
+        .social-post {
+            padding: 10px; margin-top: 6px;
+            background: rgba(255,255,255,0.02); border-radius: 0;
+            border-left: 3px solid var(--lcars-magenta);
+            font-size: 12px; line-height: 1.5;
+        }
+        .social-post-status {
+            font-size: 10px; color: var(--lcars-text-dim); margin-top: 4px;
+            font-family: var(--font-mono);
+        }
 
         /* ========== PHASE 10: FILE LIST ========== */
 
         .file-item {
-            display: flex; align-items: center; gap: 8px; padding: 8px;
-            border-bottom: 1px solid var(--lcars-grey-1);
+            display: flex; align-items: center; gap: 10px; padding: 10px 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            transition: background 0.15s;
         }
-        .file-name { flex: 1; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .file-size { font-size: 10px; color: var(--lcars-text-dim); font-family: var(--font-mono); }
-        .file-actions { display: flex; gap: 4px; }
-        .file-actions button {
-            background: var(--lcars-grey-1); border: none; color: var(--lcars-text);
-            font-size: 10px; padding: 3px 8px; border-radius: 4px; cursor: pointer;
+        .file-item:hover { background: rgba(59, 130, 246, 0.04); }
+        .file-icon {
+            width: 32px; height: 32px; border-radius: 4px 12px 12px 4px;
+            background: var(--lcars-blue-2); display: flex; align-items: center;
+            justify-content: center; font-size: 10px; color: var(--lcars-blue-3);
+            font-family: var(--font-mono); font-weight: 700; flex-shrink: 0;
+        }
+        .file-name {
+            flex: 1; font-size: 13px; overflow: hidden;
+            text-overflow: ellipsis; white-space: nowrap;
+        }
+        .file-size {
+            font-size: 10px; color: var(--lcars-text-dim);
             font-family: var(--font-mono);
         }
-        .file-actions button:hover { background: var(--lcars-blue-1); color: #fff; }
+        .file-actions { display: flex; gap: 4px; }
 
-        /* ========== PHASE 10: PANEL ADD ROW ========== */
+        /* ========== PHASE 10: ALARMS ========== */
 
-        .panel-add-row {
-            display: flex; gap: 6px; margin-bottom: 12px;
+        .alarm-item {
+            display: flex; align-items: center; gap: 12px; padding: 12px 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
         }
-        .panel-add-row input, .panel-add-row select {
-            flex: 1; background: var(--lcars-surface); border: 1px solid var(--lcars-grey-1);
-            color: var(--lcars-text); padding: 6px 8px; font-size: 12px; border-radius: 4px;
-            font-family: var(--font-body);
+        .alarm-time {
+            font-family: var(--font-mono); font-size: 22px; font-weight: 700;
+            color: var(--lcars-amber); min-width: 70px;
         }
-        .panel-add-row button {
-            background: var(--lcars-blue-1); border: none; color: #fff;
-            padding: 6px 12px; border-radius: 4px; cursor: pointer;
-            font-family: var(--font-mono); font-size: 11px; white-space: nowrap;
+        .alarm-label {
+            flex: 1; font-size: 13px;
+            font-family: var(--font-display); text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .alarm-status {
+            width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+        }
+        .alarm-status.on { background: var(--lcars-success); box-shadow: 0 0 6px rgba(34,197,94,0.5); }
+        .alarm-status.off { background: var(--lcars-grey-2); }
+
+        /* ========== PHASE 10: ANIMATIONS ========== */
+
+        @keyframes lcarsDataFlow {
+            0% { background-position: 0% 0%; }
+            100% { background-position: 200% 0%; }
+        }
+        .lcars-panel-bar .pbar-seg.animated {
+            background: linear-gradient(90deg, var(--lcars-amber), var(--lcars-orange), var(--lcars-amber));
+            background-size: 200% 100%;
+            animation: lcarsDataFlow 3s linear infinite;
+        }
+
+        @keyframes lcarsGlow {
+            0%, 100% { box-shadow: 0 0 8px rgba(255, 204, 102, 0.2); }
+            50% { box-shadow: 0 0 20px rgba(255, 204, 102, 0.5); }
+        }
+
+        /* ========== LCARS WIDGET COMPONENT SYSTEM ========== */
+
+        :root {
+            --widget-col-width: 260px;
+        }
+
+        .lcars-widget {
+            background: var(--lcars-bg);
+            border-radius: 0;
+            overflow: hidden;
+            min-width: 180px;
+        }
+
+        .widget-frame-top {
+            display: flex;
+            height: 28px;
+            flex-shrink: 0;
+        }
+
+        .widget-elbow {
+            width: 32px;
+            flex-shrink: 0;
+            border-radius: 14px 0 0 0;
+        }
+
+        .widget-header {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0 8px;
+            color: #000;
+            font-family: var(--font-display);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .widget-title {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .widget-badge {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            font-weight: 700;
+            background: rgba(0,0,0,0.2);
+            padding: 1px 6px;
+            border-radius: 8px;
+            min-width: 18px;
+            text-align: center;
+        }
+
+        .widget-expand-btn {
+            background: none;
+            border: none;
+            color: #000;
+            font-size: 14px;
+            cursor: pointer;
+            padding: 0 2px;
+            line-height: 1;
+            opacity: 0.6;
+            transition: opacity 0.15s;
+        }
+        .widget-expand-btn:hover { opacity: 1; }
+
+        .widget-endcap {
+            width: 18px;
+            flex-shrink: 0;
+            border-radius: 0 0 10px 0;
+        }
+
+        .widget-body {
+            padding: 8px 10px 10px 10px;
+            font-size: 12px;
+            border-left: 3px solid var(--lcars-grey-1);
+            margin-left: 8px;
+            min-height: 32px;
+            max-height: 200px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--lcars-grey-1) transparent;
+        }
+        .widget-body::-webkit-scrollbar { width: 3px; }
+        .widget-body::-webkit-scrollbar-track { background: transparent; }
+        .widget-body::-webkit-scrollbar-thumb { background: var(--lcars-grey-1); border-radius: 2px; }
+
+        .widget-body .data-row { padding: 2px 0; }
+        .widget-body .data-row .label { font-size: 9px; }
+        .widget-body .data-row .value { font-size: 10px; max-width: 140px; }
+
+        /* Widget color themes */
+        .lcars-widget.theme-amber .widget-elbow { background: var(--lcars-amber); }
+        .lcars-widget.theme-amber .widget-header { background: var(--lcars-amber); }
+        .lcars-widget.theme-amber .widget-endcap { background: var(--lcars-orange); }
+        .lcars-widget.theme-amber .widget-body { border-left-color: var(--lcars-amber); }
+
+        .lcars-widget.theme-blue .widget-elbow { background: var(--lcars-blue-1); }
+        .lcars-widget.theme-blue .widget-header { background: var(--lcars-blue-1); }
+        .lcars-widget.theme-blue .widget-endcap { background: var(--lcars-purple-1); }
+        .lcars-widget.theme-blue .widget-body { border-left-color: var(--lcars-blue-2); }
+
+        .lcars-widget.theme-purple .widget-elbow { background: var(--lcars-purple-1); }
+        .lcars-widget.theme-purple .widget-header { background: var(--lcars-purple-1); }
+        .lcars-widget.theme-purple .widget-endcap { background: var(--lcars-lilac); }
+        .lcars-widget.theme-purple .widget-body { border-left-color: var(--lcars-purple-2); }
+
+        .lcars-widget.theme-green .widget-elbow { background: var(--lcars-success); }
+        .lcars-widget.theme-green .widget-header { background: var(--lcars-success); }
+        .lcars-widget.theme-green .widget-endcap { background: #15803d; }
+        .lcars-widget.theme-green .widget-body { border-left-color: var(--lcars-success); }
+
+        .lcars-widget.theme-pink .widget-elbow { background: var(--lcars-pink-1); }
+        .lcars-widget.theme-pink .widget-header { background: var(--lcars-pink-1); }
+        .lcars-widget.theme-pink .widget-endcap { background: var(--lcars-magenta); }
+        .lcars-widget.theme-pink .widget-body { border-left-color: var(--lcars-pink-2); }
+
+        .lcars-widget.theme-ice .widget-elbow { background: var(--lcars-ice); }
+        .lcars-widget.theme-ice .widget-header { background: var(--lcars-ice); }
+        .lcars-widget.theme-ice .widget-endcap { background: var(--lcars-blue-3); }
+        .lcars-widget.theme-ice .widget-body { border-left-color: var(--lcars-ice); }
+
+        /* Widget quick-action button */
+        .widget-quick-btn {
+            background: var(--lcars-grey-1);
+            border: none;
+            border-radius: 3px;
+            color: var(--lcars-text);
+            font-family: var(--font-display);
+            font-size: 9px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 3px 8px;
+            cursor: pointer;
+            margin-top: 4px;
+            width: 100%;
+        }
+        .widget-quick-btn:hover { background: var(--lcars-grey-2); }
+
+        /* Widget habit checklist */
+        .widget-habit-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 2px 0;
+            cursor: pointer;
+        }
+        .widget-habit-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            border: 1.5px solid var(--lcars-grey-2);
+            flex-shrink: 0;
+        }
+        .widget-habit-dot.done {
+            background: var(--lcars-success);
+            border-color: var(--lcars-success);
+        }
+        .widget-habit-name {
+            font-size: 11px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* Widget gauge */
+        .widget-gauge {
+            height: 6px;
+            background: var(--lcars-grey-1);
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 4px 0;
+        }
+        .widget-gauge .fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+
+        /* ========== CHAT PANEL WRAPPER ========== */
+
+        .chat-panel {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-height: 0;
+            flex: 1;
+        }
+
+        .chat-panel-header {
+            display: flex;
+            height: 28px;
+            flex-shrink: 0;
+        }
+
+        .chat-panel-header .widget-elbow {
+            background: var(--lcars-blue-1);
+        }
+        .chat-panel-header .widget-header {
+            background: var(--lcars-blue-1);
+        }
+        .chat-panel-header .widget-endcap {
+            background: var(--lcars-purple-1);
+        }
+
+        .chat-minimize-btn {
+            background: none;
+            border: none;
+            color: #000;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            padding: 0 4px;
+            line-height: 1;
+            font-family: var(--font-mono);
+        }
+
+        .chat-panel.collapsed .messages {
+            max-height: 120px;
+            overflow: hidden;
+            -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 30%);
+            mask-image: linear-gradient(to bottom, transparent 0%, black 30%);
+        }
+
+        /* ========== LAYOUT SYSTEM ========== */
+
+        .widget-dock {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--lcars-grey-1) transparent;
+            min-width: 0;
+        }
+        .widget-dock::-webkit-scrollbar { width: 3px; }
+        .widget-dock::-webkit-scrollbar-track { background: transparent; }
+        .widget-dock::-webkit-scrollbar-thumb { background: var(--lcars-grey-1); border-radius: 2px; }
+
+        /* Bridge layout: chat left, widgets right */
+        .lcars-content.layout-bridge {
+            display: grid;
+            grid-template-columns: 1fr var(--widget-col-width);
+            grid-template-rows: 1fr;
+            grid-template-areas: "chat dock-right";
+            gap: 6px;
+            padding-right: 6px;
+        }
+        .lcars-content.layout-bridge .chat-panel {
+            grid-area: chat;
+        }
+        .lcars-content.layout-bridge #widgetDock {
+            grid-area: dock-right;
+            display: flex;
+        }
+        .lcars-content.layout-bridge #widgetDockRight {
+            display: none;
+        }
+
+        /* Ops layout: widgets top, chat below */
+        .lcars-content.layout-ops {
+            display: grid;
+            grid-template-columns: 1fr;
+            grid-template-rows: auto 1fr;
+            grid-template-areas: "dock-top" "chat";
+            gap: 6px;
+        }
+        .lcars-content.layout-ops .chat-panel {
+            grid-area: chat;
+        }
+        .lcars-content.layout-ops #widgetDock {
+            grid-area: dock-top;
+            flex-direction: row;
+            flex-wrap: wrap;
+            overflow-y: visible;
+            overflow-x: auto;
+            max-height: 200px;
+            padding: 4px 6px;
+        }
+        .lcars-content.layout-ops #widgetDock .lcars-widget {
+            min-width: 150px;
+            max-width: 220px;
+            flex: 1 1 150px;
+        }
+        .lcars-content.layout-ops #widgetDockRight {
+            display: none;
+        }
+
+        /* Science layout: widgets left, chat center, widgets right */
+        .lcars-content.layout-science {
+            display: grid;
+            grid-template-columns: var(--widget-col-width) 1fr var(--widget-col-width);
+            grid-template-rows: 1fr;
+            grid-template-areas: "dock-left chat dock-right";
+            gap: 6px;
+            padding: 0 6px;
+        }
+        .lcars-content.layout-science .chat-panel {
+            grid-area: chat;
+        }
+        .lcars-content.layout-science #widgetDock {
+            grid-area: dock-left;
+            display: flex;
+        }
+        .lcars-content.layout-science #widgetDockRight {
+            grid-area: dock-right;
+            display: flex;
+        }
+
+        /* Focus layout: chat only, no widgets, no chat header */
+        .lcars-content.layout-focus {
+            display: flex;
+            flex-direction: column;
+        }
+        .lcars-content.layout-focus .chat-panel-header {
+            display: none;
+        }
+        .lcars-content.layout-focus #widgetDock,
+        .lcars-content.layout-focus #widgetDockRight {
+            display: none;
+        }
+
+        /* ========== LAYOUT RESPONSIVE: TABLET ========== */
+
+        @media (max-width: 1023px) {
+            :root { --widget-col-width: 200px; }
+
+            /* Science degrades to Bridge on tablet */
+            .lcars-content.layout-science {
+                grid-template-columns: 1fr var(--widget-col-width);
+                grid-template-areas: "chat dock-right";
+            }
+            .lcars-content.layout-science #widgetDock {
+                display: none;
+            }
+            .lcars-content.layout-science #widgetDockRight {
+                grid-area: dock-right;
+                display: flex;
+            }
+        }
+
+        /* ========== LAYOUT RESPONSIVE: MOBILE ========== */
+
+        @media (max-width: 767px) {
+            .lcars-content.layout-bridge,
+            .lcars-content.layout-ops,
+            .lcars-content.layout-science {
+                display: flex !important;
+                flex-direction: column !important;
+            }
+
+            .chat-panel-header { display: none !important; }
+
+            #widgetDock,
+            #widgetDockRight {
+                display: none !important;
+            }
         }
 
     </style>
@@ -2794,129 +3633,166 @@
             <div class="sidebar-bar sb-4 shimmer"></div>
         </div>
 
+        <div class="sidebar-tabs">
+            <button class="sidebar-tab active" onclick="switchSidebarTab('ops', this)">OPS</button>
+            <button class="sidebar-tab" onclick="switchSidebarTab('msn', this)">MSN</button>
+            <button class="sidebar-tab" onclick="switchSidebarTab('per', this)">PER</button>
+            <button class="sidebar-tab" onclick="switchSidebarTab('dat', this)">DAT</button>
+        </div>
+
         <div class="sidebar-data">
-            <div class="sidebar-section">
-                <div class="sidebar-section-title">System</div>
-                <div id="sysInfo">
-                    <div class="data-row"><span class="label">Status</span><span class="value">Loading...</span></div>
+            <!-- OPS: System, Protocols, Packs, GPU, Settings, Display -->
+            <div class="sidebar-tab-content active" id="sidebarTab-ops">
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">System</div>
+                    <div id="sysInfo">
+                        <div class="data-row"><span class="label">Status</span><span class="value">Loading...</span></div>
+                    </div>
+                    <button class="sidebar-action-btn" onclick="openSystemPanel()" aria-label="System details">DETAILS</button>
                 </div>
-                <button class="sidebar-action-btn" onclick="openSystemPanel()" aria-label="System details">DETAILS</button>
-            </div>
 
-            <div class="sidebar-section">
-                <div class="sidebar-section-title">Protocols</div>
-                <div id="protoList"></div>
-                <button class="sidebar-action-btn" onclick="openProtocolPanel()" aria-label="Protocol controls">CONTROLS</button>
-            </div>
-
-            <div class="sidebar-section">
-                <div class="sidebar-section-title">Packs</div>
-                <div id="packList"></div>
-                <select class="theme-select" id="personalitySelect" aria-label="Select personality" onchange="switchPersonality(this.value)">
-                    <option value="">-- personality --</option>
-                </select>
-                <select class="theme-select" id="voiceSelect" aria-label="Select voice" onchange="switchVoice(this.value)">
-                    <option value="">-- voice --</option>
-                </select>
-                <select class="theme-select" id="themeSelect" aria-label="Select theme" onchange="switchTheme(this.value)">
-                    <option value="">-- theme --</option>
-                </select>
-                <button class="sidebar-action-btn" onclick="openPackPanel()" aria-label="Pack details">INSPECT</button>
-            </div>
-
-            <div class="sidebar-section">
-                <div class="sidebar-section-title">Briefing</div>
-                <button class="sidebar-action-btn" onclick="openBriefingPanel()" aria-label="Daily briefing">TODAY</button>
-            </div>
-
-            <div class="sidebar-section">
-                <div class="sidebar-section-title">Tasks <span class="sidebar-task-count" id="taskCount"></span></div>
-                <button class="sidebar-action-btn" onclick="openTaskPanel()" aria-label="Manage tasks">MANAGE</button>
-            </div>
-
-            <div class="sidebar-section">
-                <div class="sidebar-section-title">Calendar</div>
-                <button class="sidebar-action-btn" onclick="openCalendarPanel()" aria-label="View calendar">VIEW</button>
-            </div>
-
-            <div class="sidebar-section">
-                <div class="sidebar-section-title">History</div>
-                <button class="sidebar-action-btn" onclick="openHistoryPanel()" aria-label="Browse session history">BROWSE</button>
-            </div>
-
-            <div class="sidebar-section">
-                <div class="sidebar-section-title">Settings</div>
-                <button class="sidebar-action-btn" onclick="openSettingsPanel()" aria-label="Configuration settings">CONFIG</button>
-            </div>
-
-            <div class="sidebar-section">
-                <div class="sidebar-section-title">GPU</div>
-                <div id="gpuInfo">
-                    <div class="data-row"><span class="label">Status</span><span class="value">--</span></div>
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Protocols</div>
+                    <div id="protoList"></div>
+                    <button class="sidebar-action-btn" onclick="openProtocolPanel()" aria-label="Protocol controls">CONTROLS</button>
                 </div>
-                <button class="sidebar-action-btn" onclick="openGpuPanel()" aria-label="GPU monitor">MONITOR</button>
-            </div>
 
-            <div class="sidebar-section" data-feature="mood_tracking">
-                <div class="sidebar-section-title">Mood</div>
-                <button class="sidebar-action-btn" onclick="openMoodPanel()" aria-label="Mood tracking">TRACK</button>
-            </div>
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Packs</div>
+                    <div id="packList"></div>
+                    <select class="theme-select" id="personalitySelect" aria-label="Select personality" onchange="switchPersonality(this.value)">
+                        <option value="">-- personality --</option>
+                    </select>
+                    <select class="theme-select" id="voiceSelect" aria-label="Select voice" onchange="switchVoice(this.value)">
+                        <option value="">-- voice --</option>
+                    </select>
+                    <select class="theme-select" id="themeSelect" aria-label="Select theme" onchange="switchTheme(this.value)">
+                        <option value="">-- theme --</option>
+                    </select>
+                    <button class="sidebar-action-btn" onclick="openPackPanel()" aria-label="Pack details">INSPECT</button>
+                </div>
 
-            <div class="sidebar-section" data-feature="contacts">
-                <div class="sidebar-section-title">Contacts</div>
-                <button class="sidebar-action-btn" onclick="openContactPanel()" aria-label="Contacts">MANAGE</button>
-            </div>
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">GPU</div>
+                    <div id="gpuInfo">
+                        <div class="data-row"><span class="label">Status</span><span class="value">--</span></div>
+                    </div>
+                    <button class="sidebar-action-btn" onclick="openGpuPanel()" aria-label="GPU monitor">MONITOR</button>
+                </div>
 
-            <div class="sidebar-section" data-feature="habits">
-                <div class="sidebar-section-title">Habits</div>
-                <button class="sidebar-action-btn" onclick="openHabitPanel()" aria-label="Habits">CHECK IN</button>
-            </div>
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Settings</div>
+                    <button class="sidebar-action-btn" onclick="openSettingsPanel()" aria-label="Configuration settings">CONFIG</button>
+                </div>
 
-            <div class="sidebar-section" data-feature="bad_dogs">
-                <div class="sidebar-section-title">Behaviors</div>
-                <button class="sidebar-action-btn" onclick="openBehaviorPanel()" aria-label="Behavior tracking">TRACK</button>
-            </div>
-
-            <div class="sidebar-section" data-feature="pinned_messages">
-                <div class="sidebar-section-title">Saved</div>
-                <button class="sidebar-action-btn" onclick="openPinnedPanel()" aria-label="Pinned messages">VIEW</button>
-            </div>
-
-            <div class="sidebar-section" data-feature="time_tracking">
-                <div class="sidebar-section-title">Timer <span class="timer-sidebar" id="sidebarTimer"></span></div>
-                <button class="sidebar-action-btn" onclick="openTimerPanel()" aria-label="Time tracking">MANAGE</button>
-            </div>
-
-            <div class="sidebar-section" data-feature="weather">
-                <div class="sidebar-section-title">Weather</div>
-                <div id="weatherWidget" class="weather-widget">
-                    <div class="data-row"><span class="label">--</span></div>
+                <div class="sidebar-section" data-feature="night_mode">
+                    <div class="sidebar-section-title">Display</div>
+                    <select class="theme-select" id="layoutSelect" aria-label="Select layout" onchange="applyLayout(this.value)">
+                        <option value="bridge">BRIDGE</option>
+                        <option value="ops">OPS CONSOLE</option>
+                        <option value="science">SCIENCE</option>
+                        <option value="focus">FOCUS</option>
+                    </select>
+                    <select class="theme-select" id="colorSchemeSelect" aria-label="Select color scheme" onchange="applyColorScheme(this.value)">
+                        <option value="default">DEFAULT</option>
+                        <option value="tng-amber">TNG AMBER</option>
+                        <option value="red-alert">RED ALERT</option>
+                        <option value="command-gold">COMMAND GOLD</option>
+                        <option value="science-blue">SCIENCE BLUE</option>
+                        <option value="borg-green">BORG GREEN</option>
+                    </select>
+                    <button class="sidebar-action-btn" onclick="toggleNightMode()" aria-label="Toggle night mode">NIGHT MODE</button>
                 </div>
             </div>
 
-            <div class="sidebar-section" data-feature="alarms">
-                <div class="sidebar-section-title">Alarms</div>
-                <button class="sidebar-action-btn" onclick="openAlarmPanel()" aria-label="Alarms">SET</button>
+            <!-- MSN: Briefing, Tasks, Calendar, Timer, Alarms -->
+            <div class="sidebar-tab-content" id="sidebarTab-msn">
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Briefing</div>
+                    <button class="sidebar-action-btn" onclick="openBriefingPanel()" aria-label="Daily briefing">TODAY</button>
+                </div>
+
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Tasks <span class="sidebar-task-count" id="taskCount"></span></div>
+                    <div class="data-row" id="taskPreview" style="display:none"><span class="label">Next</span><span class="value" id="taskPreviewVal">--</span></div>
+                    <button class="sidebar-action-btn" onclick="openTaskPanel()" aria-label="Manage tasks">MANAGE</button>
+                </div>
+
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Calendar</div>
+                    <div class="data-row" id="calendarPreview" style="display:none"><span class="label">Next</span><span class="value" id="calendarPreviewVal">--</span></div>
+                    <button class="sidebar-action-btn" onclick="openCalendarPanel()" aria-label="View calendar">VIEW</button>
+                </div>
+
+                <div class="sidebar-section" data-feature="time_tracking">
+                    <div class="sidebar-section-title">Timer <span class="timer-sidebar" id="sidebarTimer"></span></div>
+                    <button class="sidebar-action-btn" onclick="openTimerPanel()" aria-label="Time tracking">MANAGE</button>
+                </div>
+
+                <div class="sidebar-section" data-feature="alarms">
+                    <div class="sidebar-section-title">Alarms</div>
+                    <button class="sidebar-action-btn" onclick="openAlarmPanel()" aria-label="Alarms">SET</button>
+                </div>
             </div>
 
-            <div class="sidebar-section" data-feature="file_upload">
-                <div class="sidebar-section-title">Files</div>
-                <button class="sidebar-action-btn" onclick="openFilePanel()" aria-label="File uploads">BROWSE</button>
+            <!-- PER: Mood, Habits, Behaviors, Contacts, Social -->
+            <div class="sidebar-tab-content" id="sidebarTab-per">
+                <div class="sidebar-section" data-feature="mood_tracking">
+                    <div class="sidebar-section-title">Mood</div>
+                    <div class="data-row" id="moodPreview" style="display:none"><span class="label">Today</span><span class="value" id="moodPreviewVal">--</span></div>
+                    <button class="sidebar-action-btn" onclick="openMoodPanel()" aria-label="Mood tracking">TRACK</button>
+                </div>
+
+                <div class="sidebar-section" data-feature="habits">
+                    <div class="sidebar-section-title">Habits</div>
+                    <div class="data-row" id="habitPreview" style="display:none"><span class="label">Today</span><span class="value" id="habitPreviewVal">--</span></div>
+                    <button class="sidebar-action-btn" onclick="openHabitPanel()" aria-label="Habits">CHECK IN</button>
+                </div>
+
+                <div class="sidebar-section" data-feature="bad_dogs">
+                    <div class="sidebar-section-title">Behaviors</div>
+                    <button class="sidebar-action-btn" onclick="openBehaviorPanel()" aria-label="Behavior tracking">TRACK</button>
+                </div>
+
+                <div class="sidebar-section" data-feature="contacts">
+                    <div class="sidebar-section-title">Contacts</div>
+                    <button class="sidebar-action-btn" onclick="openContactPanel()" aria-label="Contacts">MANAGE</button>
+                </div>
+
+                <div class="sidebar-section" data-feature="social_media">
+                    <div class="sidebar-section-title">Social</div>
+                    <button class="sidebar-action-btn" onclick="openSocialPanel()" aria-label="Social media">MANAGE</button>
+                </div>
             </div>
 
-            <div class="sidebar-section" data-feature="social_media">
-                <div class="sidebar-section-title">Social</div>
-                <button class="sidebar-action-btn" onclick="openSocialPanel()" aria-label="Social media">MANAGE</button>
-            </div>
+            <!-- DAT: History, Saved, Files, Weather, Vault -->
+            <div class="sidebar-tab-content" id="sidebarTab-dat">
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">History</div>
+                    <button class="sidebar-action-btn" onclick="openHistoryPanel()" aria-label="Browse session history">BROWSE</button>
+                </div>
 
-            <div class="sidebar-section">
-                <div class="sidebar-section-title">Vault</div>
-                <button class="sidebar-action-btn" onclick="openVaultPanel()" aria-label="Personal vault">PERSONNEL FILE</button>
-            </div>
+                <div class="sidebar-section" data-feature="pinned_messages">
+                    <div class="sidebar-section-title">Saved</div>
+                    <button class="sidebar-action-btn" onclick="openPinnedPanel()" aria-label="Pinned messages">VIEW</button>
+                </div>
 
-            <div class="sidebar-section" data-feature="night_mode">
-                <div class="sidebar-section-title">Display</div>
-                <button class="sidebar-action-btn" onclick="toggleNightMode()" aria-label="Toggle night mode">NIGHT MODE</button>
+                <div class="sidebar-section" data-feature="file_upload">
+                    <div class="sidebar-section-title">Files</div>
+                    <button class="sidebar-action-btn" onclick="openFilePanel()" aria-label="File uploads">BROWSE</button>
+                </div>
+
+                <div class="sidebar-section" data-feature="weather">
+                    <div class="sidebar-section-title">Weather</div>
+                    <div id="weatherWidget" class="weather-widget">
+                        <div class="data-row"><span class="label">--</span></div>
+                    </div>
+                </div>
+
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Vault</div>
+                    <button class="sidebar-action-btn" onclick="openVaultPanel()" aria-label="Personal vault">PERSONNEL FILE</button>
+                </div>
             </div>
 
             <div class="sidebar-user-section">
@@ -2927,10 +3803,176 @@
     </div>
 
     <!-- ===== CONTENT AREA ===== -->
-    <div class="lcars-content" role="main">
-        <div class="messages" id="messages" role="log" aria-live="polite" aria-label="Chat messages">
-            <div class="msg system" id="connectMsg">CHANNEL OPEN</div>
+    <div class="lcars-content layout-focus" id="lcarsContent" role="main">
+
+        <!-- Widget Dock (primary — left or top depending on layout) -->
+        <div class="widget-dock" id="widgetDock"></div>
+
+        <!-- Chat Panel -->
+        <div class="chat-panel" id="chatPanel">
+            <div class="chat-panel-header">
+                <div class="widget-elbow"></div>
+                <div class="widget-header">
+                    <span class="widget-title">COMMS</span>
+                    <button class="chat-minimize-btn" id="chatMinBtn" onclick="toggleChatCollapse()">_</button>
+                </div>
+                <div class="widget-endcap"></div>
+            </div>
+            <div class="messages" id="messages" role="log" aria-live="polite" aria-label="Chat messages">
+                <div class="msg system" id="connectMsg">CHANNEL OPEN</div>
+
+                <!-- Welcome Dashboard (visible when no conversation active) -->
+                <div class="welcome-dashboard" id="welcomeDashboard">
+                    <div class="welcome-logo">AEGIS</div>
+                    <div class="welcome-subtitle">Autonomous Engagement &amp; Guidance Intelligence System</div>
+                    <div class="welcome-stardate" id="welcomeStardate"></div>
+
+                    <div class="welcome-bars">
+                        <div class="wb-seg" style="flex:2;background:var(--lcars-amber)"></div>
+                        <div class="wb-seg" style="flex:1;background:var(--lcars-gold)"></div>
+                        <div class="wb-seg" style="flex:3;background:var(--lcars-blue-1)"></div>
+                        <div class="wb-seg" style="flex:1;background:var(--lcars-purple-1)"></div>
+                        <div class="wb-seg" style="flex:2;background:var(--lcars-orange)"></div>
+                    </div>
+
+                    <div class="welcome-cards" id="welcomeCards">
+                        <div class="welcome-card amber" onclick="openTaskPanel()">
+                            <div class="welcome-card-value" id="wcTasks">--</div>
+                            <div class="welcome-card-label">Tasks</div>
+                        </div>
+                        <div class="welcome-card green" onclick="openHabitPanel()" data-feature="habits">
+                            <div class="welcome-card-value" id="wcHabits">--</div>
+                            <div class="welcome-card-label">Habits</div>
+                        </div>
+                        <div class="welcome-card purple" onclick="openCalendarPanel()">
+                            <div class="welcome-card-value" id="wcEvents">--</div>
+                            <div class="welcome-card-label">Events</div>
+                        </div>
+                        <div class="welcome-card ice" data-feature="weather">
+                            <div class="welcome-card-value" id="wcWeather">--</div>
+                            <div class="welcome-card-label">Weather</div>
+                        </div>
+                    </div>
+
+                    <div class="welcome-bars">
+                        <div class="wb-seg" style="flex:1;background:var(--lcars-purple-1)"></div>
+                        <div class="wb-seg" style="flex:3;background:var(--lcars-blue-1)"></div>
+                        <div class="wb-seg" style="flex:1;background:var(--lcars-amber)"></div>
+                        <div class="wb-seg" style="flex:2;background:var(--lcars-pink-1)"></div>
+                    </div>
+
+                    <div class="welcome-actions" style="margin-top:12px">
+                        <button class="lcars-btn pill amber" onclick="openBriefingPanel()">BRIEFING</button>
+                        <button class="lcars-btn pill blue" onclick="openTimerPanel()" data-feature="time_tracking">TIMER</button>
+                        <button class="lcars-btn pill purple" onclick="openMoodPanel()" data-feature="mood_tracking">MOOD</button>
+                        <button class="lcars-btn pill-left pink" onclick="openVaultPanel()">VAULT</button>
+                    </div>
+                </div>
+            </div>
         </div>
+
+        <!-- Widget Dock Right (used by Science layout) -->
+        <div class="widget-dock widget-dock-right" id="widgetDockRight"></div>
+
+        <!-- ===== WIDGETS ===== -->
+        <div class="lcars-widget theme-amber" id="widget-tasks" style="display:none">
+            <div class="widget-frame-top">
+                <div class="widget-elbow"></div>
+                <div class="widget-header">
+                    <span class="widget-title">TASKS</span>
+                    <span class="widget-badge" id="widgetTasksBadge">0</span>
+                    <button class="widget-expand-btn" onclick="openTaskPanel()">&#x2197;</button>
+                </div>
+                <div class="widget-endcap"></div>
+            </div>
+            <div class="widget-body" id="widgetTasksBody"></div>
+        </div>
+
+        <div class="lcars-widget theme-blue" id="widget-calendar" style="display:none">
+            <div class="widget-frame-top">
+                <div class="widget-elbow"></div>
+                <div class="widget-header">
+                    <span class="widget-title">CALENDAR</span>
+                    <span class="widget-badge" id="widgetCalendarBadge">0</span>
+                    <button class="widget-expand-btn" onclick="openCalendarPanel()">&#x2197;</button>
+                </div>
+                <div class="widget-endcap"></div>
+            </div>
+            <div class="widget-body" id="widgetCalendarBody"></div>
+        </div>
+
+        <div class="lcars-widget theme-green" id="widget-habits" data-feature="habits" style="display:none">
+            <div class="widget-frame-top">
+                <div class="widget-elbow"></div>
+                <div class="widget-header">
+                    <span class="widget-title">HABITS</span>
+                    <span class="widget-badge" id="widgetHabitsBadge">0</span>
+                    <button class="widget-expand-btn" onclick="openHabitPanel()">&#x2197;</button>
+                </div>
+                <div class="widget-endcap"></div>
+            </div>
+            <div class="widget-body" id="widgetHabitsBody"></div>
+        </div>
+
+        <div class="lcars-widget theme-purple" id="widget-mood" data-feature="mood_tracking" style="display:none">
+            <div class="widget-frame-top">
+                <div class="widget-elbow"></div>
+                <div class="widget-header">
+                    <span class="widget-title">MOOD</span>
+                    <button class="widget-expand-btn" onclick="openMoodPanel()">&#x2197;</button>
+                </div>
+                <div class="widget-endcap"></div>
+            </div>
+            <div class="widget-body" id="widgetMoodBody"></div>
+        </div>
+
+        <div class="lcars-widget theme-ice" id="widget-system" style="display:none">
+            <div class="widget-frame-top">
+                <div class="widget-elbow"></div>
+                <div class="widget-header">
+                    <span class="widget-title">SYSTEM</span>
+                    <button class="widget-expand-btn" onclick="openSystemPanel()">&#x2197;</button>
+                </div>
+                <div class="widget-endcap"></div>
+            </div>
+            <div class="widget-body" id="widgetSystemBody"></div>
+        </div>
+
+        <div class="lcars-widget theme-pink" id="widget-gpu" style="display:none">
+            <div class="widget-frame-top">
+                <div class="widget-elbow"></div>
+                <div class="widget-header">
+                    <span class="widget-title">GPU</span>
+                    <button class="widget-expand-btn" onclick="openGpuPanel()">&#x2197;</button>
+                </div>
+                <div class="widget-endcap"></div>
+            </div>
+            <div class="widget-body" id="widgetGpuBody"></div>
+        </div>
+
+        <div class="lcars-widget theme-ice" id="widget-weather" data-feature="weather" style="display:none">
+            <div class="widget-frame-top">
+                <div class="widget-elbow"></div>
+                <div class="widget-header">
+                    <span class="widget-title">WEATHER</span>
+                </div>
+                <div class="widget-endcap"></div>
+            </div>
+            <div class="widget-body" id="widgetWeatherBody"></div>
+        </div>
+
+        <div class="lcars-widget theme-amber" id="widget-timer" data-feature="time_tracking" style="display:none">
+            <div class="widget-frame-top">
+                <div class="widget-elbow"></div>
+                <div class="widget-header">
+                    <span class="widget-title">TIMER</span>
+                    <button class="widget-expand-btn" onclick="openTimerPanel()">&#x2197;</button>
+                </div>
+                <div class="widget-endcap"></div>
+            </div>
+            <div class="widget-body" id="widgetTimerBody"></div>
+        </div>
+
     </div>
 
     <!-- ===== BOTTOM BAR ===== -->
@@ -2954,10 +3996,19 @@
 
 <!-- Vault Panel -->
 <div class="panel-overlay" id="vaultPanelOverlay" onclick="closeVaultPanel()"></div>
-<div class="panel vault-panel" id="vaultPanel" role="dialog" aria-label="Personal vault">
-    <div class="panel-header">
-        <span>Personnel File</span>
-        <button class="panel-close-btn" onclick="closeVaultPanel()" aria-label="Close">&times;</button>
+<div class="lcars-panel theme-amber vault-panel" id="vaultPanel" role="dialog" aria-label="Personal vault">
+    <div class="lcars-panel-frame-top">
+        <div class="lcars-panel-elbow"></div>
+        <div class="lcars-panel-header">
+            <span>Personnel File</span>
+            <button class="panel-close-btn" onclick="closeVaultPanel()" aria-label="Close">&times;</button>
+        </div>
+        <div class="lcars-panel-endcap"></div>
+    </div>
+    <div class="lcars-panel-bar">
+        <div class="pbar-seg" style="flex:3;background:var(--lcars-amber)"></div>
+        <div class="pbar-seg animated" style="flex:2"></div>
+        <div class="pbar-seg" style="flex:1;background:var(--lcars-gold)"></div>
     </div>
     <div class="panel-body">
         <div class="vault-tabs">
@@ -2969,6 +4020,11 @@
         <div class="vault-content" id="vaultContent">
             <div class="data-row"><span class="label">Loading...</span></div>
         </div>
+    </div>
+    <div class="lcars-panel-frame-bottom">
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-amber);border-radius:0 0 0 12px"></div>
+        <div class="pbot-seg" style="flex:2;background:var(--lcars-gold)"></div>
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-orange);border-radius:0 0 12px 0"></div>
     </div>
 </div>
 
@@ -3008,22 +4064,45 @@
 
 <!-- Briefing Panel -->
 <div class="panel-overlay" id="briefingPanelOverlay" onclick="closeBriefingPanel()"></div>
-<div class="panel briefing-panel" id="briefingPanel" role="dialog" aria-label="Daily briefing">
-    <div class="panel-header">
-        <span>Daily Briefing</span>
-        <button class="panel-close-btn" onclick="closeBriefingPanel()" aria-label="Close">&times;</button>
+<div class="lcars-panel theme-blue briefing-panel" id="briefingPanel" role="dialog" aria-label="Daily briefing">
+    <div class="lcars-panel-frame-top">
+        <div class="lcars-panel-elbow"></div>
+        <div class="lcars-panel-header">
+            <span>Daily Briefing</span>
+            <button class="panel-close-btn" onclick="closeBriefingPanel()" aria-label="Close">&times;</button>
+        </div>
+        <div class="lcars-panel-endcap"></div>
+    </div>
+    <div class="lcars-panel-bar">
+        <div class="pbar-seg" style="flex:3;background:var(--lcars-blue-1)"></div>
+        <div class="pbar-seg animated" style="flex:2"></div>
+        <div class="pbar-seg" style="flex:1;background:var(--lcars-amber)"></div>
     </div>
     <div class="panel-body" id="briefingContent">
         <div class="notification-empty">Loading briefing...</div>
+    </div>
+    <div class="lcars-panel-frame-bottom">
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-blue-1);border-radius:0 0 0 12px"></div>
+        <div class="pbot-seg" style="flex:2;background:var(--lcars-purple-1)"></div>
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-amber);border-radius:0 0 12px 0"></div>
     </div>
 </div>
 
 <!-- Task Panel -->
 <div class="panel-overlay" id="taskPanelOverlay" onclick="closeTaskPanel()"></div>
-<div class="panel" id="taskPanel" role="dialog" aria-label="Task manager">
-    <div class="panel-header">
-        <span>Task Manager</span>
-        <button class="panel-close-btn" onclick="closeTaskPanel()" aria-label="Close">&times;</button>
+<div class="lcars-panel theme-green" id="taskPanel" role="dialog" aria-label="Task manager">
+    <div class="lcars-panel-frame-top">
+        <div class="lcars-panel-elbow"></div>
+        <div class="lcars-panel-header">
+            <span>Task Manager</span>
+            <button class="panel-close-btn" onclick="closeTaskPanel()" aria-label="Close">&times;</button>
+        </div>
+        <div class="lcars-panel-endcap"></div>
+    </div>
+    <div class="lcars-panel-bar">
+        <div class="pbar-seg" style="flex:3;background:var(--lcars-success)"></div>
+        <div class="pbar-seg animated" style="flex:2"></div>
+        <div class="pbar-seg" style="flex:1;background:var(--lcars-amber)"></div>
     </div>
     <div class="panel-body">
         <div class="task-add-row">
@@ -3039,14 +4118,28 @@
         </div>
         <div id="taskList"></div>
     </div>
+    <div class="lcars-panel-frame-bottom">
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-success);border-radius:0 0 0 12px"></div>
+        <div class="pbot-seg" style="flex:2;background:#15803d"></div>
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-amber);border-radius:0 0 12px 0"></div>
+    </div>
 </div>
 
 <!-- Calendar Panel -->
 <div class="panel-overlay" id="calendarPanelOverlay" onclick="closeCalendarPanel()"></div>
-<div class="panel" id="calendarPanel" role="dialog" aria-label="Calendar">
-    <div class="panel-header">
-        <span>Calendar</span>
-        <button class="panel-close-btn" onclick="closeCalendarPanel()" aria-label="Close">&times;</button>
+<div class="lcars-panel theme-purple" id="calendarPanel" role="dialog" aria-label="Calendar">
+    <div class="lcars-panel-frame-top">
+        <div class="lcars-panel-elbow"></div>
+        <div class="lcars-panel-header">
+            <span>Calendar</span>
+            <button class="panel-close-btn" onclick="closeCalendarPanel()" aria-label="Close">&times;</button>
+        </div>
+        <div class="lcars-panel-endcap"></div>
+    </div>
+    <div class="lcars-panel-bar">
+        <div class="pbar-seg" style="flex:3;background:var(--lcars-purple-1)"></div>
+        <div class="pbar-seg animated" style="flex:2"></div>
+        <div class="pbar-seg" style="flex:1;background:var(--lcars-lilac)"></div>
     </div>
     <div class="panel-body">
         <!-- Month navigation -->
@@ -3098,230 +4191,455 @@
             </div>
         </div>
     </div>
+    <div class="lcars-panel-frame-bottom">
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-purple-1);border-radius:0 0 0 12px"></div>
+        <div class="pbot-seg" style="flex:2;background:var(--lcars-lilac)"></div>
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-purple-3);border-radius:0 0 12px 0"></div>
+    </div>
 </div>
 
 <!-- History Panel -->
 <div class="panel-overlay" id="historyPanelOverlay" onclick="closeHistoryPanel()"></div>
-<div class="panel" id="historyPanel" role="dialog" aria-label="Session history">
-    <div class="panel-header">
-        <span id="historyTitle">Session History</span>
-        <div>
-            <button class="panel-back-btn" id="historyBackBtn" onclick="historyBack()" style="display:none;" aria-label="Back to list">BACK</button>
-            <button class="panel-close-btn" onclick="closeHistoryPanel()" aria-label="Close">&times;</button>
+<div class="lcars-panel theme-blue" id="historyPanel" role="dialog" aria-label="Session history">
+    <div class="lcars-panel-frame-top">
+        <div class="lcars-panel-elbow"></div>
+        <div class="lcars-panel-header">
+            <span id="historyTitle">Session Archive</span>
+            <div>
+                <button class="panel-back-btn" id="historyBackBtn" onclick="historyBack()" style="display:none;" aria-label="Back to list">BACK</button>
+                <button class="panel-close-btn" onclick="closeHistoryPanel()" aria-label="Close">&times;</button>
+            </div>
         </div>
+        <div class="lcars-panel-endcap"></div>
+    </div>
+    <div class="lcars-panel-bar">
+        <div class="pbar-seg" style="flex:3;background:var(--lcars-blue-1)"></div>
+        <div class="pbar-seg animated" style="flex:2"></div>
+        <div class="pbar-seg" style="flex:1;background:var(--lcars-purple-1)"></div>
     </div>
     <div class="panel-body">
         <div id="historyContent"></div>
+    </div>
+    <div class="lcars-panel-frame-bottom">
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-blue-1);border-radius:0 0 0 12px"></div>
+        <div class="pbot-seg" style="flex:2;background:var(--lcars-purple-1)"></div>
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-blue-3);border-radius:0 0 12px 0"></div>
     </div>
 </div>
 
 <!-- Protocol Controls Panel -->
 <div class="panel-overlay" id="protoPanelOverlay" onclick="closeProtocolPanel()"></div>
-<div class="panel" id="protoPanel" role="dialog" aria-label="Protocol controls">
-    <div class="panel-header">
-        <span>Protocol Controls</span>
-        <button class="panel-close-btn" onclick="closeProtocolPanel()" aria-label="Close">&times;</button>
+<div class="lcars-panel theme-ice" id="protoPanel" role="dialog" aria-label="Protocol controls">
+    <div class="lcars-panel-frame-top">
+        <div class="lcars-panel-elbow"></div>
+        <div class="lcars-panel-header">
+            <span>Protocol Controls</span>
+            <button class="panel-close-btn" onclick="closeProtocolPanel()" aria-label="Close">&times;</button>
+        </div>
+        <div class="lcars-panel-endcap"></div>
+    </div>
+    <div class="lcars-panel-bar">
+        <div class="pbar-seg" style="flex:3;background:var(--lcars-ice)"></div>
+        <div class="pbar-seg animated" style="flex:2"></div>
+        <div class="pbar-seg" style="flex:1;background:var(--lcars-blue-1)"></div>
     </div>
     <div class="panel-body">
         <div id="protoDetailList"></div>
+    </div>
+    <div class="lcars-panel-frame-bottom">
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-ice);border-radius:0 0 0 12px"></div>
+        <div class="pbot-seg" style="flex:2;background:var(--lcars-blue-3)"></div>
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-blue-1);border-radius:0 0 12px 0"></div>
     </div>
 </div>
 
 <!-- GPU Monitor Panel -->
 <div class="panel-overlay" id="gpuPanelOverlay" onclick="closeGpuPanel()"></div>
-<div class="panel" id="gpuPanel" role="dialog" aria-label="GPU monitor">
-    <div class="panel-header">
-        <span>GPU Monitor</span>
-        <button class="panel-close-btn" onclick="closeGpuPanel()" aria-label="Close">&times;</button>
+<div class="lcars-panel theme-amber" id="gpuPanel" role="dialog" aria-label="GPU monitor">
+    <div class="lcars-panel-frame-top">
+        <div class="lcars-panel-elbow"></div>
+        <div class="lcars-panel-header">
+            <span>GPU Monitor</span>
+            <button class="panel-close-btn" onclick="closeGpuPanel()" aria-label="Close">&times;</button>
+        </div>
+        <div class="lcars-panel-endcap"></div>
+    </div>
+    <div class="lcars-panel-bar">
+        <div class="pbar-seg" style="flex:3;background:var(--lcars-amber)"></div>
+        <div class="pbar-seg animated" style="flex:2"></div>
+        <div class="pbar-seg" style="flex:1;background:var(--lcars-orange)"></div>
     </div>
     <div class="panel-body">
         <div id="gpuDetailContent"></div>
+    </div>
+    <div class="lcars-panel-frame-bottom">
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-amber);border-radius:0 0 0 12px"></div>
+        <div class="pbot-seg" style="flex:2;background:var(--lcars-orange)"></div>
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-gold);border-radius:0 0 12px 0"></div>
     </div>
 </div>
 
 <!-- Pack Manager Panel -->
 <div class="panel-overlay" id="packPanelOverlay" onclick="closePackPanel()"></div>
-<div class="panel" id="packPanel" role="dialog" aria-label="Pack manager">
-    <div class="panel-header">
-        <span id="packPanelTitle">Pack Manager</span>
-        <div>
-            <button class="panel-back-btn" id="packBackBtn" onclick="packBack()" style="display:none;" aria-label="Back to list">BACK</button>
-            <button class="panel-close-btn" onclick="closePackPanel()" aria-label="Close">&times;</button>
+<div class="lcars-panel theme-purple" id="packPanel" role="dialog" aria-label="Pack manager">
+    <div class="lcars-panel-frame-top">
+        <div class="lcars-panel-elbow"></div>
+        <div class="lcars-panel-header">
+            <span id="packPanelTitle">Pack Manager</span>
+            <div>
+                <button class="panel-back-btn" id="packBackBtn" onclick="packBack()" style="display:none;" aria-label="Back to list">BACK</button>
+                <button class="panel-close-btn" onclick="closePackPanel()" aria-label="Close">&times;</button>
+            </div>
         </div>
+        <div class="lcars-panel-endcap"></div>
+    </div>
+    <div class="lcars-panel-bar">
+        <div class="pbar-seg" style="flex:3;background:var(--lcars-purple-1)"></div>
+        <div class="pbar-seg animated" style="flex:2"></div>
+        <div class="pbar-seg" style="flex:1;background:var(--lcars-lilac)"></div>
     </div>
     <div class="panel-body">
         <div id="packDetailContent"></div>
+    </div>
+    <div class="lcars-panel-frame-bottom">
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-purple-1);border-radius:0 0 0 12px"></div>
+        <div class="pbot-seg" style="flex:2;background:var(--lcars-lilac)"></div>
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-purple-3);border-radius:0 0 12px 0"></div>
     </div>
 </div>
 
 <!-- System Info Panel -->
 <div class="panel-overlay" id="systemPanelOverlay" onclick="closeSystemPanel()"></div>
-<div class="panel" id="systemPanel" role="dialog" aria-label="System information">
-    <div class="panel-header">
-        <span>System Information</span>
-        <button class="panel-close-btn" onclick="closeSystemPanel()" aria-label="Close">&times;</button>
+<div class="lcars-panel theme-ice" id="systemPanel" role="dialog" aria-label="System information">
+    <div class="lcars-panel-frame-top">
+        <div class="lcars-panel-elbow"></div>
+        <div class="lcars-panel-header">
+            <span>System Diagnostics</span>
+            <button class="panel-close-btn" onclick="closeSystemPanel()" aria-label="Close">&times;</button>
+        </div>
+        <div class="lcars-panel-endcap"></div>
+    </div>
+    <div class="lcars-panel-bar">
+        <div class="pbar-seg" style="flex:3;background:var(--lcars-ice)"></div>
+        <div class="pbar-seg animated" style="flex:2"></div>
+        <div class="pbar-seg" style="flex:1;background:var(--lcars-blue-3)"></div>
     </div>
     <div class="panel-body">
         <div id="systemDetailContent"></div>
+    </div>
+    <div class="lcars-panel-frame-bottom">
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-ice);border-radius:0 0 0 12px"></div>
+        <div class="pbot-seg" style="flex:2;background:var(--lcars-blue-3)"></div>
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-blue-1);border-radius:0 0 12px 0"></div>
     </div>
 </div>
 
 <!-- Settings Panel -->
 <div class="panel-overlay" id="settingsPanelOverlay" onclick="closeSettingsPanel()"></div>
-<div class="panel" id="settingsPanel" role="dialog" aria-label="Settings">
-    <div class="panel-header">
-        <span>Configuration</span>
-        <button class="panel-close-btn" onclick="closeSettingsPanel()" aria-label="Close">&times;</button>
+<div class="lcars-panel theme-amber" id="settingsPanel" role="dialog" aria-label="Settings">
+    <div class="lcars-panel-frame-top">
+        <div class="lcars-panel-elbow"></div>
+        <div class="lcars-panel-header">
+            <span>Configuration</span>
+            <button class="panel-close-btn" onclick="closeSettingsPanel()" aria-label="Close">&times;</button>
+        </div>
+        <div class="lcars-panel-endcap"></div>
+    </div>
+    <div class="lcars-panel-bar">
+        <div class="pbar-seg" style="flex:3;background:var(--lcars-amber)"></div>
+        <div class="pbar-seg animated" style="flex:2"></div>
+        <div class="pbar-seg" style="flex:1;background:var(--lcars-gold)"></div>
     </div>
     <div class="panel-body">
         <div id="settingsContent"></div>
+    </div>
+    <div class="lcars-panel-frame-bottom">
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-amber);border-radius:0 0 0 12px"></div>
+        <div class="pbot-seg" style="flex:2;background:var(--lcars-gold)"></div>
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-orange);border-radius:0 0 12px 0"></div>
     </div>
 </div>
 
 <!-- Mood Panel -->
 <div class="panel-overlay" id="moodPanelOverlay" onclick="closeMoodPanel()"></div>
-<div class="panel" id="moodPanel" role="dialog" aria-label="Mood Tracking">
-    <div class="panel-header">
-        <span>Mood Tracker</span>
-        <button class="panel-close-btn" onclick="closeMoodPanel()" aria-label="Close">&times;</button>
+<div class="lcars-panel theme-amber" id="moodPanel" role="dialog" aria-label="Mood Tracking">
+    <div class="lcars-panel-frame-top">
+        <div class="lcars-panel-elbow"></div>
+        <div class="lcars-panel-header">
+            <span>Mood Tracker</span>
+            <button class="panel-close-btn" onclick="closeMoodPanel()" aria-label="Close">&times;</button>
+        </div>
+        <div class="lcars-panel-endcap"></div>
+    </div>
+    <div class="lcars-panel-bar">
+        <div class="pbar-seg" style="flex:3;background:var(--lcars-amber)"></div>
+        <div class="pbar-seg animated" style="flex:2"></div>
+        <div class="pbar-seg" style="flex:1;background:var(--lcars-gold)"></div>
     </div>
     <div class="panel-body">
         <div class="mood-grid" id="moodChips"></div>
-        <div class="panel-add-row" style="margin-top:8px;">
+        <div class="lcars-input-row" style="margin-top:8px">
             <input type="text" id="moodNote" placeholder="Note (optional)">
-            <input type="number" id="moodEnergy" placeholder="Energy 1-10" min="1" max="10" style="max-width:80px;">
-            <button onclick="submitMood()">LOG</button>
+            <input type="number" id="moodEnergy" placeholder="Energy 1-10" min="1" max="10" style="max-width:80px">
+            <button class="lcars-btn sm amber" onclick="submitMood()">LOG</button>
         </div>
-        <div id="moodList" style="margin-top:12px;"></div>
+        <div class="lcars-divider" style="margin-top:12px">
+            <span class="div-label" style="color:var(--lcars-amber)">History</span>
+            <div class="div-bar" style="background:var(--lcars-amber)"></div>
+            <div class="div-dot" style="background:var(--lcars-amber)"></div>
+        </div>
+        <div id="moodList"></div>
+    </div>
+    <div class="lcars-panel-frame-bottom">
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-amber);border-radius:0 0 0 12px"></div>
+        <div class="pbot-seg" style="flex:2;background:var(--lcars-gold)"></div>
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-orange);border-radius:0 0 12px 0"></div>
     </div>
 </div>
 
 <!-- Contact Panel -->
 <div class="panel-overlay" id="contactPanelOverlay" onclick="closeContactPanel()"></div>
-<div class="panel" id="contactPanel" role="dialog" aria-label="Contacts">
-    <div class="panel-header">
-        <span>Contacts</span>
-        <button class="panel-close-btn" onclick="closeContactPanel()" aria-label="Close">&times;</button>
+<div class="lcars-panel theme-purple" id="contactPanel" role="dialog" aria-label="Contacts">
+    <div class="lcars-panel-frame-top">
+        <div class="lcars-panel-elbow"></div>
+        <div class="lcars-panel-header">
+            <span>Personnel Files</span>
+            <button class="panel-close-btn" onclick="closeContactPanel()" aria-label="Close">&times;</button>
+        </div>
+        <div class="lcars-panel-endcap"></div>
+    </div>
+    <div class="lcars-panel-bar">
+        <div class="pbar-seg" style="flex:3;background:var(--lcars-purple-1)"></div>
+        <div class="pbar-seg animated" style="flex:2"></div>
+        <div class="pbar-seg" style="flex:1;background:var(--lcars-lilac)"></div>
     </div>
     <div class="panel-body">
-        <div class="panel-add-row">
+        <div class="lcars-input-row">
             <input type="text" id="contactName" placeholder="Name">
             <input type="text" id="contactRel" placeholder="Relationship">
-            <button onclick="addContact()">ADD</button>
+            <button class="lcars-btn sm purple" onclick="addContact()">ADD</button>
         </div>
         <div id="contactList"></div>
+    </div>
+    <div class="lcars-panel-frame-bottom">
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-purple-1);border-radius:0 0 0 12px"></div>
+        <div class="pbot-seg" style="flex:2;background:var(--lcars-lilac)"></div>
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-purple-3);border-radius:0 0 12px 0"></div>
     </div>
 </div>
 
 <!-- Habit Panel -->
 <div class="panel-overlay" id="habitPanelOverlay" onclick="closeHabitPanel()"></div>
-<div class="panel" id="habitPanel" role="dialog" aria-label="Habits">
-    <div class="panel-header">
-        <span>Habit Tracker</span>
-        <button class="panel-close-btn" onclick="closeHabitPanel()" aria-label="Close">&times;</button>
+<div class="lcars-panel theme-green" id="habitPanel" role="dialog" aria-label="Habits">
+    <div class="lcars-panel-frame-top">
+        <div class="lcars-panel-elbow"></div>
+        <div class="lcars-panel-header">
+            <span>Habit Tracker</span>
+            <button class="panel-close-btn" onclick="closeHabitPanel()" aria-label="Close">&times;</button>
+        </div>
+        <div class="lcars-panel-endcap"></div>
+    </div>
+    <div class="lcars-panel-bar">
+        <div class="pbar-seg" style="flex:3;background:var(--lcars-success)"></div>
+        <div class="pbar-seg animated" style="flex:2"></div>
+        <div class="pbar-seg" style="flex:1;background:var(--lcars-blue-3)"></div>
     </div>
     <div class="panel-body">
-        <div class="panel-add-row">
+        <div class="lcars-input-row">
             <input type="text" id="habitName" placeholder="New habit">
             <select id="habitFreq"><option value="daily">Daily</option><option value="weekdays">Weekdays</option><option value="weekly">Weekly</option></select>
-            <button onclick="addHabit()">ADD</button>
+            <button class="lcars-btn sm green" onclick="addHabit()">ADD</button>
         </div>
         <div id="habitList"></div>
+    </div>
+    <div class="lcars-panel-frame-bottom">
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-success);border-radius:0 0 0 12px"></div>
+        <div class="pbot-seg" style="flex:2;background:#15803d"></div>
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-blue-3);border-radius:0 0 12px 0"></div>
     </div>
 </div>
 
 <!-- Behavior Panel -->
 <div class="panel-overlay" id="behaviorPanelOverlay" onclick="closeBehaviorPanel()"></div>
-<div class="panel" id="behaviorPanel" role="dialog" aria-label="Behavior Tracking">
-    <div class="panel-header">
-        <span>Behavior Tracker</span>
-        <button class="panel-close-btn" onclick="closeBehaviorPanel()" aria-label="Close">&times;</button>
+<div class="lcars-panel theme-amber" id="behaviorPanel" role="dialog" aria-label="Behavior Tracking">
+    <div class="lcars-panel-frame-top">
+        <div class="lcars-panel-elbow"></div>
+        <div class="lcars-panel-header">
+            <span>Behavior Monitor</span>
+            <button class="panel-close-btn" onclick="closeBehaviorPanel()" aria-label="Close">&times;</button>
+        </div>
+        <div class="lcars-panel-endcap"></div>
+    </div>
+    <div class="lcars-panel-bar">
+        <div class="pbar-seg" style="flex:3;background:var(--lcars-orange)"></div>
+        <div class="pbar-seg animated" style="flex:2"></div>
+        <div class="pbar-seg" style="flex:1;background:var(--lcars-peach)"></div>
     </div>
     <div class="panel-body">
-        <div class="panel-add-row">
+        <div class="lcars-input-row">
             <input type="text" id="behaviorName" placeholder="Behavior to track">
-            <button onclick="addBehavior()">ADD</button>
+            <button class="lcars-btn sm orange" onclick="addBehavior()">ADD</button>
         </div>
         <div id="behaviorList"></div>
+    </div>
+    <div class="lcars-panel-frame-bottom">
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-orange);border-radius:0 0 0 12px"></div>
+        <div class="pbot-seg" style="flex:2;background:var(--lcars-amber)"></div>
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-peach);border-radius:0 0 12px 0"></div>
     </div>
 </div>
 
 <!-- Pinned Messages Panel -->
 <div class="panel-overlay" id="pinnedPanelOverlay" onclick="closePinnedPanel()"></div>
-<div class="panel" id="pinnedPanel" role="dialog" aria-label="Pinned Messages">
-    <div class="panel-header">
-        <span>Saved Messages</span>
-        <button class="panel-close-btn" onclick="closePinnedPanel()" aria-label="Close">&times;</button>
+<div class="lcars-panel theme-amber" id="pinnedPanel" role="dialog" aria-label="Pinned Messages">
+    <div class="lcars-panel-frame-top">
+        <div class="lcars-panel-elbow"></div>
+        <div class="lcars-panel-header">
+            <span>Saved Transmissions</span>
+            <button class="panel-close-btn" onclick="closePinnedPanel()" aria-label="Close">&times;</button>
+        </div>
+        <div class="lcars-panel-endcap"></div>
+    </div>
+    <div class="lcars-panel-bar">
+        <div class="pbar-seg" style="flex:3;background:var(--lcars-gold)"></div>
+        <div class="pbar-seg animated" style="flex:2"></div>
+        <div class="pbar-seg" style="flex:1;background:var(--lcars-amber)"></div>
     </div>
     <div class="panel-body">
         <div id="pinnedList"></div>
+    </div>
+    <div class="lcars-panel-frame-bottom">
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-gold);border-radius:0 0 0 12px"></div>
+        <div class="pbot-seg" style="flex:2;background:var(--lcars-amber)"></div>
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-orange);border-radius:0 0 12px 0"></div>
     </div>
 </div>
 
 <!-- Timer Panel -->
 <div class="panel-overlay" id="timerPanelOverlay" onclick="closeTimerPanel()"></div>
-<div class="panel" id="timerPanel" role="dialog" aria-label="Time Tracking">
-    <div class="panel-header">
-        <span>Time Tracker</span>
-        <button class="panel-close-btn" onclick="closeTimerPanel()" aria-label="Close">&times;</button>
+<div class="lcars-panel theme-blue" id="timerPanel" role="dialog" aria-label="Time Tracking">
+    <div class="lcars-panel-frame-top">
+        <div class="lcars-panel-elbow"></div>
+        <div class="lcars-panel-header">
+            <span>Chronometer</span>
+            <button class="panel-close-btn" onclick="closeTimerPanel()" aria-label="Close">&times;</button>
+        </div>
+        <div class="lcars-panel-endcap"></div>
+    </div>
+    <div class="lcars-panel-bar">
+        <div class="pbar-seg" style="flex:3;background:var(--lcars-blue-1)"></div>
+        <div class="pbar-seg animated" style="flex:2"></div>
+        <div class="pbar-seg" style="flex:1;background:var(--lcars-purple-1)"></div>
     </div>
     <div class="panel-body">
         <div id="timerActive"></div>
-        <div class="panel-add-row" id="timerStartRow">
+        <div class="lcars-input-row" id="timerStartRow">
             <input type="text" id="timerActivity" placeholder="Activity">
             <select id="timerCategory"><option value="general">General</option><option value="work">Work</option><option value="study">Study</option><option value="exercise">Exercise</option><option value="creative">Creative</option></select>
-            <button onclick="startTimer()">START</button>
+            <button class="lcars-btn sm blue" onclick="startTimer()">START</button>
         </div>
-        <div id="timerHistory" style="margin-top:12px;"></div>
+        <div class="lcars-divider" style="margin-top:12px">
+            <span class="div-label" style="color:var(--lcars-ice)">Log</span>
+            <div class="div-bar" style="background:var(--lcars-blue-1)"></div>
+            <div class="div-dot" style="background:var(--lcars-blue-3)"></div>
+        </div>
+        <div id="timerHistory"></div>
+    </div>
+    <div class="lcars-panel-frame-bottom">
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-blue-1);border-radius:0 0 0 12px"></div>
+        <div class="pbot-seg" style="flex:2;background:var(--lcars-purple-1)"></div>
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-blue-3);border-radius:0 0 12px 0"></div>
     </div>
 </div>
 
 <!-- Alarm Panel -->
 <div class="panel-overlay" id="alarmPanelOverlay" onclick="closeAlarmPanel()"></div>
-<div class="panel" id="alarmPanel" role="dialog" aria-label="Alarms">
-    <div class="panel-header">
-        <span>Alarms</span>
-        <button class="panel-close-btn" onclick="closeAlarmPanel()" aria-label="Close">&times;</button>
+<div class="lcars-panel theme-ice" id="alarmPanel" role="dialog" aria-label="Alarms">
+    <div class="lcars-panel-frame-top">
+        <div class="lcars-panel-elbow"></div>
+        <div class="lcars-panel-header">
+            <span>Alert System</span>
+            <button class="panel-close-btn" onclick="closeAlarmPanel()" aria-label="Close">&times;</button>
+        </div>
+        <div class="lcars-panel-endcap"></div>
+    </div>
+    <div class="lcars-panel-bar">
+        <div class="pbar-seg" style="flex:3;background:var(--lcars-ice)"></div>
+        <div class="pbar-seg animated" style="flex:2"></div>
+        <div class="pbar-seg" style="flex:1;background:var(--lcars-blue-3)"></div>
     </div>
     <div class="panel-body">
-        <div class="panel-add-row">
+        <div class="lcars-input-row">
             <input type="text" id="alarmLabel" placeholder="Label">
             <input type="time" id="alarmTime">
-            <button onclick="addAlarm()">ADD</button>
+            <button class="lcars-btn sm blue" onclick="addAlarm()">ADD</button>
         </div>
         <div id="alarmList"></div>
+    </div>
+    <div class="lcars-panel-frame-bottom">
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-ice);border-radius:0 0 0 12px"></div>
+        <div class="pbot-seg" style="flex:2;background:var(--lcars-blue-3)"></div>
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-blue-1);border-radius:0 0 12px 0"></div>
     </div>
 </div>
 
 <!-- File Panel -->
 <div class="panel-overlay" id="filePanelOverlay" onclick="closeFilePanel()"></div>
-<div class="panel" id="filePanel" role="dialog" aria-label="Files">
-    <div class="panel-header">
-        <span>File Manager</span>
-        <button class="panel-close-btn" onclick="closeFilePanel()" aria-label="Close">&times;</button>
+<div class="lcars-panel theme-blue" id="filePanel" role="dialog" aria-label="Files">
+    <div class="lcars-panel-frame-top">
+        <div class="lcars-panel-elbow"></div>
+        <div class="lcars-panel-header">
+            <span>Data Archive</span>
+            <button class="panel-close-btn" onclick="closeFilePanel()" aria-label="Close">&times;</button>
+        </div>
+        <div class="lcars-panel-endcap"></div>
+    </div>
+    <div class="lcars-panel-bar">
+        <div class="pbar-seg" style="flex:3;background:var(--lcars-blue-1)"></div>
+        <div class="pbar-seg animated" style="flex:2"></div>
+        <div class="pbar-seg" style="flex:1;background:var(--lcars-ice)"></div>
     </div>
     <div class="panel-body">
-        <div class="panel-add-row">
-            <input type="file" id="fileInput" style="flex:1;">
-            <button onclick="uploadFile()">UPLOAD</button>
+        <div class="lcars-input-row">
+            <input type="file" id="fileInput" style="flex:1">
+            <button class="lcars-btn sm blue" onclick="uploadFile()">UPLOAD</button>
         </div>
         <div id="fileList"></div>
+    </div>
+    <div class="lcars-panel-frame-bottom">
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-blue-1);border-radius:0 0 0 12px"></div>
+        <div class="pbot-seg" style="flex:2;background:var(--lcars-ice)"></div>
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-purple-1);border-radius:0 0 12px 0"></div>
     </div>
 </div>
 
 <!-- Social Panel -->
 <div class="panel-overlay" id="socialPanelOverlay" onclick="closeSocialPanel()"></div>
-<div class="panel" id="socialPanel" role="dialog" aria-label="Social Media">
-    <div class="panel-header">
-        <span>Social Media</span>
-        <button class="panel-close-btn" onclick="closeSocialPanel()" aria-label="Close">&times;</button>
+<div class="lcars-panel theme-pink" id="socialPanel" role="dialog" aria-label="Social Media">
+    <div class="lcars-panel-frame-top">
+        <div class="lcars-panel-elbow"></div>
+        <div class="lcars-panel-header">
+            <span>Comms Outreach</span>
+            <button class="panel-close-btn" onclick="closeSocialPanel()" aria-label="Close">&times;</button>
+        </div>
+        <div class="lcars-panel-endcap"></div>
+    </div>
+    <div class="lcars-panel-bar">
+        <div class="pbar-seg" style="flex:3;background:var(--lcars-pink-1)"></div>
+        <div class="pbar-seg animated" style="flex:2"></div>
+        <div class="pbar-seg" style="flex:1;background:var(--lcars-magenta)"></div>
     </div>
     <div class="panel-body">
-        <div class="panel-add-row">
+        <div class="lcars-input-row">
             <input type="text" id="socialProjectName" placeholder="New project name">
-            <button onclick="addSocialProject()">CREATE</button>
+            <button class="lcars-btn sm pink" onclick="addSocialProject()">CREATE</button>
         </div>
         <div id="socialProjectList"></div>
+    </div>
+    <div class="lcars-panel-frame-bottom">
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-pink-1);border-radius:0 0 0 12px"></div>
+        <div class="pbot-seg" style="flex:2;background:var(--lcars-magenta)"></div>
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-pink-3);border-radius:0 0 12px 0"></div>
     </div>
 </div>
 
@@ -3650,6 +4968,19 @@ async function sendMessage(retryText) {
 }
 
 function addMessage(text, type, sender, wellness) {
+    // Auto-uncollapse chat panel on new message
+    var chatPanel = document.getElementById('chatPanel');
+    if (chatPanel && chatPanel.classList.contains('collapsed')) {
+        chatPanel.classList.remove('collapsed');
+        var minBtn = document.getElementById('chatMinBtn');
+        if (minBtn) minBtn.textContent = '_';
+        localStorage.setItem('aegis_chat_collapsed', '0');
+    }
+
+    // Hide welcome dashboard on first message
+    var dash = document.getElementById('welcomeDashboard');
+    if (dash && !dash.classList.contains('hidden')) dash.classList.add('hidden');
+
     const msgs = document.getElementById('messages');
     const div = document.createElement('div');
     div.className = 'msg ' + type + (wellness ? ' wellness' : '');
@@ -6109,16 +7440,24 @@ async function init() {
     loadStatus();
     loadCommands();
 
-    // Load initial task count (lightweight GET)
+    // Load initial task count + sidebar widgets (lightweight GETs)
     loadTaskCount();
     loadNotificationCount();
+    loadSidebarWidgets();
     maybeShowBriefing();
 
-    // Phase 10: feature toggles, night mode, weather, alarm polling, timer state
+    // Phase 10: feature toggles, night mode, color schemes, weather, alarm polling, timer state
     initNightMode();
+    initColorScheme();
+    initSidebarTab();
     loadFeatureToggles();
     loadWeather();
     loadTimerState();
+    initWelcomeDashboard();
+
+    // Layout system + widgets
+    initLayout();
+    initChatCollapse();
     setInterval(checkAlarms, 30000);
     setInterval(loadWeather, 300000); // refresh weather every 5 min
 
@@ -6149,11 +7488,13 @@ async function init() {
     _pollIntervals.forEach(function(id) { clearInterval(id); });
     _pollIntervals = [];
 
-    // Connection polling every 60s (also refreshes task count + notifications)
+    // Connection polling every 60s (also refreshes task count, notifications, sidebar widgets)
     _pollIntervals.push(setInterval(function() {
         checkConnection();
         loadTaskCount();
         loadNotificationCount();
+        loadSidebarWidgets();
+        refreshAllWidgets();
     }, 60000));
 }
 
@@ -6418,9 +7759,10 @@ function renderBriefing(data) {
     if (data.weather && data.weather.temperature != null) {
         hasContent = true;
         html += '<div class="briefing-section">';
-        html += '<div class="briefing-section-title" style="color:var(--lcars-blue-3);">Weather</div>';
+        html += '<div class="lcars-divider"><span class="div-label" style="color:var(--lcars-ice)">Weather</span><div class="div-bar" style="background:var(--lcars-ice)"></div><div class="div-dot" style="background:var(--lcars-ice)"></div></div>';
         html += '<div class="briefing-card event">';
-        html += '<div class="card-title">' + Math.round(data.weather.temperature) + 'F - ' + escapeHtml(data.weather.condition || '') + '</div>';
+        html += '<div class="card-title" style="font-size:18px;color:var(--lcars-amber)">' + Math.round(data.weather.temperature) + 'F</div>';
+        html += '<div class="card-detail" style="color:var(--lcars-ice)">' + escapeHtml(data.weather.condition || '') + '</div>';
         if (data.weather.location) html += '<div class="card-detail">' + escapeHtml(data.weather.location) + '</div>';
         html += '</div></div>';
     }
@@ -6429,9 +7771,10 @@ function renderBriefing(data) {
     if (data.moods_today && data.moods_today.length) {
         hasContent = true;
         html += '<div class="briefing-section">';
-        html += '<div class="briefing-section-title" style="color:var(--lcars-purple-3);">Today\'s Mood</div>';
+        html += '<div class="lcars-divider"><span class="div-label" style="color:var(--lcars-amber)">Mood Log</span><div class="div-bar" style="background:var(--lcars-amber)"></div><div class="div-dot" style="background:var(--lcars-amber)"></div></div>';
         data.moods_today.forEach(function(m) {
             html += '<div class="briefing-card"><div class="card-title">' + (m.moods || []).join(', ') + '</div>';
+            if (m.energy) html += '<span class="mood-energy" style="margin-left:8px">E ' + m.energy + '</span>';
             if (m.note) html += '<div class="card-detail">' + escapeHtml(m.note) + '</div>';
             html += '</div>';
         });
@@ -6443,10 +7786,12 @@ function renderBriefing(data) {
         hasContent = true;
         var done = data.habits_today.filter(function(h) { return h.done_today; }).length;
         html += '<div class="briefing-section">';
-        html += '<div class="briefing-section-title" style="color:var(--lcars-success);">Habits (' + done + '/' + data.habits_today.length + ')</div>';
+        html += '<div class="lcars-divider"><span class="div-label" style="color:var(--lcars-success)">Habits ' + done + '/' + data.habits_today.length + '</span><div class="div-bar" style="background:var(--lcars-success)"></div><div class="div-dot" style="background:var(--lcars-success)"></div></div>';
         data.habits_today.forEach(function(h) {
-            var icon = h.done_today ? '[x]' : '[ ]';
-            html += '<div class="briefing-card"><div class="card-title">' + icon + ' ' + escapeHtml(h.name) + '</div></div>';
+            html += '<div class="habit-row' + (h.done_today ? ' habit-done' : '') + '" style="padding:6px 0">';
+            html += '<div class="habit-indicator' + (h.done_today ? ' done' : '') + '"></div>';
+            html += '<div class="habit-name">' + escapeHtml(h.name) + '</div>';
+            html += '</div>';
         });
         html += '</div>';
     }
@@ -6455,10 +7800,10 @@ function renderBriefing(data) {
     if (data.active_timer) {
         hasContent = true;
         html += '<div class="briefing-section">';
-        html += '<div class="briefing-section-title" style="color:var(--lcars-warning);">Active Timer</div>';
-        html += '<div class="briefing-card"><div class="card-title">' + escapeHtml(data.active_timer.activity) + '</div>';
-        html += '<div class="card-detail">' + formatDuration(data.active_timer.elapsed_seconds || 0) + ' elapsed</div>';
-        html += '</div></div>';
+        html += '<div class="lcars-divider"><span class="div-label" style="color:var(--lcars-amber)">Active Timer</span><div class="div-bar" style="background:var(--lcars-amber)"></div><div class="div-dot" style="background:var(--lcars-amber)"></div></div>';
+        html += '<div class="timer-display" style="font-size:28px;padding:8px 0">' + formatDuration(data.active_timer.elapsed_seconds || 0) + '</div>';
+        html += '<div class="timer-activity" style="font-size:12px;margin-bottom:4px">' + escapeHtml(data.active_timer.activity) + '</div>';
+        html += '</div>';
     }
 
     if (!hasContent) {
@@ -6620,7 +7965,589 @@ function toggleNightMode() {
     showToast(isLight ? 'Light mode' : 'Dark mode', 'info', 1500);
 }
 
+// ========== COLOR SCHEMES ==========
+
+var COLOR_SCHEMES = {
+    'default': {
+        'blue-1': '#3B82F6', 'blue-2': '#1D4ED8', 'blue-3': '#93C5FD',
+        'purple-1': '#8B5CF6', 'purple-2': '#6D28D9', 'purple-3': '#C4B5FD',
+        'pink-1': '#EC4899', 'pink-2': '#BE185D', 'pink-3': '#FBCFE8',
+        'amber': '#FFCC66', 'gold': '#FFAA00', 'orange': '#FF9933',
+        'peach': '#FF8866', 'lilac': '#CC99FF', 'ice': '#99CCFF', 'magenta': '#CC5599'
+    },
+    'tng-amber': {
+        'blue-1': '#CC9933', 'blue-2': '#997722', 'blue-3': '#EEDD99',
+        'purple-1': '#CC6699', 'purple-2': '#994466', 'purple-3': '#EEBB99',
+        'pink-1': '#FF9966', 'pink-2': '#CC6633', 'pink-3': '#FFCCAA',
+        'amber': '#FFCC66', 'gold': '#FFAA00', 'orange': '#FF9933',
+        'peach': '#FFAA77', 'lilac': '#DDAA88', 'ice': '#EEDD99', 'magenta': '#CC7755'
+    },
+    'red-alert': {
+        'blue-1': '#EF4444', 'blue-2': '#B91C1C', 'blue-3': '#FCA5A5',
+        'purple-1': '#DC2626', 'purple-2': '#991B1B', 'purple-3': '#FECACA',
+        'pink-1': '#F97316', 'pink-2': '#C2410C', 'pink-3': '#FED7AA',
+        'amber': '#F97316', 'gold': '#EA580C', 'orange': '#FB923C',
+        'peach': '#FDBA74', 'lilac': '#FCA5A5', 'ice': '#FED7AA', 'magenta': '#DC2626'
+    },
+    'command-gold': {
+        'blue-1': '#EAB308', 'blue-2': '#A16207', 'blue-3': '#FDE68A',
+        'purple-1': '#22C55E', 'purple-2': '#15803D', 'purple-3': '#BBF7D0',
+        'pink-1': '#14B8A6', 'pink-2': '#0F766E', 'pink-3': '#99F6E4',
+        'amber': '#EAB308', 'gold': '#CA8A04', 'orange': '#FACC15',
+        'peach': '#FDE047', 'lilac': '#86EFAC', 'ice': '#A7F3D0', 'magenta': '#059669'
+    },
+    'science-blue': {
+        'blue-1': '#06B6D4', 'blue-2': '#0E7490', 'blue-3': '#67E8F9',
+        'purple-1': '#3B82F6', 'purple-2': '#1D4ED8', 'purple-3': '#93C5FD',
+        'pink-1': '#8B5CF6', 'pink-2': '#6D28D9', 'pink-3': '#C4B5FD',
+        'amber': '#06B6D4', 'gold': '#0891B2', 'orange': '#22D3EE',
+        'peach': '#67E8F9', 'lilac': '#A5B4FC', 'ice': '#BAE6FD', 'magenta': '#6366F1'
+    },
+    'borg-green': {
+        'blue-1': '#22C55E', 'blue-2': '#15803D', 'blue-3': '#86EFAC',
+        'purple-1': '#4ADE80', 'purple-2': '#16A34A', 'purple-3': '#BBF7D0',
+        'pink-1': '#A3E635', 'pink-2': '#65A30D', 'pink-3': '#D9F99D',
+        'amber': '#4ADE80', 'gold': '#22C55E', 'orange': '#86EFAC',
+        'peach': '#BEF264', 'lilac': '#86EFAC', 'ice': '#A7F3D0', 'magenta': '#16A34A'
+    }
+};
+
+function applyColorScheme(name) {
+    var scheme = COLOR_SCHEMES[name];
+    if (!scheme) return;
+    var root = document.documentElement;
+    Object.keys(scheme).forEach(function(key) {
+        root.style.setProperty('--lcars-' + key, scheme[key]);
+    });
+    localStorage.setItem('aegis_color_scheme', name);
+    var sel = document.getElementById('colorSchemeSelect');
+    if (sel) sel.value = name;
+}
+
+function initColorScheme() {
+    var saved = localStorage.getItem('aegis_color_scheme');
+    if (saved && COLOR_SCHEMES[saved]) {
+        applyColorScheme(saved);
+    }
+}
+
+// ========== LAYOUT SYSTEM ==========
+
+var LAYOUT_WIDGET_MAP = {
+    bridge: {
+        primary: ['widget-tasks', 'widget-calendar', 'widget-habits', 'widget-mood'],
+        right: []
+    },
+    ops: {
+        primary: ['widget-tasks', 'widget-calendar', 'widget-weather', 'widget-system', 'widget-gpu', 'widget-timer'],
+        right: []
+    },
+    science: {
+        primary: ['widget-tasks', 'widget-calendar', 'widget-habits'],
+        right: ['widget-mood', 'widget-weather', 'widget-system', 'widget-gpu', 'widget-timer']
+    },
+    focus: {
+        primary: [],
+        right: []
+    }
+};
+
+var _currentLayout = 'focus';
+var _widgetTimerInterval = null;
+
+function applyLayout(name) {
+    if (!LAYOUT_WIDGET_MAP[name]) name = 'focus';
+    _currentLayout = name;
+
+    var content = document.getElementById('lcarsContent');
+    if (!content) return;
+
+    // Remove old layout classes
+    content.classList.remove('layout-bridge', 'layout-ops', 'layout-science', 'layout-focus');
+    content.classList.add('layout-' + name);
+
+    var dockPrimary = document.getElementById('widgetDock');
+    var dockRight = document.getElementById('widgetDockRight');
+    var map = LAYOUT_WIDGET_MAP[name];
+
+    // Hide all widgets first
+    var allWidgetIds = ['widget-tasks', 'widget-calendar', 'widget-habits', 'widget-mood',
+                        'widget-system', 'widget-gpu', 'widget-weather', 'widget-timer'];
+    allWidgetIds.forEach(function(id) {
+        var w = document.getElementById(id);
+        if (w) {
+            w.style.display = 'none';
+            // Detach from current parent
+            if (w.parentNode && w.parentNode !== content) {
+                w.parentNode.removeChild(w);
+            } else if (w.parentNode === content) {
+                content.removeChild(w);
+            }
+        }
+    });
+
+    // Move widgets to primary dock
+    map.primary.forEach(function(id) {
+        var w = document.getElementById(id);
+        if (w && dockPrimary) {
+            dockPrimary.appendChild(w);
+            w.style.display = '';
+        }
+    });
+
+    // Move widgets to right dock
+    map.right.forEach(function(id) {
+        var w = document.getElementById(id);
+        if (w && dockRight) {
+            dockRight.appendChild(w);
+            w.style.display = '';
+        }
+    });
+
+    // Persist
+    localStorage.setItem('aegis_layout', name);
+
+    // Update selector
+    var sel = document.getElementById('layoutSelect');
+    if (sel) sel.value = name;
+
+    // Re-apply feature visibility to hide disabled widgets
+    if (typeof applyFeatureVisibility === 'function') {
+        applyFeatureVisibility();
+    }
+
+    // Refresh widget data
+    refreshAllWidgets();
+}
+
+function initLayout() {
+    var saved = localStorage.getItem('aegis_layout');
+    applyLayout(saved || 'bridge');
+}
+
+function toggleChatCollapse() {
+    var panel = document.getElementById('chatPanel');
+    var btn = document.getElementById('chatMinBtn');
+    if (!panel) return;
+
+    panel.classList.toggle('collapsed');
+    var collapsed = panel.classList.contains('collapsed');
+    if (btn) btn.textContent = collapsed ? '+' : '_';
+    localStorage.setItem('aegis_chat_collapsed', collapsed ? '1' : '0');
+}
+
+function initChatCollapse() {
+    var saved = localStorage.getItem('aegis_chat_collapsed');
+    if (saved === '1') {
+        var panel = document.getElementById('chatPanel');
+        var btn = document.getElementById('chatMinBtn');
+        if (panel) {
+            panel.classList.add('collapsed');
+            if (btn) btn.textContent = '+';
+        }
+    }
+}
+
+// ========== WIDGET RENDERING ==========
+
+async function renderWidgetTasks() {
+    try {
+        var res = await authFetch(API + '/tasks');
+        var data = await res.json();
+        var tasks = (data.tasks || []).filter(function(t) { return !t.completed; });
+        var badge = document.getElementById('widgetTasksBadge');
+        var body = document.getElementById('widgetTasksBody');
+        if (badge) badge.textContent = tasks.length;
+        if (body) {
+            if (tasks.length === 0) {
+                body.innerHTML = '<div style="color:var(--lcars-text-dim);font-size:11px">All clear</div>';
+            } else {
+                var html = '';
+                tasks.slice(0, 4).forEach(function(t) {
+                    var title = escapeHtml(t.text || t.title || '--');
+                    var priColor = t.priority === 'high' ? 'var(--lcars-warning)' : 'var(--lcars-text-dim)';
+                    html += '<div class="data-row"><span class="label" style="color:' + priColor + '">' +
+                            (t.priority === 'high' ? '!' : '-') + '</span><span class="value">' + title + '</span></div>';
+                });
+                if (tasks.length > 4) {
+                    html += '<div style="font-size:9px;color:var(--lcars-text-dim);text-align:right;margin-top:2px">+' +
+                            (tasks.length - 4) + ' more</div>';
+                }
+                body.innerHTML = html;
+            }
+        }
+    } catch (e) {}
+}
+
+async function renderWidgetCalendar() {
+    try {
+        var now = new Date();
+        var y = now.getFullYear(), m = now.getMonth() + 1;
+        var res = await authFetch(API + '/calendar/month/' + y + '/' + m);
+        var data = await res.json();
+        var events = (data.local_events || []).concat(data.google_events || []);
+        var today = now.toISOString().split('T')[0];
+        var upcoming = events.filter(function(e) { return (e.date || '') >= today; })
+            .sort(function(a, b) { return (a.date || '').localeCompare(b.date || ''); });
+
+        var badge = document.getElementById('widgetCalendarBadge');
+        var body = document.getElementById('widgetCalendarBody');
+        if (badge) badge.textContent = upcoming.length;
+        if (body) {
+            var dateStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+            var html = '<div style="font-family:var(--font-display);font-size:10px;color:var(--lcars-blue-3);letter-spacing:1px;margin-bottom:4px">' +
+                       escapeHtml(dateStr.toUpperCase()) + '</div>';
+            if (upcoming.length === 0) {
+                html += '<div style="color:var(--lcars-text-dim);font-size:11px">No upcoming events</div>';
+            } else {
+                upcoming.slice(0, 3).forEach(function(evt) {
+                    var title = escapeHtml(evt.title || evt.summary || '--');
+                    var time = evt.start_time ? evt.start_time.substring(0, 5) : 'ALL DAY';
+                    html += '<div class="data-row"><span class="label">' + time + '</span><span class="value">' + title + '</span></div>';
+                });
+            }
+            body.innerHTML = html;
+        }
+    } catch (e) {}
+}
+
+async function renderWidgetHabits() {
+    try {
+        var res = await authFetch(API + '/habits/today');
+        var data = await res.json();
+        var habits = data.habits || [];
+        var done = habits.filter(function(h) { return h.done_today; }).length;
+        var total = habits.length;
+
+        var badge = document.getElementById('widgetHabitsBadge');
+        var body = document.getElementById('widgetHabitsBody');
+        if (badge) badge.textContent = done + '/' + total;
+        if (body) {
+            if (total === 0) {
+                body.innerHTML = '<div style="color:var(--lcars-text-dim);font-size:11px">No habits set</div>';
+            } else {
+                var pct = total > 0 ? Math.round((done / total) * 100) : 0;
+                var html = '<div class="widget-gauge"><div class="fill" style="width:' + pct +
+                           '%;background:var(--lcars-success)"></div></div>';
+                habits.forEach(function(h) {
+                    var dotClass = h.done_today ? 'done' : '';
+                    html += '<div class="widget-habit-row" onclick="quickToggleHabit(\'' + (h.id || '') + '\')">' +
+                            '<div class="widget-habit-dot ' + dotClass + '"></div>' +
+                            '<span class="widget-habit-name">' + escapeHtml(h.name || '--') + '</span></div>';
+                });
+                body.innerHTML = html;
+            }
+        }
+    } catch (e) {}
+}
+
+async function quickToggleHabit(habitId) {
+    if (!habitId) return;
+    try {
+        await authFetch(API + '/habits/toggle', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({habit_id: habitId})
+        });
+        renderWidgetHabits();
+    } catch (e) {}
+}
+
+async function renderWidgetMood() {
+    try {
+        var res = await authFetch(API + '/moods', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({action: 'list'}),
+        });
+        var data = await res.json();
+        var moods = data.moods || [];
+        var body = document.getElementById('widgetMoodBody');
+        if (body) {
+            if (moods.length === 0) {
+                body.innerHTML = '<div style="color:var(--lcars-text-dim);font-size:11px">No mood logged</div>' +
+                    '<button class="widget-quick-btn" onclick="openMoodPanel()">LOG MOOD</button>';
+            } else {
+                var last = moods[moods.length - 1];
+                var tags = (last.moods || []).slice(0, 4).map(function(t) { return escapeHtml(t); }).join(', ');
+                var html = '<div style="font-size:11px;color:var(--lcars-purple-3)">' + tags + '</div>';
+                if (last.energy) {
+                    html += '<div style="font-size:10px;color:var(--lcars-text-dim);margin-top:2px">Energy: ' + last.energy + '/10</div>';
+                }
+                html += '<button class="widget-quick-btn" onclick="openMoodPanel()">LOG MOOD</button>';
+                body.innerHTML = html;
+            }
+        }
+    } catch (e) {}
+}
+
+async function renderWidgetSystem() {
+    try {
+        var res = await authFetch(API + '/status');
+        var data = await res.json();
+        var body = document.getElementById('widgetSystemBody');
+        if (body) {
+            var model = data.model || '--';
+            var msgCount = data.message_count != null ? data.message_count : '--';
+            var statusColor = data.connected !== false ? 'var(--lcars-success)' : 'var(--lcars-error)';
+            var html = lcarsDataRow('MODEL', model);
+            html += lcarsDataRow('MESSAGES', msgCount);
+            html += '<div class="data-row"><span class="label">STATUS</span>' +
+                    '<div style="width:8px;height:8px;border-radius:50%;background:' + statusColor + '"></div></div>';
+            body.innerHTML = html;
+        }
+    } catch (e) {}
+}
+
+async function renderWidgetGpu() {
+    try {
+        var res = await authFetch(API + '/gpu/status');
+        var data = await res.json();
+        var body = document.getElementById('widgetGpuBody');
+        if (body) {
+            if (!data || data.error) {
+                body.innerHTML = '<div style="color:var(--lcars-text-dim);font-size:11px">No GPU data</div>';
+                return;
+            }
+            var vramUsed = data.vram_used_mb || 0;
+            var vramTotal = data.vram_total_mb || 8192;
+            var vramPct = Math.round((vramUsed / vramTotal) * 100);
+            var util = data.utilization || 0;
+            var temp = data.temperature || '--';
+            var fillColor = vramPct > 80 ? 'var(--lcars-error)' : vramPct > 60 ? 'var(--lcars-warning)' : 'var(--lcars-pink-1)';
+
+            var html = '<div style="font-size:9px;color:var(--lcars-text-dim);margin-bottom:2px">VRAM ' + vramPct + '%</div>';
+            html += '<div class="widget-gauge"><div class="fill" style="width:' + vramPct + '%;background:' + fillColor + '"></div></div>';
+            html += lcarsDataRow('UTIL', util + '%');
+            html += lcarsDataRow('TEMP', temp + 'C');
+            body.innerHTML = html;
+        }
+    } catch (e) {}
+}
+
+async function renderWidgetWeather() {
+    try {
+        var res = await authFetch(API + '/weather');
+        var data = await res.json();
+        var body = document.getElementById('widgetWeatherBody');
+        if (body) {
+            if (!data || data.error) {
+                body.innerHTML = '<div style="color:var(--lcars-text-dim);font-size:11px">No weather data</div>';
+                return;
+            }
+            var temp = data.temperature != null ? Math.round(data.temperature) + '\u00B0' : '--';
+            var cond = data.condition || '--';
+            var loc = data.location || '';
+            var html = '<div style="font-family:var(--font-display);font-size:18px;color:var(--lcars-amber);font-weight:700">' + temp + '</div>';
+            html += '<div style="font-size:10px;color:var(--lcars-ice);font-family:var(--font-display);text-transform:uppercase;letter-spacing:1px">' + escapeHtml(cond) + '</div>';
+            if (loc) {
+                html += '<div style="font-size:9px;color:var(--lcars-text-dim);font-family:var(--font-mono)">' + escapeHtml(loc) + '</div>';
+            }
+            body.innerHTML = html;
+        }
+    } catch (e) {}
+}
+
+function renderWidgetTimer() {
+    var body = document.getElementById('widgetTimerBody');
+    if (!body) return;
+
+    // Check if there's an active timer from the global timer state
+    if (_widgetTimerInterval) {
+        clearInterval(_widgetTimerInterval);
+        _widgetTimerInterval = null;
+    }
+
+    authFetch(API + '/timer/active').then(function(r) { return r.json(); }).then(function(data) {
+        if (data.active && data.start_time) {
+            var activity = data.activity || 'Timer';
+            function updateWidgetTimer() {
+                var now = Math.floor(Date.now() / 1000);
+                var start = Math.floor(new Date(data.start_time).getTime() / 1000);
+                var elapsed = Math.max(0, now - start);
+                var timeStr = formatDuration(elapsed);
+                var b = document.getElementById('widgetTimerBody');
+                if (b) {
+                    b.innerHTML = '<div style="font-family:var(--font-mono);font-size:18px;color:var(--lcars-success);font-weight:700">' + timeStr + '</div>' +
+                        '<div style="font-size:10px;color:var(--lcars-ice);font-family:var(--font-display);text-transform:uppercase;letter-spacing:1px">' + escapeHtml(activity) + '</div>';
+                }
+            }
+            updateWidgetTimer();
+            _widgetTimerInterval = setInterval(updateWidgetTimer, 1000);
+        } else {
+            body.innerHTML = '<div style="color:var(--lcars-text-dim);font-size:11px">No active timer</div>' +
+                '<button class="widget-quick-btn" onclick="openTimerPanel()">START</button>';
+        }
+    }).catch(function() {
+        body.innerHTML = '<div style="color:var(--lcars-text-dim);font-size:11px">--</div>';
+    });
+}
+
+function refreshAllWidgets() {
+    if (_currentLayout === 'focus') return;
+
+    var map = LAYOUT_WIDGET_MAP[_currentLayout];
+    if (!map) return;
+
+    var visible = map.primary.concat(map.right);
+
+    if (visible.indexOf('widget-tasks') >= 0) renderWidgetTasks();
+    if (visible.indexOf('widget-calendar') >= 0) renderWidgetCalendar();
+    if (visible.indexOf('widget-habits') >= 0) renderWidgetHabits();
+    if (visible.indexOf('widget-mood') >= 0) renderWidgetMood();
+    if (visible.indexOf('widget-system') >= 0) renderWidgetSystem();
+    if (visible.indexOf('widget-gpu') >= 0) renderWidgetGpu();
+    if (visible.indexOf('widget-weather') >= 0) renderWidgetWeather();
+    if (visible.indexOf('widget-timer') >= 0) renderWidgetTimer();
+}
+
+// ========== SIDEBAR WIDGETS ==========
+
+function loadSidebarWidgets() {
+    // Task preview: show next pending task title
+    authFetch(API + '/tasks').then(function(r) { return r.json(); }).then(function(data) {
+        var tasks = (data.tasks || []).filter(function(t) { return !t.completed; });
+        var el = document.getElementById('taskPreview');
+        var val = document.getElementById('taskPreviewVal');
+        if (el && val && tasks.length > 0) {
+            val.textContent = tasks[0].text || tasks[0].title || '--';
+            el.style.display = '';
+        } else if (el) {
+            el.style.display = 'none';
+        }
+    }).catch(function() {});
+
+    // Habit preview: show done/total for today
+    authFetch(API + '/habits/today').then(function(r) { return r.json(); }).then(function(data) {
+        var habits = data.habits || [];
+        var el = document.getElementById('habitPreview');
+        var val = document.getElementById('habitPreviewVal');
+        if (el && val && habits.length > 0) {
+            var done = habits.filter(function(h) { return h.done_today; }).length;
+            val.textContent = done + '/' + habits.length;
+            el.style.display = '';
+        } else if (el) {
+            el.style.display = 'none';
+        }
+    }).catch(function() {});
+
+    // Mood preview: show last mood tags
+    authFetch(API + '/moods', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({action: 'list'}),
+    }).then(function(r) { return r.json(); }).then(function(data) {
+        var moods = data.moods || [];
+        var el = document.getElementById('moodPreview');
+        var val = document.getElementById('moodPreviewVal');
+        if (el && val && moods.length > 0) {
+            var last = moods[moods.length - 1];
+            val.textContent = (last.moods || []).slice(0, 3).join(', ') || '--';
+            el.style.display = '';
+        } else if (el) {
+            el.style.display = 'none';
+        }
+    }).catch(function() {});
+
+    // Calendar preview: show next upcoming event
+    var now = new Date();
+    var y = now.getFullYear(), m = now.getMonth() + 1;
+    authFetch(API + '/calendar/month/' + y + '/' + m).then(function(r) { return r.json(); }).then(function(data) {
+        var events = (data.local_events || []).concat(data.google_events || []);
+        var today = now.toISOString().split('T')[0];
+        var upcoming = events.filter(function(e) { return (e.date || '') >= today; }).sort(function(a, b) { return (a.date || '').localeCompare(b.date || ''); });
+        var el = document.getElementById('calendarPreview');
+        var val = document.getElementById('calendarPreviewVal');
+        if (el && val && upcoming.length > 0) {
+            val.textContent = upcoming[0].title || upcoming[0].summary || '--';
+            el.style.display = '';
+        } else if (el) {
+            el.style.display = 'none';
+        }
+    }).catch(function() {});
+}
+
+// ========== SIDEBAR TABS ==========
+
+function switchSidebarTab(tabId, btn) {
+    document.querySelectorAll('.sidebar-tab').forEach(function(t) { t.classList.remove('active'); });
+    document.querySelectorAll('.sidebar-tab-content').forEach(function(c) { c.classList.remove('active'); });
+    if (btn) btn.classList.add('active');
+    var content = document.getElementById('sidebarTab-' + tabId);
+    if (content) content.classList.add('active');
+    localStorage.setItem('aegis_sidebar_tab', tabId);
+}
+
+function initSidebarTab() {
+    var saved = localStorage.getItem('aegis_sidebar_tab');
+    if (saved) {
+        var tabs = document.querySelectorAll('.sidebar-tab');
+        var tabMap = { ops: 0, msn: 1, per: 2, dat: 3 };
+        var idx = tabMap[saved];
+        if (idx !== undefined && tabs[idx]) {
+            switchSidebarTab(saved, tabs[idx]);
+        }
+    }
+}
+
 // ========== PHASE 10: MOOD TRACKING ==========
+
+// ========== WELCOME DASHBOARD ==========
+
+function initWelcomeDashboard() {
+    // Stardate
+    var sd = document.getElementById('welcomeStardate');
+    if (sd) {
+        var now = new Date();
+        var year = now.getFullYear();
+        var dayOfYear = Math.floor((now - new Date(year, 0, 0)) / 86400000);
+        var stardate = year + '.' + String(dayOfYear).padStart(3, '0');
+        sd.textContent = 'STARDATE ' + stardate;
+    }
+
+    // Populate cards
+    loadWelcomeCards();
+}
+
+async function loadWelcomeCards() {
+    // Tasks
+    try {
+        var res = await authFetch(API + '/tasks/count');
+        var data = await res.json();
+        var el = document.getElementById('wcTasks');
+        if (el) el.textContent = data.count != null ? data.count : '0';
+    } catch (e) {}
+
+    // Habits
+    try {
+        var res = await authFetch(API + '/habits/today');
+        var data = await res.json();
+        var el = document.getElementById('wcHabits');
+        if (el && data.habits) {
+            var done = data.habits.filter(function(h) { return h.done_today; }).length;
+            el.textContent = done + '/' + data.habits.length;
+        }
+    } catch (e) {}
+
+    // Events
+    try {
+        var res = await authFetch(API + '/briefing');
+        var data = await res.json();
+        var el = document.getElementById('wcEvents');
+        if (el) {
+            var count = (data.events_today ? data.events_today.length : 0);
+            el.textContent = count;
+        }
+
+        // Weather from briefing
+        var wEl = document.getElementById('wcWeather');
+        if (wEl && data.weather && data.weather.temperature != null) {
+            wEl.textContent = Math.round(data.weather.temperature) + 'F';
+        }
+    } catch (e) {}
+}
+
+// ========== PHASE 10: MOODS ==========
 
 var MOOD_OPTIONS = ['Happy','Sad','Anxious','Calm','Excited','Tired','Stressed','Grateful','Angry','Hopeful','Lonely','Content'];
 var _selectedMoods = [];
@@ -6686,10 +8613,13 @@ async function loadMoods() {
         if (!data.moods || !data.moods.length) { list.innerHTML = '<div style="color:var(--lcars-text-dim);font-size:12px;">No moods logged yet</div>'; return; }
         var html = '';
         data.moods.slice(-20).reverse().forEach(function(m) {
-            html += '<div class="mood-entry"><div class="mood-time">' + escapeHtml(m.date + ' ' + m.time) + '</div>';
+            html += '<div class="mood-entry">';
+            html += '<div style="display:flex;align-items:center;justify-content:space-between">';
+            html += '<div class="mood-time">' + escapeHtml(m.date + ' ' + m.time) + '</div>';
+            if (m.energy) html += '<span class="mood-energy">E ' + m.energy + '</span>';
+            html += '</div>';
             html += '<div class="mood-tags">';
             (m.moods || []).forEach(function(t) { html += '<span class="mood-tag">' + escapeHtml(t) + '</span>'; });
-            if (m.energy) html += '<span class="mood-tag" style="background:var(--lcars-warning);color:#000;">E:' + m.energy + '</span>';
             html += '</div>';
             if (m.note) html += '<div class="mood-note">' + escapeHtml(m.note) + '</div>';
             html += '</div>';
@@ -6736,16 +8666,17 @@ async function loadContacts() {
         });
         var data = await res.json();
         var list = document.getElementById('contactList');
-        if (!data.contacts || !data.contacts.length) { list.innerHTML = '<div style="color:var(--lcars-text-dim);font-size:12px;">No contacts yet</div>'; return; }
+        if (!data.contacts || !data.contacts.length) { list.innerHTML = '<div style="color:var(--lcars-text-dim);font-size:12px;">No personnel on file</div>'; return; }
         var html = '';
         data.contacts.forEach(function(c) {
             html += '<div class="contact-card">';
             html += '<div class="contact-name">' + escapeHtml(c.name) + '</div>';
             if (c.relationship) html += '<div class="contact-rel">' + escapeHtml(c.relationship) + '</div>';
-            if (c.phone) html += '<div class="contact-rel">Phone: ' + escapeHtml(c.phone) + '</div>';
-            if (c.email) html += '<div class="contact-rel">Email: ' + escapeHtml(c.email) + '</div>';
-            if (c.notes) html += '<div class="contact-rel">' + escapeHtml(c.notes) + '</div>';
-            html += '<button onclick="deleteContact(\'' + c.id + '\')" style="background:none;border:none;color:var(--lcars-error);font-size:10px;cursor:pointer;margin-top:4px;">DELETE</button>';
+            if (c.phone) html += '<div class="contact-detail">COMM // ' + escapeHtml(c.phone) + '</div>';
+            if (c.email) html += '<div class="contact-detail">SUBSPACE // ' + escapeHtml(c.email) + '</div>';
+            if (c.birthday) html += '<div class="contact-detail">STARDATE // ' + escapeHtml(c.birthday) + '</div>';
+            if (c.notes) html += '<div style="font-size:11px;color:var(--lcars-text-dim);margin-top:4px;font-style:italic;">' + escapeHtml(c.notes) + '</div>';
+            html += '<button class="lcars-btn sm red" style="margin-top:6px" onclick="deleteContact(\'' + c.id + '\')">REMOVE</button>';
             html += '</div>';
         });
         list.innerHTML = html;
@@ -6796,15 +8727,16 @@ async function loadHabits() {
         var res = await authFetch(API + '/habits/today');
         var data = await res.json();
         var list = document.getElementById('habitList');
-        if (!data.habits || !data.habits.length) { list.innerHTML = '<div style="color:var(--lcars-text-dim);font-size:12px;">No habits yet</div>'; return; }
+        if (!data.habits || !data.habits.length) { list.innerHTML = '<div style="color:var(--lcars-text-dim);font-size:12px;">No habits tracked</div>'; return; }
         var html = '';
         data.habits.forEach(function(h) {
             var doneClass = h.done_today ? ' habit-done' : '';
             html += '<div class="habit-row' + doneClass + '">';
-            html += '<input type="checkbox" class="habit-check" ' + (h.done_today ? 'checked' : '') + ' onchange="toggleHabit(\'' + h.id + '\', this.checked)">';
+            html += '<div class="habit-indicator' + (h.done_today ? ' done' : '') + '" onclick="toggleHabit(\'' + h.id + '\', ' + (h.done_today ? 'false' : 'true') + ')"></div>';
             html += '<div class="habit-name">' + escapeHtml(h.name) + '</div>';
-            html += '<div class="habit-streak">' + (h.current_streak || 0) + ' streak</div>';
-            html += '<button onclick="deleteHabit(\'' + h.id + '\')" style="background:none;border:none;color:var(--lcars-error);font-size:10px;cursor:pointer;">X</button>';
+            html += '<span class="habit-freq">' + escapeHtml(h.frequency || 'daily') + '</span>';
+            html += '<div class="habit-streak">' + (h.current_streak || 0) + 'd</div>';
+            html += '<button class="lcars-btn sm red" onclick="deleteHabit(\'' + h.id + '\')">X</button>';
             html += '</div>';
         });
         list.innerHTML = html;
@@ -6875,11 +8807,12 @@ async function loadBehaviors() {
         data.behaviors.forEach(function(b) {
             html += '<div class="behavior-card">';
             html += '<div class="behavior-name">' + escapeHtml(b.name) + '</div>';
-            html += '<div class="behavior-clean">' + (b.current_clean_days || 0) + ' days clean</div>';
-            html += '<div class="behavior-best">Best: ' + (b.best_clean_days || 0) + ' days</div>';
-            html += '<div style="margin-top:6px;display:flex;gap:6px;">';
-            html += '<button onclick="logRelapse(\'' + b.id + '\')" style="background:var(--lcars-warning);border:none;color:#000;font-size:10px;padding:3px 8px;border-radius:4px;cursor:pointer;">LOG RELAPSE</button>';
-            html += '<button onclick="deleteBehavior(\'' + b.id + '\')" style="background:none;border:none;color:var(--lcars-error);font-size:10px;cursor:pointer;">DELETE</button>';
+            html += '<div class="behavior-clean">' + (b.current_clean_days || 0) + '</div>';
+            html += '<div class="behavior-clean-label">Days Clean</div>';
+            html += '<div class="behavior-best">Personal Best: ' + (b.best_clean_days || 0) + ' days</div>';
+            html += '<div style="margin-top:8px;display:flex;gap:6px;">';
+            html += '<button class="lcars-btn sm orange" onclick="logRelapse(\'' + b.id + '\')">LOG RELAPSE</button>';
+            html += '<button class="lcars-btn sm red" onclick="deleteBehavior(\'' + b.id + '\')">DELETE</button>';
             html += '</div></div>';
         });
         list.innerHTML = html;
@@ -6937,13 +8870,14 @@ async function loadPinned() {
         var res = await authFetch(API + '/pinned-messages');
         var data = await res.json();
         var list = document.getElementById('pinnedList');
-        if (!data.pinned || !data.pinned.length) { list.innerHTML = '<div style="color:var(--lcars-text-dim);font-size:12px;">No saved messages</div>'; return; }
+        if (!data.pinned || !data.pinned.length) { list.innerHTML = '<div style="color:var(--lcars-text-dim);font-size:12px;">No saved transmissions</div>'; return; }
         var html = '';
         data.pinned.forEach(function(p) {
-            html += '<div style="padding:8px;border-bottom:1px solid var(--lcars-grey-1);">';
-            html += '<div style="font-size:10px;color:var(--lcars-text-dim);">' + escapeHtml(p.role || '') + ' - ' + escapeHtml((p.pinned_at || '').substring(0, 16)) + '</div>';
-            html += '<div style="font-size:12px;margin-top:4px;">' + escapeHtml(p.text || '') + '</div>';
-            html += '<button onclick="unpinMessage(\'' + p.id + '\')" style="background:none;border:none;color:var(--lcars-error);font-size:10px;cursor:pointer;margin-top:4px;">UNPIN</button>';
+            html += '<div class="pinned-item">';
+            html += '<div class="pinned-meta">' + escapeHtml((p.role || '').toUpperCase()) + ' // ' + escapeHtml((p.pinned_at || '').substring(0, 16)) + '</div>';
+            html += '<div class="pinned-text">' + escapeHtml(p.text || '') + '</div>';
+            if (p.note) html += '<div style="font-size:11px;color:var(--lcars-text-dim);margin-top:4px;font-style:italic;">' + escapeHtml(p.note) + '</div>';
+            html += '<button class="lcars-btn sm red" style="margin-top:6px" onclick="unpinMessage(\'' + p.id + '\')">UNPIN</button>';
             html += '</div>';
         });
         list.innerHTML = html;
@@ -7025,7 +8959,10 @@ async function loadTimerState() {
             function updateTimer() {
                 var elapsed = Math.floor((Date.now() - startTime) / 1000);
                 var display = formatDuration(elapsed);
-                activeDiv.innerHTML = '<div class="timer-display">' + display + '</div><div class="timer-activity">' + escapeHtml(data.active.activity) + '</div><button onclick="stopTimer()" style="display:block;margin:8px auto;background:var(--lcars-error);border:none;color:#fff;padding:6px 16px;border-radius:4px;cursor:pointer;font-family:var(--font-mono);">STOP</button>';
+                activeDiv.innerHTML = '<div class="timer-display">' + display + '</div>'
+                    + '<div class="timer-activity">' + escapeHtml(data.active.activity) + '</div>'
+                    + (data.active.category ? '<div style="text-align:center;margin-bottom:8px"><span class="timer-category-badge">' + escapeHtml(data.active.category) + '</span></div>' : '')
+                    + '<div style="text-align:center"><button class="lcars-btn red pill" onclick="stopTimer()">STOP</button></div>';
                 if (sidebarSpan) sidebarSpan.textContent = display;
             }
             updateTimer();
@@ -7049,11 +8986,11 @@ async function loadTimerHistory() {
         var data = await res.json();
         var list = document.getElementById('timerHistory');
         if (!data.entries || !data.entries.length) { list.innerHTML = '<div style="color:var(--lcars-text-dim);font-size:12px;">No time entries</div>'; return; }
-        var html = '<div style="font-size:11px;color:var(--lcars-text-dim);margin-bottom:6px;">Recent entries</div>';
+        var html = '';
         data.entries.slice(0, 20).forEach(function(e) {
-            html += '<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--lcars-grey-1);font-size:11px;">';
-            html += '<span>' + escapeHtml(e.activity) + '</span>';
-            html += '<span style="font-family:var(--font-mono);color:var(--lcars-blue-3);">' + formatDuration(e.duration_seconds || 0) + '</span>';
+            html += '<div class="timer-history-item">';
+            html += '<span class="th-activity">' + escapeHtml(e.activity) + '</span>';
+            html += '<span class="th-duration">' + formatDuration(e.duration_seconds || 0) + '</span>';
             html += '</div>';
         });
         list.innerHTML = html;
@@ -7074,7 +9011,7 @@ async function loadWeather() {
         }
         var html = '<div class="weather-temp">' + (data.temperature != null ? Math.round(data.temperature) + 'F' : '--') + '</div>';
         html += '<div class="weather-condition">' + escapeHtml(data.condition || '') + '</div>';
-        if (data.location) html += '<div style="font-size:10px;color:var(--lcars-text-dim);">' + escapeHtml(data.location) + '</div>';
+        if (data.location) html += '<div class="weather-location">' + escapeHtml(data.location) + '</div>';
         widget.innerHTML = html;
     } catch (e) {}
 }
@@ -7117,17 +9054,15 @@ async function loadAlarms() {
         });
         var data = await res.json();
         var list = document.getElementById('alarmList');
-        if (!data.alarms || !data.alarms.length) { list.innerHTML = '<div style="color:var(--lcars-text-dim);font-size:12px;">No alarms set</div>'; return; }
+        if (!data.alarms || !data.alarms.length) { list.innerHTML = '<div style="color:var(--lcars-text-dim);font-size:12px;">No alerts configured</div>'; return; }
         var html = '';
         data.alarms.forEach(function(a) {
-            var enabledStyle = a.enabled ? '' : 'opacity:0.5;';
-            html += '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--lcars-grey-1);' + enabledStyle + '">';
-            html += '<div style="flex:1;">';
-            html += '<div style="font-size:14px;font-family:var(--font-mono);">' + escapeHtml(a.time) + '</div>';
-            html += '<div style="font-size:11px;color:var(--lcars-text-dim);">' + escapeHtml(a.label) + '</div>';
-            html += '</div>';
-            html += '<button onclick="toggleAlarm(\'' + a.id + '\')" style="background:none;border:none;color:var(--lcars-blue-3);font-size:10px;cursor:pointer;">' + (a.enabled ? 'ON' : 'OFF') + '</button>';
-            html += '<button onclick="deleteAlarm(\'' + a.id + '\')" style="background:none;border:none;color:var(--lcars-error);font-size:10px;cursor:pointer;">X</button>';
+            html += '<div class="alarm-item"' + (a.enabled ? '' : ' style="opacity:0.5"') + '>';
+            html += '<div class="alarm-status ' + (a.enabled ? 'on' : 'off') + '"></div>';
+            html += '<div class="alarm-time">' + escapeHtml(a.time) + '</div>';
+            html += '<div class="alarm-label">' + escapeHtml(a.label) + '</div>';
+            html += '<button class="lcars-btn sm ' + (a.enabled ? 'green' : 'amber') + '" onclick="toggleAlarm(\'' + a.id + '\')">' + (a.enabled ? 'ON' : 'OFF') + '</button>';
+            html += '<button class="lcars-btn sm red" onclick="deleteAlarm(\'' + a.id + '\')">X</button>';
             html += '</div>';
         });
         list.innerHTML = html;
@@ -7209,16 +9144,18 @@ async function loadFiles() {
         var res = await authFetch(API + '/files');
         var data = await res.json();
         var list = document.getElementById('fileList');
-        if (!data.files || !data.files.length) { list.innerHTML = '<div style="color:var(--lcars-text-dim);font-size:12px;">No files uploaded</div>'; return; }
+        if (!data.files || !data.files.length) { list.innerHTML = '<div style="color:var(--lcars-text-dim);font-size:12px;">No data archived</div>'; return; }
         var html = '';
         data.files.forEach(function(f) {
             var sizeKB = Math.round((f.size_bytes || 0) / 1024);
+            var ext = (f.original_name || '').split('.').pop().toUpperCase().substring(0, 4);
             html += '<div class="file-item">';
+            html += '<div class="file-icon">' + escapeHtml(ext) + '</div>';
             html += '<div class="file-name">' + escapeHtml(f.original_name) + '</div>';
             html += '<div class="file-size">' + sizeKB + ' KB</div>';
             html += '<div class="file-actions">';
-            html += '<button onclick="analyzeFile(\'' + f.id + '\')">ANALYZE</button>';
-            html += '<button onclick="deleteFile(\'' + f.id + '\')" style="color:var(--lcars-error);">DEL</button>';
+            html += '<button class="lcars-btn sm blue" onclick="analyzeFile(\'' + f.id + '\')">ANALYZE</button>';
+            html += '<button class="lcars-btn sm red" onclick="deleteFile(\'' + f.id + '\')">DEL</button>';
             html += '</div></div>';
         });
         list.innerHTML = html;
@@ -7277,25 +9214,25 @@ async function loadSocialProjects() {
         var res = await authFetch(API + '/social/projects');
         var data = await res.json();
         var list = document.getElementById('socialProjectList');
-        if (!data.projects || !data.projects.length) { list.innerHTML = '<div style="color:var(--lcars-text-dim);font-size:12px;">No projects yet</div>'; return; }
+        if (!data.projects || !data.projects.length) { list.innerHTML = '<div style="color:var(--lcars-text-dim);font-size:12px;">No outreach projects</div>'; return; }
         var html = '';
         data.projects.forEach(function(p) {
             html += '<div class="social-project">';
             html += '<div class="social-project-name">' + escapeHtml(p.name) + '</div>';
             if (p.accounts && p.accounts.length) {
-                html += '<div style="font-size:10px;color:var(--lcars-text-dim);">Accounts: ';
-                p.accounts.forEach(function(a) { html += a.platform + ' (@' + escapeHtml(a.handle) + ') '; });
+                html += '<div class="social-accounts">';
+                p.accounts.forEach(function(a) { html += '<span class="social-account-badge">' + escapeHtml(a.platform) + ' @' + escapeHtml(a.handle) + '</span>'; });
                 html += '</div>';
             }
             html += '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">';
-            html += '<button onclick="addSocialPost(\'' + p.id + '\')" style="background:var(--lcars-blue-1);border:none;color:#fff;font-size:10px;padding:3px 8px;border-radius:4px;cursor:pointer;">NEW POST</button>';
-            html += '<button onclick="deleteSocialProject(\'' + p.id + '\')" style="background:none;border:none;color:var(--lcars-error);font-size:10px;cursor:pointer;">DELETE</button>';
+            html += '<button class="lcars-btn sm pink" onclick="addSocialPost(\'' + p.id + '\')">NEW POST</button>';
+            html += '<button class="lcars-btn sm red" onclick="deleteSocialProject(\'' + p.id + '\')">DELETE</button>';
             html += '</div>';
             if (p.posts && p.posts.length) {
                 p.posts.slice(-5).reverse().forEach(function(post) {
                     html += '<div class="social-post">';
                     html += escapeHtml(post.content.substring(0, 100));
-                    html += '<div class="social-post-status">' + escapeHtml(post.status || 'draft') + ' - ' + escapeHtml((post.created || '').substring(0, 10)) + '</div>';
+                    html += '<div class="social-post-status">' + escapeHtml((post.status || 'draft').toUpperCase()) + ' // ' + escapeHtml((post.created || '').substring(0, 10)) + '</div>';
                     html += '</div>';
                 });
             }
