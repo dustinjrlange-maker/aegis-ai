@@ -88,6 +88,11 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
     for injection in budget_injections(proto_result.get("context_injections", [])):
         context_parts.append(injection)
 
+    # File context injection (from /api/files/{id}/analyze)
+    if hasattr(session, "_pending_file_context") and session._pending_file_context:
+        context_parts.append(session._pending_file_context)
+        session._pending_file_context = None
+
     augmented = proto_result["input"]
     if context_parts:
         augmented = "[" + "\n".join(context_parts) + "]\n\n" + augmented

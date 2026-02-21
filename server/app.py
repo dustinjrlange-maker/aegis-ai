@@ -245,6 +245,88 @@ class EventRequest(BaseModel):
     end_date: Optional[str] = None
 
 
+class MoodRequest(BaseModel):
+    action: str  # "add", "delete", "list"
+    moods: Optional[list[str]] = None
+    note: Optional[str] = ""
+    energy: Optional[int] = None
+    mood_id: Optional[str] = None
+    start: Optional[str] = None
+    end: Optional[str] = None
+
+
+class ContactRequest(BaseModel):
+    action: str  # "add", "update", "delete", "list", "search"
+    contact_id: Optional[str] = None
+    name: Optional[str] = None
+    relationship: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    birthday: Optional[str] = None
+    likes: Optional[str] = None
+    dislikes: Optional[str] = None
+    notes: Optional[str] = None
+    query: Optional[str] = None
+
+
+class HabitRequest(BaseModel):
+    action: str  # "add", "check", "uncheck", "delete"
+    habit_id: Optional[str] = None
+    name: Optional[str] = None
+    frequency: Optional[str] = "daily"
+    date: Optional[str] = None
+
+
+class BehaviorRequest(BaseModel):
+    action: str  # "add", "relapse", "delete"
+    behavior_id: Optional[str] = None
+    name: Optional[str] = None
+    note: Optional[str] = ""
+
+
+class PinRequest(BaseModel):
+    role: Optional[str] = None
+    text: Optional[str] = None
+    sender: Optional[str] = None
+    note: Optional[str] = ""
+
+
+class UnpinRequest(BaseModel):
+    pin_id: str
+
+
+class TimerRequest(BaseModel):
+    action: str  # "start", "stop", "delete"
+    activity: Optional[str] = None
+    category: Optional[str] = "general"
+    entry_id: Optional[str] = None
+
+
+class WeatherLocationRequest(BaseModel):
+    lat: float
+    lon: float
+    name: Optional[str] = ""
+
+
+class AlarmRequest(BaseModel):
+    action: str  # "add", "toggle", "delete", "dismiss"
+    alarm_id: Optional[str] = None
+    label: Optional[str] = None
+    time: Optional[str] = None
+    days: Optional[list[str]] = None
+
+
+class SocialProjectRequest(BaseModel):
+    name: str
+
+
+class SocialPostRequest(BaseModel):
+    project_id: str
+    content: str
+    platform: Optional[str] = ""
+    status: Optional[str] = "draft"
+
+
 # --- Auth Routes (unauthenticated) ---
 
 @app.post("/api/auth/register")
@@ -622,6 +704,15 @@ async def get_briefing(user_id: str = Depends(require_user)):
     ns.generate_from_tasks(ops)
     ns.generate_from_events(session.event_manager)
 
+    # Phase 10: extra briefing data
+    today_moods = session.mood_manager.get_today_moods()
+    habits_today = session.habit_manager.get_today_status()
+    active_timer = session.time_tracker.get_active_timer()
+    timer_summary = session.time_tracker.get_today_summary()
+    weather = session.weather_service.get_weather()
+    if "error" in weather:
+        weather = None
+
     return {
         "date": today_str,
         "overdue_tasks": overdue_tasks,
@@ -630,6 +721,11 @@ async def get_briefing(user_id: str = Depends(require_user)):
         "events_today": events_today + google_today,
         "events_upcoming": events_upcoming + google_upcoming,
         "total_pending": total_pending,
+        "moods_today": today_moods,
+        "habits_today": habits_today,
+        "active_timer": active_timer,
+        "timer_summary": timer_summary,
+        "weather": weather,
     }
 
 
@@ -1456,6 +1552,348 @@ async def google_disconnect(user_id: str = Depends(require_user)):
         google_proto._cached_next_event = None
 
     return {"success": True}
+
+
+# --- Phase 10: Mood Tracking ---
+
+@app.post("/api/moods")
+async def manage_moods(req: MoodRequest, user_id: str = Depends(require_user)):
+    """Mood CRUD endpoint."""
+    session = session_manager.get_or_create(user_id)
+    mm = session.mood_manager
+    if req.action == "add" and req.moods:
+        entry = mm.add_mood(moods=req.moods, note=req.note or "", energy=req.energy)
+        return {"success": True, "mood": entry}
+    elif req.action == "delete" and req.mood_id:
+        return {"success": mm.delete_mood(req.mood_id)}
+    elif req.action == "list":
+        return {"moods": mm.list_moods(req.start, req.end)}
+    return {"error": "Invalid action. Use: add, delete, list"}
+
+
+@app.get("/api/moods/today")
+async def get_today_moods(user_id: str = Depends(require_user)):
+    """Get moods logged today."""
+    session = session_manager.get_or_create(user_id)
+    return {"moods": session.mood_manager.get_today_moods()}
+
+
+# --- Phase 10: Contacts ---
+
+@app.post("/api/contacts")
+async def manage_contacts(req: ContactRequest, user_id: str = Depends(require_user)):
+    """Contact CRUD endpoint."""
+    session = session_manager.get_or_create(user_id)
+    cm = session.contact_manager
+    if req.action == "add" and req.name:
+        kwargs = {}
+        for f in ("relationship", "phone", "email", "birthday", "likes", "dislikes", "notes"):
+            val = getattr(req, f, None)
+            if val is not None:
+                kwargs[f] = val
+        contact = cm.add_contact(name=req.name, **kwargs)
+        return {"success": True, "contact": contact}
+    elif req.action == "update" and req.contact_id:
+        kwargs = {}
+        for f in ("name", "relationship", "phone", "email", "birthday", "likes", "dislikes", "notes"):
+            val = getattr(req, f, None)
+            if val is not None:
+                kwargs[f] = val
+        contact = cm.update_contact(req.contact_id, **kwargs)
+        return {"success": bool(contact), "contact": contact}
+    elif req.action == "delete" and req.contact_id:
+        return {"success": cm.delete_contact(req.contact_id)}
+    elif req.action == "list":
+        return {"contacts": cm.list_contacts()}
+    elif req.action == "search" and req.query:
+        return {"contacts": cm.search_contacts(req.query)}
+    return {"error": "Invalid action. Use: add, update, delete, list, search"}
+
+
+@app.get("/api/contacts/search")
+async def search_contacts(q: str = "", user_id: str = Depends(require_user)):
+    """Search contacts by query string."""
+    session = session_manager.get_or_create(user_id)
+    if q:
+        return {"contacts": session.contact_manager.search_contacts(q)}
+    return {"contacts": session.contact_manager.list_contacts()}
+
+
+# --- Phase 10: Habits ---
+
+@app.post("/api/habits")
+async def manage_habits(req: HabitRequest, user_id: str = Depends(require_user)):
+    """Habit CRUD endpoint."""
+    session = session_manager.get_or_create(user_id)
+    hm = session.habit_manager
+    if req.action == "add" and req.name:
+        habit = hm.add_habit(name=req.name, frequency=req.frequency or "daily")
+        return {"success": True, "habit": habit}
+    elif req.action == "check" and req.habit_id:
+        habit = hm.check_in(req.habit_id, req.date)
+        return {"success": bool(habit), "habit": habit}
+    elif req.action == "uncheck" and req.habit_id:
+        habit = hm.uncheck(req.habit_id, req.date)
+        return {"success": bool(habit), "habit": habit}
+    elif req.action == "delete" and req.habit_id:
+        return {"success": hm.delete_habit(req.habit_id)}
+    return {"error": "Invalid action. Use: add, check, uncheck, delete"}
+
+
+@app.get("/api/habits/today")
+async def get_habits_today(user_id: str = Depends(require_user)):
+    """Get all habits with today's completion status."""
+    session = session_manager.get_or_create(user_id)
+    return {"habits": session.habit_manager.get_today_status()}
+
+
+# --- Phase 10: Behavior Tracking ---
+
+@app.post("/api/behaviors")
+async def manage_behaviors(req: BehaviorRequest, user_id: str = Depends(require_user)):
+    """Behavior tracking endpoint."""
+    session = session_manager.get_or_create(user_id)
+    bt = session.behavior_tracker
+    if req.action == "add" and req.name:
+        behavior = bt.add_behavior(name=req.name)
+        return {"success": True, "behavior": behavior}
+    elif req.action == "relapse" and req.behavior_id:
+        behavior = bt.log_relapse(req.behavior_id, note=req.note or "")
+        return {"success": bool(behavior), "behavior": behavior}
+    elif req.action == "delete" and req.behavior_id:
+        return {"success": bt.delete_behavior(req.behavior_id)}
+    elif req.action == "list":
+        return {"behaviors": bt.list_behaviors()}
+    return {"error": "Invalid action. Use: add, relapse, delete, list"}
+
+
+# --- Phase 10: Pinned Messages ---
+
+@app.post("/api/pinned-messages")
+async def pin_message(req: PinRequest, user_id: str = Depends(require_user)):
+    """Pin a chat message."""
+    session = session_manager.get_or_create(user_id)
+    if not req.text:
+        return {"error": "Message text is required"}
+    entry = session.pinned_messages.pin_message(
+        role=req.role or "user",
+        text=req.text,
+        sender=req.sender or "",
+        note=req.note or "",
+    )
+    return {"success": True, "pinned": entry}
+
+
+@app.get("/api/pinned-messages")
+async def get_pinned_messages(user_id: str = Depends(require_user)):
+    """List all pinned messages."""
+    session = session_manager.get_or_create(user_id)
+    return {"pinned": session.pinned_messages.list_pinned()}
+
+
+@app.post("/api/pinned-messages/unpin")
+async def unpin_message(req: UnpinRequest, user_id: str = Depends(require_user)):
+    """Unpin a message."""
+    session = session_manager.get_or_create(user_id)
+    return {"success": session.pinned_messages.unpin(req.pin_id)}
+
+
+# --- Phase 10: Time Tracker ---
+
+@app.post("/api/timer")
+async def manage_timer(req: TimerRequest, user_id: str = Depends(require_user)):
+    """Timer start/stop/delete endpoint."""
+    session = session_manager.get_or_create(user_id)
+    tt = session.time_tracker
+    if req.action == "start" and req.activity:
+        entry = tt.start_timer(activity=req.activity, category=req.category or "general")
+        return {"success": True, "entry": entry}
+    elif req.action == "stop":
+        entry = tt.stop_timer()
+        return {"success": bool(entry), "entry": entry}
+    elif req.action == "delete" and req.entry_id:
+        return {"success": tt.delete_entry(req.entry_id)}
+    elif req.action == "list":
+        return {"entries": tt.list_entries()}
+    return {"error": "Invalid action. Use: start, stop, delete, list"}
+
+
+@app.get("/api/timer/active")
+async def get_active_timer(user_id: str = Depends(require_user)):
+    """Get the currently running timer."""
+    session = session_manager.get_or_create(user_id)
+    active = session.time_tracker.get_active_timer()
+    return {"active": active}
+
+
+@app.get("/api/timer/today")
+async def get_timer_today(user_id: str = Depends(require_user)):
+    """Get today's time tracking summary."""
+    session = session_manager.get_or_create(user_id)
+    return session.time_tracker.get_today_summary()
+
+
+# --- Phase 10: Weather ---
+
+@app.get("/api/weather")
+async def get_weather(user_id: str = Depends(require_user)):
+    """Get current weather for saved location."""
+    session = session_manager.get_or_create(user_id)
+    return session.weather_service.get_weather()
+
+
+@app.post("/api/weather/location")
+async def set_weather_location(req: WeatherLocationRequest, user_id: str = Depends(require_user)):
+    """Set the user's weather location."""
+    session = session_manager.get_or_create(user_id)
+    loc = session.weather_service.set_location(lat=req.lat, lon=req.lon, name=req.name or "")
+    return {"success": True, "location": loc}
+
+
+@app.get("/api/weather/location")
+async def get_weather_location(user_id: str = Depends(require_user)):
+    """Get the saved weather location."""
+    session = session_manager.get_or_create(user_id)
+    loc = session.weather_service.get_location()
+    return {"location": loc}
+
+
+# --- Phase 10: Alarms ---
+
+@app.post("/api/alarms")
+async def manage_alarms(req: AlarmRequest, user_id: str = Depends(require_user)):
+    """Alarm CRUD endpoint."""
+    session = session_manager.get_or_create(user_id)
+    am = session.alarm_manager
+    if req.action == "add" and req.label and req.time:
+        alarm = am.add_alarm(label=req.label, time=req.time, days=req.days)
+        return {"success": True, "alarm": alarm}
+    elif req.action == "toggle" and req.alarm_id:
+        alarm = am.toggle_alarm(req.alarm_id)
+        return {"success": bool(alarm), "alarm": alarm}
+    elif req.action == "delete" and req.alarm_id:
+        return {"success": am.delete_alarm(req.alarm_id)}
+    elif req.action == "dismiss" and req.alarm_id:
+        alarm = am.dismiss(req.alarm_id)
+        return {"success": bool(alarm), "alarm": alarm}
+    elif req.action == "list":
+        return {"alarms": am.list_alarms()}
+    return {"error": "Invalid action. Use: add, toggle, delete, dismiss, list"}
+
+
+@app.get("/api/alarms/check")
+async def check_alarms(user_id: str = Depends(require_user)):
+    """Check for due alarms (polled by frontend)."""
+    session = session_manager.get_or_create(user_id)
+    due = session.alarm_manager.check_due_alarms()
+    return {"due": due}
+
+
+# --- Phase 10: File Upload ---
+
+@app.post("/api/files/upload")
+async def upload_file(
+    file: UploadFile = File(...),
+    user_id: str = Depends(require_user),
+):
+    """Upload a file for analysis."""
+    session = session_manager.get_or_create(user_id)
+    content = await file.read()
+    result = session.file_manager.upload_file(
+        original_name=file.filename or "upload",
+        file_bytes=content,
+        mime_type=file.content_type or "",
+    )
+    if "error" in result:
+        return {"success": False, "error": result["error"]}
+    return {"success": True, "file": {k: v for k, v in result.items() if k != "text_content"}}
+
+
+@app.get("/api/files")
+async def list_files(user_id: str = Depends(require_user)):
+    """List uploaded files."""
+    session = session_manager.get_or_create(user_id)
+    return {"files": session.file_manager.list_files()}
+
+
+@app.delete("/api/files/{file_id}")
+async def delete_file(file_id: str, user_id: str = Depends(require_user)):
+    """Delete an uploaded file."""
+    if ".." in file_id or "/" in file_id or "\\" in file_id:
+        return {"error": "Invalid file ID"}
+    session = session_manager.get_or_create(user_id)
+    return {"success": session.file_manager.delete_file(file_id)}
+
+
+@app.post("/api/files/{file_id}/analyze")
+async def analyze_file(file_id: str, user_id: str = Depends(require_user)):
+    """Inject a file's text content into the next chat message as context."""
+    if ".." in file_id or "/" in file_id or "\\" in file_id:
+        return {"error": "Invalid file ID"}
+    session = session_manager.get_or_create(user_id)
+    text = session.file_manager.get_text(file_id)
+    if not text:
+        return {"success": False, "error": "No text content available for this file"}
+    file_info = session.file_manager.get_file(file_id)
+    name = file_info.get("original_name", "file") if file_info else "file"
+    # Truncate to avoid blowing context
+    max_chars = 8000
+    if len(text) > max_chars:
+        text = text[:max_chars] + f"\n... [truncated, {len(text)} chars total]"
+    session._pending_file_context = f"[Uploaded file: {name}]\n{text}"
+    return {"success": True, "preview": text[:500]}
+
+
+# --- Phase 10: Social Media ---
+
+@app.post("/api/social/projects")
+async def create_social_project(req: SocialProjectRequest, user_id: str = Depends(require_user)):
+    """Create a social media project."""
+    session = session_manager.get_or_create(user_id)
+    project = session.social_manager.add_project(name=req.name)
+    return {"success": True, "project": project}
+
+
+@app.get("/api/social/projects")
+async def list_social_projects(user_id: str = Depends(require_user)):
+    """List social media projects."""
+    session = session_manager.get_or_create(user_id)
+    return {"projects": session.social_manager.list_projects()}
+
+
+@app.delete("/api/social/projects/{project_id}")
+async def delete_social_project(project_id: str, user_id: str = Depends(require_user)):
+    """Delete a social media project."""
+    session = session_manager.get_or_create(user_id)
+    return {"success": session.social_manager.delete_project(project_id)}
+
+
+@app.post("/api/social/projects/{project_id}/accounts")
+async def add_social_account(
+    project_id: str,
+    platform: str = Form(...),
+    handle: str = Form(...),
+    user_id: str = Depends(require_user),
+):
+    """Add a social media account to a project."""
+    session = session_manager.get_or_create(user_id)
+    project = session.social_manager.add_account(project_id, platform, handle)
+    return {"success": bool(project), "project": project}
+
+
+@app.post("/api/social/posts")
+async def create_social_post(req: SocialPostRequest, user_id: str = Depends(require_user)):
+    """Create a post in a project."""
+    session = session_manager.get_or_create(user_id)
+    post = session.social_manager.add_post(
+        project_id=req.project_id,
+        content=req.content,
+        platform=req.platform or "",
+        status=req.status or "draft",
+    )
+    if post:
+        return {"success": True, "post": post}
+    return {"success": False, "error": "Project not found"}
 
 
 # --- Static/PWA Routes ---

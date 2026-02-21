@@ -28,6 +28,16 @@ from core.protocols.command import CommandProtocol
 from core.protocols.creative import CreativeProtocol
 from core.protocols.bracket_commands import BracketCommandProtocol
 from core.memory.event_manager import EventManager
+from core.memory.mood_manager import MoodManager
+from core.memory.contact_manager import ContactManager
+from core.memory.pinned_messages import PinnedMessageManager
+from core.memory.habit_manager import HabitManager
+from core.memory.behavior_tracker import BehaviorTracker
+from core.memory.time_tracker import TimeTracker
+from core.memory.weather_cache import WeatherService
+from core.memory.alarm_manager import AlarmManager
+from core.memory.file_manager import FileManager
+from core.memory.social_manager import SocialMediaManager
 from core.notifications import NotificationService
 from core.agent import build_filler_cleaner
 from core.auth import load_user_preferences
@@ -92,6 +102,21 @@ class UserSession:
         # Event manager (local calendar)
         self.event_manager = EventManager(user_data_dir)
 
+        # Phase 10 managers
+        self.mood_manager = MoodManager(user_data_dir)
+        self.contact_manager = ContactManager(user_data_dir)
+        self.pinned_messages = PinnedMessageManager(user_data_dir)
+        self.habit_manager = HabitManager(user_data_dir)
+        self.behavior_tracker = BehaviorTracker(user_data_dir)
+        self.time_tracker = TimeTracker(user_data_dir)
+        self.weather_service = WeatherService(user_data_dir)
+        self.alarm_manager = AlarmManager(user_data_dir)
+        self.file_manager = FileManager(user_data_dir)
+        self.social_manager = SocialMediaManager(user_data_dir)
+
+        # File context pending injection (set by file analyze endpoint)
+        self._pending_file_context = None
+
         # Notification service (in-memory, session-scoped)
         self.notification_service = NotificationService()
 
@@ -101,6 +126,8 @@ class UserSession:
         bracket_proto.register_handler("ADD_TASK", self._handle_add_task)
         bracket_proto.register_handler("COMPLETE_TASK", self._handle_complete_task)
         bracket_proto.register_handler("ADD_EVENT", self._handle_add_event)
+        bracket_proto.register_handler("ADD_MOOD", self._handle_add_mood)
+        bracket_proto.register_handler("ADD_CONTACT", self._handle_add_contact)
         self.protocol_registry.register(bracket_proto)
 
         # Tracking
@@ -152,6 +179,27 @@ class UserSession:
             return "Event title is empty"
         event = self.event_manager.add_event(title=title, date=date_str)
         return f"Event '{event['title']}' created on {event['date']}"
+
+    def _handle_add_mood(self, arg: str) -> str:
+        """Log mood from bracket command: happy, calm | feeling good."""
+        parts = arg.split("|", 1)
+        moods_str = parts[0].strip()
+        note = parts[1].strip() if len(parts) > 1 else ""
+        moods = [m.strip() for m in moods_str.split(",") if m.strip()]
+        if not moods:
+            return "No moods specified"
+        entry = self.mood_manager.add_mood(moods=moods, note=note)
+        return f"Mood logged: {', '.join(entry['moods'])}"
+
+    def _handle_add_contact(self, arg: str) -> str:
+        """Add contact from bracket command: Name | relationship."""
+        parts = arg.split("|", 1)
+        name = parts[0].strip()
+        relationship = parts[1].strip() if len(parts) > 1 else ""
+        if not name:
+            return "No contact name specified"
+        contact = self.contact_manager.add_contact(name=name, relationship=relationship)
+        return f"Contact '{contact['name']}' added"
 
     def touch(self):
         """Update last activity timestamp."""

@@ -12,15 +12,18 @@ DEFAULT_FEATURES = {
     "fact_memory": True,
     "notifications": True,
     "daily_briefing": True,
-    # Future phases — off by default until implemented
-    "calendar": False,
-    "mood_tracking": False,
-    "contacts": False,
-    "habits": False,
-    "timer": False,
-    "weather": False,
+    "calendar": True,
+    "mood_tracking": True,
+    "contacts": True,
+    "habits": True,
+    "bad_dogs": False,
+    "pinned_messages": True,
+    "time_tracking": False,
+    "weather": True,
+    "alarms": False,
     "file_upload": False,
-    "pinned_messages": False,
+    "social_media": False,
+    "night_mode": True,
 }
 
 
