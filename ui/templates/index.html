@@ -5448,13 +5448,14 @@ function cascadePanel(panelEl) {
 
 function savePanelPosition(panelEl) {
     if (!panelEl || !panelEl.id) return;
+    // Only save if panel has been explicitly positioned (not CSS defaults)
+    if (!panelEl.style.left || panelEl.style.left === '50%') return;
     var prefs = JSON.parse(localStorage.getItem('aegis_panel_positions') || '{}');
-    var rect = panelEl.getBoundingClientRect();
     prefs[panelEl.id] = {
-        left: parseInt(panelEl.style.left) || Math.round(rect.left),
-        top: parseInt(panelEl.style.top) || Math.round(rect.top),
-        width: Math.round(rect.width),
-        height: Math.round(rect.height)
+        left: parseInt(panelEl.style.left),
+        top: parseInt(panelEl.style.top),
+        width: Math.round(panelEl.getBoundingClientRect().width),
+        height: Math.round(panelEl.getBoundingClientRect().height)
     };
     localStorage.setItem('aegis_panel_positions', JSON.stringify(prefs));
 }
@@ -5516,7 +5517,7 @@ function getWorkspaceBounds() {
 function getSnapGrid() {
     var bounds = getWorkspaceBounds();
     if (!bounds || bounds.width < 100 || bounds.height < 100) return null;
-    var cols = 4, rows = 3;
+    var cols = 6, rows = 4;
     return {
         x: bounds.left || bounds.x,
         y: bounds.top || bounds.y,
@@ -7883,11 +7884,28 @@ let _plogAudioChunks = [];
 let _plogAudioBlob = null;
 
 function openVaultPanel() {
-    document.getElementById('vaultPanelOverlay').classList.add('open');
-    var panel = document.getElementById('vaultPanel');
-    panel.classList.add('open');
-    restorePanelPosition(panel);
-    loadVaultTab('profile');
+    requirePinForVault(function() {
+        document.getElementById('vaultPanelOverlay').classList.add('open');
+        var panel = document.getElementById('vaultPanel');
+        panel.classList.add('open');
+        restorePanelPosition(panel);
+        loadVaultTab('profile');
+    });
+}
+
+async function requirePinForVault(onSuccess) {
+    try {
+        var res = await authFetch(API + '/vault/pin/status');
+        var data = await res.json();
+        if (data.has_pin && !vaultToken) {
+            showPinModal(function() { if (onSuccess) onSuccess(); });
+        } else {
+            if (onSuccess) onSuccess();
+        }
+    } catch (e) {
+        console.error('Vault PIN check error:', e);
+        if (onSuccess) onSuccess();
+    }
 }
 
 function closeVaultPanel() {
@@ -10913,39 +10931,17 @@ async function deleteSocialProject(id) {
 // ========== PHASE 1G: PERSONAL LOG FROM SIDEBAR ==========
 
 function openPersonalLogFromSidebar() {
-    requirePinForLogs(function() {
-        openVaultPanel();
+    // openVaultPanel already handles PIN check
+    requirePinForVault(function() {
+        document.getElementById('vaultPanelOverlay').classList.add('open');
+        var panel = document.getElementById('vaultPanel');
+        panel.classList.add('open');
+        restorePanelPosition(panel);
+        loadVaultTab('logs');
         setTimeout(function() {
             vaultTab('logs', document.querySelector('.vault-tab:nth-child(2)'));
         }, 150);
     });
-}
-
-async function requirePinForLogs(onSuccess) {
-    try {
-        var res = await authFetch(API + '/vault/pin/status');
-        var data = await res.json();
-        if (data.has_pin && !vaultToken) {
-            // Has PIN but not unlocked — show PIN modal
-            showPinModal(function() {
-                if (onSuccess) onSuccess();
-            });
-        } else if (!data.has_pin) {
-            // No PIN set — prompt user to set one, open vault to Account tab
-            showToast('Set a PIN in Vault > Account to protect your logs', 'warning', 5000);
-            openVaultPanel();
-            setTimeout(function() {
-                vaultTab('account', document.querySelector('.vault-tab:last-child'));
-            }, 150);
-        } else {
-            // Has PIN and already unlocked
-            if (onSuccess) onSuccess();
-        }
-    } catch (e) {
-        console.error('PIN status check error:', e);
-        // On error, still allow access
-        if (onSuccess) onSuccess();
-    }
 }
 
 // ========== PHASE 2A: SYSTEM PERFORMANCE ==========
@@ -11090,7 +11086,7 @@ async function renderWidgetNews() {
         }
         var html = '';
         articles.slice(0, 5).forEach(function(a) {
-            html += '<div class="news-headline"><a href="' + escapeHtml(a.url || '#') + '" target="_blank" rel="noopener">' + escapeHtml(a.title || 'Untitled') + '</a></div>';
+            html += '<div class="news-headline"><a href="#" onclick="openArticleReader(\'' + escapeHtml(a.url || '').replace(/'/g, "\\'") + '\');return false">' + escapeHtml(a.title || 'Untitled') + '</a></div>';
         });
         body.innerHTML = html;
     } catch (e) {
@@ -11151,7 +11147,7 @@ async function loadNewsDetails() {
         } else {
             articles.forEach(function(a) {
                 html += '<div style="margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--lcars-grey-1)">';
-                html += '<a href="' + escapeHtml(a.url || '#') + '" target="_blank" rel="noopener" style="color:var(--lcars-blue-3);text-decoration:none;font-size:13px;font-weight:600">' + escapeHtml(a.title || 'Untitled') + '</a>';
+                html += '<a href="#" onclick="openArticleReader(\'' + escapeHtml(a.url || '').replace(/'/g, "\\'") + '\');return false" style="color:var(--lcars-blue-3);text-decoration:none;font-size:13px;font-weight:600;cursor:pointer">' + escapeHtml(a.title || 'Untitled') + '</a>';
                 if (a.snippet) html += '<div style="font-size:11px;color:var(--lcars-text-dim);margin-top:4px">' + escapeHtml(a.snippet) + '</div>';
                 var meta = [];
                 if (a.source) meta.push(a.source);
@@ -11175,6 +11171,18 @@ function switchNewsSource(src) {
 function switchNewsCategory(cat) {
     _newsCurrentCategory = cat;
     loadNewsDetails();
+}
+
+function openArticleReader(url) {
+    if (!url) return;
+    var container = document.getElementById('newsDetailContent');
+    if (!container) return;
+    var html = '<div style="display:flex;gap:8px;margin-bottom:8px">';
+    html += '<button class="widget-quick-btn" onclick="loadNewsDetails()" style="flex:0 0 auto">BACK</button>';
+    html += '<button class="widget-quick-btn" onclick="window.open(\'' + escapeHtml(url).replace(/'/g, "\\'") + '\',\'_blank\')" style="flex:0 0 auto">OPEN EXTERNAL</button>';
+    html += '</div>';
+    html += '<iframe src="' + escapeHtml(url) + '" sandbox="allow-same-origin allow-scripts" style="width:100%;height:calc(100% - 40px);border:1px solid var(--lcars-grey-1);border-radius:4px;background:#1a1a2e"></iframe>';
+    container.innerHTML = html;
 }
 
 // ========== PHASE 3: WEATHER PANEL ==========
@@ -11322,15 +11330,27 @@ async function openWeatherLocationSearch() {
     document.getElementById('weatherLocSearch').focus();
 }
 
+async function fetchGeocode(query) {
+    var res = await fetch('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(query) + '&count=5&language=en');
+    return await res.json();
+}
+
 async function searchWeatherLocation() {
     var q = document.getElementById('weatherLocSearch').value.trim();
     if (!q) return;
     var results = document.getElementById('weatherLocResults');
     results.innerHTML = '<div class="data-row"><span class="label">Searching...</span></div>';
     try {
-        var res = await fetch('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(q) + '&count=5&language=en');
-        var data = await res.json();
+        var data = await fetchGeocode(q);
         var places = data.results || [];
+        // Fallback: strip trailing state/province abbreviation (e.g. "Burnaby BC" -> "Burnaby")
+        if (places.length === 0) {
+            var stripped = q.replace(/[,\s]+[A-Z]{2,3}$/i, '').trim();
+            if (stripped && stripped !== q) {
+                data = await fetchGeocode(stripped);
+                places = data.results || [];
+            }
+        }
         if (places.length === 0) {
             results.innerHTML = '<div class="data-row"><span class="label">No results found</span></div>';
             return;
