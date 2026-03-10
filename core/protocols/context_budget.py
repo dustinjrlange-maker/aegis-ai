@@ -1,7 +1,7 @@
 """Context budget utility — keeps total protocol injections bounded for 8B models."""
 
-MAX_INJECTION_LINES = 30
-MAX_PER_PROTOCOL_LINES = 8
+MAX_INJECTION_LINES = 40
+MAX_PER_PROTOCOL_LINES = 15
 
 
 def trim_injection(text: str, max_lines: int = MAX_PER_PROTOCOL_LINES) -> str:

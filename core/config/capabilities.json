@@ -11,6 +11,7 @@
         "Detect emotions to subtly adjust tone",
         "Switch personality/voice/theme packs",
         "Search the web and fetch web pages for information",
+        "Fetch and report current real-time news headlines (your system fetches them automatically when asked)",
         "Read and send Gmail (when connected)",
         "View and create Google Calendar events (when connected)",
         "Create calendar events using [ADD_EVENT: YYYY-MM-DD | title]"

@@ -4,7 +4,7 @@
  * API calls are network-first (not cached).
  */
 
-const CACHE_NAME = 'aegis-v2';
+const CACHE_NAME = 'aegis-v11';
 const SHELL_ASSETS = [
     '/',
     '/static/icon-192.png',

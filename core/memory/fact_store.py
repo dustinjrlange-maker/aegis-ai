@@ -34,6 +34,15 @@ IDENTITY_FIELDS = {
 # Categories that should NOT be stored as long-term profile facts.
 TRANSIENT_CATEGORIES = {"EMOTIONAL_STATE"}
 
+# Routine daily activities that should not be stored as facts.
+ROUTINE_PATTERNS = [
+    re.compile(r'(waking up|just woke|woke up)', re.IGNORECASE),
+    re.compile(r'having (coffee|tea|breakfast|lunch|dinner|a meal)', re.IGNORECASE),
+    re.compile(r'going to (sleep|bed)', re.IGNORECASE),
+    re.compile(r'(relaxing|chilling|hanging out|watching tv|watching a show)', re.IGNORECASE),
+    re.compile(r'(eating|about to eat|just ate)', re.IGNORECASE),
+]
+
 
 class FactStore:
     """Manages a structured JSON fact store for a single user."""
@@ -98,6 +107,10 @@ class FactStore:
             value = fact.get("value", "").strip()
 
             if not key or not value:
+                continue
+
+            # Skip routine daily activities
+            if any(p.search(value) for p in ROUTINE_PATTERNS):
                 continue
 
             # Skip transient emotional states as profile facts
@@ -664,3 +677,16 @@ class FactStore:
         if pruned:
             self._save()
         return pruned
+
+    def prune_routine(self):
+        """Remove existing facts that match routine patterns."""
+        to_remove = []
+        for key, fact in self._data["facts"].items():
+            val = fact.get("value", "")
+            if any(p.search(val) for p in ROUTINE_PATTERNS):
+                to_remove.append(key)
+        for key in to_remove:
+            del self._data["facts"][key]
+        if to_remove:
+            self._save()
+        return len(to_remove)

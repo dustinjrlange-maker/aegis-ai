@@ -3321,6 +3321,167 @@
         .lcars-panel.theme-custom .lcars-panel-endcap { background: var(--panel-custom-color); filter: brightness(0.75); }
         .lcars-panel.theme-custom .panel-body { border-left-color: var(--panel-custom-color); }
 
+        /* ========== POPPED WIDGET PANEL OVERRIDES ========== */
+        .lcars-panel.popped-widget-panel {
+            transform: none;
+            top: auto; left: auto;
+            max-height: 520px;
+            min-width: 380px;
+        }
+        .lcars-panel.popped-widget-panel .panel-body {
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 12px;
+        }
+        /* Expanded widget content styles */
+        .pw-task-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 6px 0; border-bottom: 1px solid var(--lcars-grey-1);
+            font-family: var(--font-body); font-size: 12px; color: var(--lcars-text);
+        }
+        .pw-task-item input[type="checkbox"] { accent-color: var(--lcars-amber); width: 16px; height: 16px; cursor: pointer; }
+        .pw-task-item.completed span { text-decoration: line-through; opacity: 0.5; }
+        .pw-task-item .pw-priority {
+            width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+        }
+        .pw-task-item .pw-due {
+            margin-left: auto; font-size: 10px; color: var(--lcars-text-dim);
+            font-family: var(--font-display); letter-spacing: 1px;
+        }
+        .pw-add-input {
+            width: 100%; padding: 6px 10px; margin-top: 8px;
+            background: var(--lcars-surface); border: 1px solid var(--lcars-grey-1);
+            color: var(--lcars-text); font-family: var(--font-body); font-size: 12px;
+            border-radius: 4px; outline: none;
+        }
+        .pw-add-input:focus { border-color: var(--lcars-amber); }
+        .pw-bar {
+            height: 8px; border-radius: 4px; background: var(--lcars-grey-1);
+            overflow: hidden; margin: 6px 0;
+        }
+        .pw-bar-fill {
+            height: 100%; border-radius: 4px; transition: width 0.4s ease;
+        }
+        .pw-section-label {
+            font-family: var(--font-display); font-size: 10px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 2px; color: var(--lcars-text-dim);
+            margin: 10px 0 4px 0;
+        }
+        .pw-stat-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 4px 0; font-family: var(--font-body); font-size: 12px;
+            color: var(--lcars-text); border-bottom: 1px solid var(--lcars-grey-1);
+        }
+        .pw-stat-val {
+            font-family: var(--font-display); font-weight: 700; letter-spacing: 1px;
+        }
+        .pw-habit-row {
+            display: flex; align-items: center; gap: 8px; padding: 5px 0;
+            border-bottom: 1px solid var(--lcars-grey-1); font-size: 12px; color: var(--lcars-text);
+            cursor: pointer;
+        }
+        .pw-habit-row:hover { background: rgba(255,255,255,0.03); }
+        .pw-habit-check { font-size: 14px; width: 20px; text-align: center; }
+        .pw-habit-streak { margin-left: auto; font-family: var(--font-display); font-size: 10px; color: var(--lcars-text-dim); letter-spacing: 1px; }
+        .pw-mood-grid {
+            display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0;
+        }
+        .pw-mood-btn {
+            font-size: 22px; width: 40px; height: 40px; border: 2px solid var(--lcars-grey-1);
+            background: var(--lcars-surface); border-radius: 8px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: border-color 0.2s, transform 0.1s;
+        }
+        .pw-mood-btn:hover { border-color: var(--lcars-purple-1); transform: scale(1.1); }
+        .pw-mood-btn.active { border-color: var(--lcars-purple-1); background: var(--lcars-purple-2); }
+        .pw-mood-entry {
+            display: flex; align-items: center; gap: 8px; padding: 4px 0;
+            font-size: 11px; color: var(--lcars-text-dim);
+        }
+        .pw-clock-display {
+            font-family: var(--font-display); font-size: 48px; font-weight: 700;
+            color: var(--lcars-amber); text-align: center; letter-spacing: 4px;
+            margin: 16px 0 4px 0;
+        }
+        .pw-clock-date {
+            font-family: var(--font-display); font-size: 14px; color: var(--lcars-text-dim);
+            text-align: center; letter-spacing: 3px; text-transform: uppercase;
+        }
+        .pw-clock-sub {
+            font-family: var(--font-display); font-size: 11px; color: var(--lcars-text-dim);
+            text-align: center; letter-spacing: 2px; margin-top: 4px;
+        }
+        .pw-timer-display {
+            font-family: var(--font-display); font-size: 42px; font-weight: 700;
+            color: var(--lcars-amber); text-align: center; letter-spacing: 3px;
+            margin: 12px 0;
+        }
+        .pw-timer-btns {
+            display: flex; gap: 8px; justify-content: center; margin: 8px 0;
+        }
+        .pw-timer-btns button {
+            font-family: var(--font-display); font-size: 11px; font-weight: 700;
+            letter-spacing: 2px; text-transform: uppercase; border: none; cursor: pointer;
+            padding: 6px 16px; border-radius: 12px; color: #000;
+        }
+        .pw-news-item {
+            padding: 6px 0; border-bottom: 1px solid var(--lcars-grey-1);
+        }
+        .pw-news-title {
+            font-family: var(--font-body); font-size: 12px; color: var(--lcars-text);
+            cursor: pointer;
+        }
+        .pw-news-title:hover { color: var(--lcars-blue-3); }
+        .pw-news-meta {
+            font-family: var(--font-display); font-size: 9px; color: var(--lcars-text-dim);
+            letter-spacing: 1px; margin-top: 2px;
+        }
+        .pw-forecast-row {
+            display: flex; gap: 8px; margin-top: 8px;
+        }
+        .pw-forecast-day {
+            flex: 1; text-align: center; padding: 6px; background: var(--lcars-surface);
+            border-radius: 4px;
+        }
+        .pw-forecast-day .pw-day-label {
+            font-family: var(--font-display); font-size: 10px; color: var(--lcars-text-dim);
+            letter-spacing: 1px;
+        }
+        .pw-forecast-day .pw-day-temp {
+            font-family: var(--font-display); font-size: 16px; font-weight: 700;
+            color: var(--lcars-text); margin-top: 2px;
+        }
+        .pw-large-temp {
+            font-family: var(--font-display); font-size: 48px; font-weight: 700;
+            color: var(--lcars-ice); text-align: center;
+        }
+        .pw-condition {
+            font-family: var(--font-display); font-size: 13px; color: var(--lcars-text-dim);
+            text-align: center; letter-spacing: 2px; text-transform: uppercase;
+        }
+        .pw-sparkline-lg {
+            width: 100%; height: 60px;
+        }
+        .pw-core-bar {
+            display: flex; align-items: center; gap: 6px; margin: 3px 0; font-size: 11px; color: var(--lcars-text-dim);
+        }
+        .pw-core-bar-label {
+            font-family: var(--font-display); font-size: 9px; width: 28px; letter-spacing: 1px;
+        }
+        .pw-core-bar-track {
+            flex: 1; height: 6px; background: var(--lcars-grey-1); border-radius: 3px; overflow: hidden;
+        }
+        .pw-core-bar-fill {
+            height: 100%; border-radius: 3px; transition: width 0.3s;
+        }
+        .pw-core-bar-pct {
+            font-family: var(--font-display); font-size: 9px; width: 30px; text-align: right; letter-spacing: 1px;
+        }
+        .pw-process-row {
+            display: flex; justify-content: space-between; font-size: 11px;
+            padding: 2px 0; color: var(--lcars-text-dim);
+        }
+
         /* ========== PHASE 10: LCARS PILL BUTTONS ========== */
 
         .lcars-btn {
@@ -10499,6 +10660,336 @@ function initDockDropTargets() {
     });
 }
 
+// ========== WIDGET DRAG-REORDER & POP-OUT (mouse-based) ==========
+
+function initWidgetDrag() {
+    var dock = document.getElementById('widgetDock');
+    if (!dock) return;
+
+    var dragState = null;
+    var dropIndicator = null;
+
+    // Prevent native drag on widgets
+    dock.addEventListener('dragstart', function(e) { e.preventDefault(); });
+
+    // mousedown on widget headers (drag handle)
+    dock.addEventListener('mousedown', function(e) {
+        var header = e.target.closest('.widget-header');
+        if (!header) return;
+        var widget = header.closest('.lcars-widget');
+        if (!widget || e.button !== 0) return;
+        // Don't drag if clicking a button inside the header
+        if (e.target.closest('button')) return;
+
+        dragState = {
+            widget: widget,
+            widgetId: widget.id,
+            startX: e.clientX,
+            startY: e.clientY,
+            dragging: false,
+            clone: null,
+            overWorkspace: false,
+            dropX: 0,
+            dropY: 0,
+            targetRef: null
+        };
+
+        e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', function(e) {
+        if (!dragState || !dragState.widget) return;
+
+        var dx = e.clientX - dragState.startX;
+        var dy = e.clientY - dragState.startY;
+
+        if (!dragState.dragging) {
+            if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+            dragState.dragging = true;
+
+            // Hide the widget in the dock
+            dragState.widget.style.display = 'none';
+
+            // Create floating clone
+            var clone = document.createElement('div');
+            clone.className = 'sidebar-tab-drag-clone';
+            var title = dragState.widget.querySelector('.widget-title');
+            clone.textContent = title ? title.textContent : dragState.widgetId;
+            clone.style.background = 'var(--lcars-amber)';
+            clone.style.color = '#000';
+            clone.style.minWidth = '120px';
+            clone.style.textAlign = 'center';
+            // Try to match widget theme color
+            var headerEl = dragState.widget.querySelector('.widget-header');
+            if (headerEl) {
+                var cs = getComputedStyle(headerEl);
+                clone.style.background = cs.backgroundColor;
+            }
+            document.body.appendChild(clone);
+            dragState.clone = clone;
+
+            // Create drop indicator
+            dropIndicator = document.createElement('div');
+            dropIndicator.className = 'widget-drag-placeholder';
+            dropIndicator.style.display = 'none';
+            dock.appendChild(dropIndicator);
+        }
+
+        // Position clone at cursor
+        if (dragState.clone) {
+            dragState.clone.style.left = (e.clientX + 12) + 'px';
+            dragState.clone.style.top = (e.clientY - 14) + 'px';
+        }
+
+        // Check if cursor is in workspace (right of dock)
+        var dockRect = dock.getBoundingClientRect();
+        if (e.clientX > dockRect.right + 60) {
+            // Cursor is in workspace — pop-out mode
+            dragState.overWorkspace = true;
+            dragState.dropX = e.clientX;
+            dragState.dropY = e.clientY;
+            if (dragState.clone) {
+                dragState.clone.style.boxShadow = '0 0 20px rgba(153,153,255,0.6)';
+                var title = dragState.widget.querySelector('.widget-title');
+                dragState.clone.textContent = (title ? title.textContent : '') + ' (pop out)';
+            }
+            if (dropIndicator) dropIndicator.style.display = 'none';
+            dragState.targetRef = null;
+        } else {
+            // Cursor is near/in dock — reorder mode
+            dragState.overWorkspace = false;
+            if (dragState.clone) {
+                dragState.clone.style.boxShadow = '0 4px 16px rgba(0,0,0,0.5)';
+                var title = dragState.widget.querySelector('.widget-title');
+                dragState.clone.textContent = title ? title.textContent : dragState.widgetId;
+            }
+            updateWidgetDropTarget(e.clientX, e.clientY);
+        }
+    });
+
+    function updateWidgetDropTarget(cx, cy) {
+        var visibleWidgets = Array.from(dock.querySelectorAll('.lcars-widget')).filter(function(w) {
+            return w !== dragState.widget && w.style.display !== 'none';
+        });
+
+        if (visibleWidgets.length === 0) {
+            dragState.targetRef = null;
+            if (dropIndicator) dropIndicator.style.display = 'none';
+            return;
+        }
+
+        // Find which widget to insert before (vertical list)
+        var targetRef = null;
+        for (var i = 0; i < visibleWidgets.length; i++) {
+            var rect = visibleWidgets[i].getBoundingClientRect();
+            var midY = rect.top + rect.height / 2;
+            if (cy < midY) {
+                targetRef = visibleWidgets[i];
+                break;
+            }
+        }
+
+        dragState.targetRef = targetRef;
+
+        // Position indicator
+        if (!dropIndicator) return;
+        if (targetRef) {
+            dock.insertBefore(dropIndicator, targetRef);
+            dropIndicator.style.display = 'block';
+        } else {
+            dock.appendChild(dropIndicator);
+            dropIndicator.style.display = 'block';
+        }
+    }
+
+    document.addEventListener('mouseup', function(e) {
+        if (!dragState || !dragState.widget) return;
+
+        var wasDragging = dragState.dragging;
+        var widget = dragState.widget;
+        var widgetId = dragState.widgetId;
+        var overWorkspace = dragState.overWorkspace;
+        var dropX = dragState.dropX;
+        var dropY = dragState.dropY;
+        var targetRef = dragState.targetRef;
+
+        // Restore widget and clean up
+        widget.style.display = '';
+        if (dragState.clone) dragState.clone.remove();
+        if (dropIndicator) { dropIndicator.remove(); dropIndicator = null; }
+        document.querySelectorAll('.sidebar-tab-drag-clone').forEach(function(el) { el.remove(); });
+        document.querySelectorAll('.widget-drag-placeholder').forEach(function(el) { el.remove(); });
+        dragState = null;
+
+        if (!wasDragging) return;
+
+        if (overWorkspace) {
+            popOutWidget(widgetId, dropX, dropY);
+        } else {
+            // Reorder in dock
+            if (targetRef) {
+                dock.insertBefore(widget, targetRef);
+            } else {
+                dock.appendChild(widget);
+            }
+            saveWidgetDockState();
+        }
+    });
+}
+
+function popOutWidget(widgetId, x, y) {
+    var widget = document.getElementById(widgetId);
+    if (!widget) return;
+    if (document.getElementById('poppedWidget-' + widgetId)) return;
+
+    // If widget has a full panel, just open that directly
+    if (WIDGET_PANEL_OPENERS[widgetId]) {
+        WIDGET_PANEL_OPENERS[widgetId]();
+        return;
+    }
+
+    // Get widget info
+    var title = widget.querySelector('.widget-title');
+    var titleText = title ? title.textContent : widgetId.replace('widget-', '').toUpperCase();
+
+    // Resolve theme and bar colors
+    var theme = WIDGET_THEMES[widgetId] || 'theme-amber';
+    var barColors = WIDGET_BAR_COLORS[theme] || WIDGET_BAR_COLORS['theme-amber'];
+
+    // Hide widget in dock
+    widget.style.display = 'none';
+    widget.classList.add('popped-out');
+
+    // Create floating panel with correct LCARS structure
+    var panel = document.createElement('div');
+    panel.id = 'poppedWidget-' + widgetId;
+    panel.className = 'lcars-panel open popped-widget-panel ' + theme;
+    panel.style.cssText = 'position:fixed;z-index:800;width:420px;';
+    panel.style.left = Math.max(20, x - 210) + 'px';
+    panel.style.top = Math.max(20, y - 20) + 'px';
+
+    // Build proper LCARS panel HTML (only widgets without full panels get here)
+    panel.innerHTML =
+        '<div class="lcars-panel-frame-top">' +
+            '<div class="lcars-panel-elbow"></div>' +
+            '<div class="lcars-panel-header">' +
+                '<span>' + titleText + '</span>' +
+                '<div class="panel-controls">' +
+                    '<button class="panel-ctrl-btn popped-collapse-btn" title="Collapse">_</button>' +
+                    '<button class="panel-ctrl-btn popped-close-btn" title="Close">&times;</button>' +
+                '</div>' +
+            '</div>' +
+            '<div class="lcars-panel-endcap"></div>' +
+        '</div>' +
+        '<div class="lcars-panel-bar">' +
+            '<div class="pbar-seg" style="flex:3;background:' + barColors[0] + '"></div>' +
+            '<div class="pbar-seg animated" style="flex:2"></div>' +
+            '<div class="pbar-seg" style="flex:1;background:' + barColors[2] + '"></div>' +
+        '</div>' +
+        '<div class="panel-body" id="poppedWidgetBody-' + widgetId + '"></div>' +
+        '<div class="lcars-panel-frame-bottom">' +
+            '<div class="pbot-seg" style="flex:1;background:' + barColors[0] + ';border-radius:0 0 0 12px"></div>' +
+            '<div class="pbot-seg" style="flex:2;background:' + barColors[1] + '"></div>' +
+            '<div class="pbot-seg" style="flex:1;background:' + barColors[2] + ';border-radius:0 0 12px 0"></div>' +
+        '</div>';
+
+    document.body.appendChild(panel);
+
+    // Render expanded content
+    var panelBody = document.getElementById('poppedWidgetBody-' + widgetId);
+    if (panelBody && POPPED_RENDERERS[widgetId]) {
+        try { POPPED_RENDERERS[widgetId](panelBody); } catch(e) { console.warn('popOut render error:', e); }
+    }
+
+    // Wire close button — snap back
+    panel.querySelector('.popped-close-btn').onclick = function() {
+        snapBackWidget(widgetId);
+    };
+
+    // Wire collapse button
+    panel.querySelector('.popped-collapse-btn').onclick = function() {
+        panel.classList.toggle('collapsed');
+    };
+
+    // Make draggable using existing infrastructure
+    var panelHeader = panel.querySelector('.lcars-panel-header');
+    if (panelHeader && typeof initDrag === 'function') {
+        initDrag(panel, panelHeader);
+    }
+    if (typeof bringToFront === 'function') bringToFront(panel);
+
+    // Set up live refresh interval
+    var refreshMs = WIDGET_REFRESH_MS[widgetId];
+    if (refreshMs && POPPED_RENDERERS[widgetId]) {
+        POPPED_WIDGET_INTERVALS[widgetId] = setInterval(function() {
+            var body = document.getElementById('poppedWidgetBody-' + widgetId);
+            if (body) {
+                try { POPPED_RENDERERS[widgetId](body); } catch(e) {}
+            } else {
+                clearInterval(POPPED_WIDGET_INTERVALS[widgetId]);
+                delete POPPED_WIDGET_INTERVALS[widgetId];
+            }
+        }, refreshMs);
+    }
+
+    // Save state
+    savePoppedWidgets();
+}
+
+function snapBackWidget(widgetId) {
+    // Clear live refresh interval
+    if (POPPED_WIDGET_INTERVALS[widgetId]) {
+        clearInterval(POPPED_WIDGET_INTERVALS[widgetId]);
+        delete POPPED_WIDGET_INTERVALS[widgetId];
+    }
+
+    // Remove the floating panel (content was rendered fresh, not moved)
+    var panel = document.getElementById('poppedWidget-' + widgetId);
+    if (panel) panel.remove();
+
+    // Show widget in dock again
+    var widget = document.getElementById(widgetId);
+    if (widget) {
+        widget.style.display = '';
+        widget.classList.remove('popped-out');
+    }
+
+    // Remove from saved positions
+    var key = 'poppedWidget-' + widgetId;
+    var positions = JSON.parse(localStorage.getItem('aegis_panel_positions') || '{}');
+    delete positions[key];
+    localStorage.setItem('aegis_panel_positions', JSON.stringify(positions));
+
+    savePoppedWidgets();
+    saveWidgetDockState();
+}
+
+function savePoppedWidgets() {
+    var popped = [];
+    document.querySelectorAll('.lcars-widget.popped-out').forEach(function(w) {
+        if (w.id) popped.push(w.id);
+    });
+    localStorage.setItem('aegis_popped_widgets', JSON.stringify(popped));
+}
+
+function restorePoppedWidgets_widgets() {
+    var saved = localStorage.getItem('aegis_popped_widgets');
+    if (!saved) return;
+    try {
+        var ids = JSON.parse(saved);
+        if (!Array.isArray(ids)) return;
+        ids.forEach(function(widgetId) {
+            var widget = document.getElementById(widgetId);
+            if (widget && !document.getElementById('poppedWidget-' + widgetId)) {
+                var ws = getWorkspaceBounds();
+                var cx = ws ? ws.left + ws.width / 2 : 400;
+                var cy = ws ? ws.top + ws.height / 3 : 200;
+                popOutWidget(widgetId, cx, cy);
+            }
+        });
+    } catch(e) {}
+}
+
 function cacheWidgetElements() {
     ALL_WIDGET_IDS.forEach(function(id) {
         var el = document.getElementById(id);
@@ -10553,52 +11044,7 @@ function cacheWidgetElements() {
             else header.insertBefore(fmtBtn, collapseBtn);
         }
 
-        // Drag reorder (on header)
-        w.setAttribute('draggable', 'true');
-        w.addEventListener('dragstart', function(e) {
-            e.dataTransfer.setData('text/plain', id);
-            w.classList.add('dragging');
-        });
-        w.addEventListener('dragend', function() {
-            w.classList.remove('dragging');
-            document.querySelectorAll('.widget-drag-placeholder').forEach(function(p) { p.remove(); });
-        });
-        w.addEventListener('dragover', function(e) {
-            e.preventDefault();
-            var draggingId = e.dataTransfer.types.indexOf('text/plain') >= 0;
-            if (!draggingId) return;
-            var dock = w.closest('.widget-dock, .widget-dock-right') || document.getElementById('widgetDock');
-            if (!dock) return;
-            // Remove old placeholders from both docks
-            document.querySelectorAll('.widget-drag-placeholder').forEach(function(p) { p.remove(); });
-            var rect = w.getBoundingClientRect();
-            var midY = rect.top + rect.height / 2;
-            var placeholder = document.createElement('div');
-            placeholder.className = 'widget-drag-placeholder';
-            if (e.clientY < midY) {
-                dock.insertBefore(placeholder, w);
-            } else {
-                dock.insertBefore(placeholder, w.nextSibling);
-            }
-        });
-        w.addEventListener('drop', function(e) {
-            e.preventDefault();
-            var draggedId = e.dataTransfer.getData('text/plain');
-            var draggedEl = _widgetElements[draggedId];
-            if (!draggedEl || draggedId === id) return;
-            var dock = w.closest('.widget-dock, .widget-dock-right') || document.getElementById('widgetDock');
-            if (!dock) return;
-            var rect = w.getBoundingClientRect();
-            var midY = rect.top + rect.height / 2;
-            if (e.clientY < midY) {
-                dock.insertBefore(draggedEl, w);
-            } else {
-                dock.insertBefore(draggedEl, w.nextSibling);
-            }
-            document.querySelectorAll('.widget-drag-placeholder').forEach(function(p) { p.remove(); });
-            // Save order and dock assignments
-            saveWidgetDockState();
-        });
+        // Drag reorder handled by initWidgetDrag() — no HTML5 DnD
     });
 
     // Close widget settings dropdowns on click-outside
@@ -10818,8 +11264,10 @@ function applyLayout(name) {
 function initLayout() {
     cacheWidgetElements();
     initDockDropTargets();
+    initWidgetDrag();
     var saved = localStorage.getItem('aegis_layout');
     applyLayout(saved || 'bridge');
+    restorePoppedWidgets_widgets();
 }
 
 function toggleChatCollapse() {
@@ -11350,6 +11798,448 @@ var SIDEBAR_TAB_COLORS = { ops: 'var(--lcars-amber)', msn: 'var(--lcars-blue-1)'
 
 var SIDEBAR_TAB_RAW_COLORS = { ops: '#ff9900', msn: '#9999ff', per: '#cc99cc', dat: '#99cc99', med: '#cc99cc', com: '#ff9966', sec: '#cc4444', ent: '#cc6699' };
 
+// ========== POPPED WIDGET METADATA MAPS ==========
+var WIDGET_THEMES = {
+    'widget-tasks': 'theme-amber', 'widget-calendar': 'theme-blue',
+    'widget-habits': 'theme-green', 'widget-mood': 'theme-purple',
+    'widget-system': 'theme-ice', 'widget-gpu': 'theme-pink',
+    'widget-weather': 'theme-ice', 'widget-timer': 'theme-amber',
+    'widget-clock': 'theme-amber', 'widget-sysperf': 'theme-green',
+    'widget-news': 'theme-purple'
+};
+
+var WIDGET_PANEL_OPENERS = {
+    'widget-tasks': function() { openTaskPanel(); },
+    'widget-calendar': function() { openCalendarPanel(); },
+    'widget-habits': function() { openHabitPanel(); },
+    'widget-mood': function() { openMoodPanel(); },
+    'widget-system': function() { openSystemPanel(); },
+    'widget-gpu': function() { openGpuPanel(); },
+    'widget-weather': function() { openWeatherPanel(); },
+    'widget-timer': function() { openTimerPanel(); },
+    'widget-clock': null,
+    'widget-sysperf': function() { openSysperfPanel(); },
+    'widget-news': function() { openNewsPanel(); }
+};
+
+var WIDGET_REFRESH_MS = {
+    'widget-tasks': 30000, 'widget-calendar': 60000,
+    'widget-habits': 30000, 'widget-mood': 60000,
+    'widget-system': 5000, 'widget-gpu': 5000,
+    'widget-weather': 300000, 'widget-timer': 1000,
+    'widget-clock': 1000, 'widget-sysperf': 3000,
+    'widget-news': 300000
+};
+
+var WIDGET_BAR_COLORS = {
+    'theme-amber':  ['var(--lcars-amber)', 'var(--lcars-gold)', 'var(--lcars-orange)'],
+    'theme-blue':   ['var(--lcars-blue-1)', 'var(--lcars-blue-2)', 'var(--lcars-purple-1)'],
+    'theme-green':  ['var(--lcars-success)', '#15803d', 'var(--lcars-success)'],
+    'theme-purple': ['var(--lcars-purple-1)', 'var(--lcars-purple-2)', 'var(--lcars-lilac)'],
+    'theme-pink':   ['var(--lcars-pink-1)', 'var(--lcars-pink-2)', 'var(--lcars-magenta)'],
+    'theme-ice':    ['var(--lcars-ice)', 'var(--lcars-blue-3)', 'var(--lcars-blue-1)']
+};
+
+// ========== POPPED WIDGET EXPANDED RENDERERS ==========
+
+function renderPopped_tasks(container) {
+    authFetch('/api/tasks', { method: 'POST', headers: authHeaders(), body: JSON.stringify({action: 'list'}) })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        var tasks = data.tasks || [];
+        var html = '<div class="pw-section-label">Tasks (' + tasks.length + ')</div>';
+        var pending = tasks.filter(function(t) { return !t.completed; });
+        var done = tasks.filter(function(t) { return t.completed; });
+        pending.concat(done).forEach(function(t) {
+            var priColor = t.priority === 'high' ? 'var(--lcars-error)' : t.priority === 'low' ? 'var(--lcars-blue-3)' : 'var(--lcars-amber)';
+            var cls = t.completed ? ' completed' : '';
+            var dueHtml = t.due ? '<span class="pw-due">' + t.due + '</span>' : '';
+            html += '<div class="pw-task-item' + cls + '" data-task-id="' + (t.id || '') + '">' +
+                '<input type="checkbox"' + (t.completed ? ' checked' : '') + ' onchange="poppedToggleTask(\'' + (t.id || '') + '\', this.checked)">' +
+                '<span class="pw-priority" style="background:' + priColor + '"></span>' +
+                '<span>' + (t.text || t.title || '') + '</span>' +
+                dueHtml + '</div>';
+        });
+        html += '<input class="pw-add-input" placeholder="Add task..." onkeydown="if(event.key===\'Enter\')poppedAddTask(this)">';
+        container.innerHTML = html;
+    }).catch(function() { container.innerHTML = '<div class="pw-section-label">Unable to load tasks</div>'; });
+}
+function poppedToggleTask(id, done) {
+    authFetch('/api/tasks', { method: 'POST', headers: authHeaders(), body: JSON.stringify({action: done ? 'complete' : 'uncomplete', task_id: id}) })
+    .then(function() { if (typeof loadTasks === 'function') loadTasks(); });
+}
+function poppedAddTask(input) {
+    var text = input.value.trim();
+    if (!text) return;
+    authFetch('/api/tasks', { method: 'POST', headers: authHeaders(), body: JSON.stringify({action: 'add', text: text}) })
+    .then(function() {
+        input.value = '';
+        var body = input.closest('.panel-body');
+        if (body) renderPopped_tasks(body);
+        if (typeof loadTasks === 'function') loadTasks();
+    });
+}
+
+function renderPopped_calendar(container) {
+    var now = new Date();
+    var y = now.getFullYear(), m = now.getMonth() + 1;
+    authFetch('/api/calendar/month/' + y + '/' + m, { headers: authHeaders() })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        var events = (data.local_events || []).concat(data.google_events || []);
+        var today = now.getDate();
+        var daysInMonth = new Date(y, m, 0).getDate();
+        var firstDay = new Date(y, m - 1, 1).getDay();
+
+        // Mini month grid
+        var dayNames = ['S','M','T','W','T','F','S'];
+        var html = '<div class="pw-section-label">' + now.toLocaleString('default', {month:'long'}) + ' ' + y + '</div>';
+        html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:1px;margin:4px 0;text-align:center;font-family:var(--font-display);font-size:10px">';
+        dayNames.forEach(function(d) { html += '<div style="color:var(--lcars-text-dim);letter-spacing:1px;padding:2px">' + d + '</div>'; });
+        for (var i = 0; i < firstDay; i++) html += '<div></div>';
+        var eventDates = {};
+        events.forEach(function(e) {
+            var d = parseInt((e.date || '').split('-')[2] || '0');
+            if (d) eventDates[d] = true;
+        });
+        for (var d = 1; d <= daysInMonth; d++) {
+            var isToday = d === today ? 'background:var(--lcars-amber);color:#000;border-radius:3px;font-weight:700' : 'color:var(--lcars-text)';
+            var dot = eventDates[d] ? '<div style="width:4px;height:4px;border-radius:50%;background:var(--lcars-blue-3);margin:0 auto"></div>' : '';
+            html += '<div style="padding:2px;' + isToday + '">' + d + dot + '</div>';
+        }
+        html += '</div>';
+
+        // Upcoming events
+        var upcoming = events.filter(function(e) {
+            var ed = new Date(e.date); return ed >= new Date(y, m - 1, today);
+        }).sort(function(a, b) { return (a.date || '').localeCompare(b.date || ''); }).slice(0, 8);
+        html += '<div class="pw-section-label">Upcoming</div>';
+        if (upcoming.length === 0) html += '<div style="font-size:11px;color:var(--lcars-text-dim)">No upcoming events</div>';
+        upcoming.forEach(function(e) {
+            var time = e.start_time ? '<span style="color:var(--lcars-blue-3)">' + e.start_time + '</span> ' : '';
+            html += '<div class="pw-stat-row">' + time + '<span>' + (e.title || e.summary || '') + '</span><span class="pw-stat-val">' + (e.date || '').slice(5) + '</span></div>';
+        });
+        container.innerHTML = html;
+    }).catch(function() { container.innerHTML = '<div class="pw-section-label">Unable to load calendar</div>'; });
+}
+
+function renderPopped_habits(container) {
+    authFetch('/api/habits/today', { headers: authHeaders() })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        var habits = data.habits || [];
+        var total = habits.length;
+        var doneCount = habits.filter(function(h) { return h.done_today; }).length;
+        var pct = total > 0 ? Math.round(doneCount / total * 100) : 0;
+
+        var html = '<div class="pw-section-label">Today\'s Progress</div>';
+        html += '<div style="display:flex;align-items:center;gap:8px;margin:4px 0">';
+        html += '<div class="pw-bar" style="flex:1"><div class="pw-bar-fill" style="width:' + pct + '%;background:var(--lcars-success)"></div></div>';
+        html += '<span class="pw-stat-val" style="color:var(--lcars-success)">' + pct + '%</span></div>';
+        html += '<div class="pw-section-label">Habits</div>';
+        if (habits.length === 0) html += '<div style="font-size:11px;color:var(--lcars-text-dim)">No habits configured</div>';
+        habits.forEach(function(h) {
+            var check = h.done_today ? '<span style="color:var(--lcars-success)">&#10003;</span>' : '<span style="color:var(--lcars-grey-2)">&#9675;</span>';
+            html += '<div class="pw-habit-row" onclick="poppedToggleHabit(\'' + (h.id || '') + '\',' + (h.done_today ? 'false' : 'true') + ')">' +
+                '<span class="pw-habit-check">' + check + '</span>' +
+                '<span>' + (h.name || '') + '</span>' +
+                '<span class="pw-habit-streak">' + (h.current_streak || 0) + ' day streak</span></div>';
+        });
+        container.innerHTML = html;
+    }).catch(function() { container.innerHTML = '<div class="pw-section-label">Unable to load habits</div>'; });
+}
+function poppedToggleHabit(id, done) {
+    authFetch('/api/habits/toggle', { method: 'POST', headers: authHeaders(), body: JSON.stringify({habit_id: id, done: done}) })
+    .then(function() {
+        var body = document.getElementById('poppedWidgetBody-widget-habits');
+        if (body) renderPopped_habits(body);
+    }).catch(function() {});
+}
+
+function renderPopped_mood(container) {
+    authFetch('/api/moods', { method: 'POST', headers: authHeaders(), body: JSON.stringify({action: 'list'}) })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        var moods = (data.moods || []).slice(-7).reverse();
+        var moodEmojis = ['😊','😢','😠','😰','😴','🤩','😌','🤔','😤','💪'];
+
+        var html = '<div class="pw-section-label">Log Mood</div>';
+        html += '<div class="pw-mood-grid">';
+        moodEmojis.forEach(function(e) {
+            html += '<button class="pw-mood-btn" onclick="poppedLogMood(this,\'' + e + '\')">' + e + '</button>';
+        });
+        html += '</div>';
+
+        html += '<div class="pw-section-label">Recent Moods</div>';
+        if (moods.length === 0) html += '<div style="font-size:11px;color:var(--lcars-text-dim)">No mood entries yet</div>';
+        moods.forEach(function(m) {
+            var moodStr = (m.moods || []).join(' ') || '--';
+            var energy = m.energy ? ' E:' + m.energy : '';
+            html += '<div class="pw-mood-entry"><span>' + (m.date || '').slice(5) + ' ' + (m.time || '').slice(0,5) + '</span><span style="flex:1;text-align:center">' + moodStr + '</span><span class="pw-stat-val">' + energy + '</span></div>';
+        });
+        container.innerHTML = html;
+    }).catch(function() { container.innerHTML = '<div class="pw-section-label">Unable to load moods</div>'; });
+}
+function poppedLogMood(btn, emoji) {
+    document.querySelectorAll('.pw-mood-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    authFetch('/api/moods', { method: 'POST', headers: authHeaders(), body: JSON.stringify({action: 'add', moods: [emoji], energy: 5}) })
+    .then(function() {
+        var body = document.getElementById('poppedWidgetBody-widget-mood');
+        if (body) setTimeout(function() { renderPopped_mood(body); }, 300);
+    }).catch(function() {});
+}
+
+function renderPopped_system(container) {
+    authFetch('/api/status', { headers: authHeaders() })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        var html = '<div class="pw-section-label">System Status</div>';
+        html += '<div class="pw-stat-row"><span>Model</span><span class="pw-stat-val">' + (data.model || '--') + '</span></div>';
+        html += '<div class="pw-stat-row"><span>Messages</span><span class="pw-stat-val">' + (data.message_count || 0) + '</span></div>';
+        var connDot = data.connected ? '<span style="color:var(--lcars-success)">&#9679;</span> Connected' : '<span style="color:var(--lcars-error)">&#9679;</span> Disconnected';
+        html += '<div class="pw-stat-row"><span>Status</span><span class="pw-stat-val">' + connDot + '</span></div>';
+
+        // Also try to get system perf data for CPU/RAM
+        authFetch('/api/system/perf', { headers: authHeaders() })
+        .then(function(r2) { return r2.json(); })
+        .then(function(perf) {
+            var cpuPct = Math.round(perf.cpu_percent || 0);
+            var ramPct = Math.round(perf.ram_percent || 0);
+            var diskPct = Math.round(perf.disk_percent || 0);
+            html += '<div class="pw-section-label">Resources</div>';
+            html += '<div class="pw-stat-row"><span>CPU</span><span class="pw-stat-val">' + cpuPct + '%</span></div>';
+            html += '<div class="pw-bar"><div class="pw-bar-fill" style="width:' + cpuPct + '%;background:var(--lcars-blue-3)"></div></div>';
+            html += '<div class="pw-stat-row"><span>RAM</span><span class="pw-stat-val">' + (perf.ram_used_gb || 0).toFixed(1) + '/' + (perf.ram_total_gb || 0).toFixed(1) + ' GB</span></div>';
+            html += '<div class="pw-bar"><div class="pw-bar-fill" style="width:' + ramPct + '%;background:var(--lcars-purple-1)"></div></div>';
+            html += '<div class="pw-stat-row"><span>Disk</span><span class="pw-stat-val">' + diskPct + '%</span></div>';
+            html += '<div class="pw-bar"><div class="pw-bar-fill" style="width:' + diskPct + '%;background:var(--lcars-amber)"></div></div>';
+            container.innerHTML = html;
+        }).catch(function() { container.innerHTML = html; });
+    }).catch(function() { container.innerHTML = '<div class="pw-section-label">Unable to load status</div>'; });
+}
+
+function renderPopped_gpu(container) {
+    authFetch('/api/gpu', { headers: authHeaders() })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.error) { container.innerHTML = '<div class="pw-section-label">GPU unavailable</div>'; return; }
+        var vramPct = data.vram_total_mb > 0 ? Math.round(data.vram_used_mb / data.vram_total_mb * 100) : 0;
+        var utilPct = Math.round(data.utilization_pct || 0);
+
+        var html = '<div class="pw-section-label">' + (data.name || 'GPU') + '</div>';
+        if (data.driver_version) html += '<div class="pw-stat-row"><span>Driver</span><span class="pw-stat-val">' + data.driver_version + '</span></div>';
+        html += '<div class="pw-stat-row"><span>VRAM</span><span class="pw-stat-val">' + (data.vram_used_mb || 0) + ' / ' + (data.vram_total_mb || 0) + ' MB</span></div>';
+        html += '<div class="pw-bar"><div class="pw-bar-fill" style="width:' + vramPct + '%;background:var(--lcars-pink-1)"></div></div>';
+        html += '<div class="pw-stat-row"><span>Utilization</span><span class="pw-stat-val">' + utilPct + '%</span></div>';
+        html += '<div class="pw-bar"><div class="pw-bar-fill" style="width:' + utilPct + '%;background:var(--lcars-magenta)"></div></div>';
+        if (data.temperature != null) html += '<div class="pw-stat-row"><span>Temperature</span><span class="pw-stat-val">' + data.temperature + '&deg;C</span></div>';
+        if (data.power_draw != null) html += '<div class="pw-stat-row"><span>Power</span><span class="pw-stat-val">' + data.power_draw + ' W</span></div>';
+        if (data.fan_speed != null) html += '<div class="pw-stat-row"><span>Fan</span><span class="pw-stat-val">' + data.fan_speed + '%</span></div>';
+        container.innerHTML = html;
+    }).catch(function() { container.innerHTML = '<div class="pw-section-label">Unable to load GPU data</div>'; });
+}
+
+function renderPopped_weather(container) {
+    var weatherP = authFetch('/api/weather').then(function(r) { return r.json(); });
+    var locP = authFetch('/api/weather/location').then(function(r) { return r.json(); }).catch(function() { return {}; });
+    Promise.all([weatherP, locP]).then(function(results) {
+        var data = results[0];
+        var locData = results[1];
+        if (data.error) { container.innerHTML = '<div class="pw-section-label">Weather unavailable</div>'; return; }
+
+        var temp = data.temperature != null ? _weatherConvert(data.temperature) : '--';
+        var unit = _weatherUnit();
+        var condition = (data.condition || 'Unknown').toUpperCase();
+        var locObj = locData.location;
+        var loc = (locObj && locObj.name) ? locObj.name : (data.location || '');
+        var windStr = '';
+        try { windStr = data.wind_speed != null ? _weatherSpeed(data.wind_speed) : ''; } catch(e) { windStr = Math.round(data.wind_speed || 0) + ' MPH'; }
+
+        var html = '<div class="pw-large-temp">' + temp + '&deg;' + unit + '</div>';
+        html += '<div class="pw-condition">' + condition + '</div>';
+        if (loc) html += '<div class="pw-condition" style="font-size:10px;margin-top:2px">' + loc + '</div>';
+        html += '<div style="margin-top:10px">';
+        if (data.humidity != null) html += '<div class="pw-stat-row"><span>Humidity</span><span class="pw-stat-val">' + data.humidity + '%</span></div>';
+        if (windStr) html += '<div class="pw-stat-row"><span>Wind</span><span class="pw-stat-val">' + windStr + '</span></div>';
+        html += '</div>';
+
+        // Forecast if available
+        if (data.forecast && data.forecast.length > 0) {
+            html += '<div class="pw-section-label">Forecast</div><div class="pw-forecast-row">';
+            data.forecast.slice(0, 3).forEach(function(f) {
+                var fTemp = f.temperature != null ? _weatherConvert(f.temperature) : '--';
+                html += '<div class="pw-forecast-day"><div class="pw-day-label">' + (f.day || f.date || '').slice(0,3).toUpperCase() + '</div><div class="pw-day-temp">' + fTemp + '&deg;</div></div>';
+            });
+            html += '</div>';
+        }
+        container.innerHTML = html;
+    }).catch(function(err) {
+        console.warn('renderPopped_weather error:', err);
+        container.innerHTML = '<div class="pw-section-label">Unable to load weather</div>';
+    });
+}
+
+function renderPopped_timer(container) {
+    authFetch('/api/timer/active', { headers: authHeaders() })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        var active = data.active;
+        var html = '';
+        if (active && active.start_time) {
+            var start = new Date(active.start_time);
+            var elapsed = Math.floor((Date.now() - start.getTime()) / 1000);
+            var h = Math.floor(elapsed / 3600), m = Math.floor((elapsed % 3600) / 60), s = elapsed % 60;
+            var timeStr = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+            html += '<div class="pw-timer-display">' + timeStr + '</div>';
+            if (active.activity) html += '<div class="pw-condition">' + active.activity + '</div>';
+            html += '<div class="pw-timer-btns"><button style="background:var(--lcars-error)" onclick="poppedTimerStop()">STOP</button></div>';
+        } else {
+            html += '<div class="pw-timer-display" style="color:var(--lcars-grey-2)">00:00:00</div>';
+            html += '<div class="pw-timer-btns"><button style="background:var(--lcars-success)" onclick="poppedTimerStart()">START</button></div>';
+        }
+
+        // Recent sessions
+        authFetch('/api/timer', { method: 'POST', headers: authHeaders(), body: JSON.stringify({action: 'list'}) })
+        .then(function(r2) { return r2.json(); })
+        .then(function(hist) {
+            var entries = (hist.entries || []).slice(-5).reverse();
+            if (entries.length > 0) {
+                html += '<div class="pw-section-label">Recent Sessions</div>';
+                entries.forEach(function(e) {
+                    var dur = e.duration_seconds ? Math.round(e.duration_seconds / 60) + ' min' : '--';
+                    html += '<div class="pw-stat-row"><span>' + (e.activity || 'Timer') + '</span><span class="pw-stat-val">' + dur + '</span></div>';
+                });
+            }
+            container.innerHTML = html;
+        }).catch(function() { container.innerHTML = html; });
+    }).catch(function() { container.innerHTML = '<div class="pw-section-label">Unable to load timer</div>'; });
+}
+function poppedTimerStart() {
+    authFetch('/api/timer', { method: 'POST', headers: authHeaders(), body: JSON.stringify({action: 'start', activity: 'Timer'}) })
+    .then(function() { var b = document.getElementById('poppedWidgetBody-widget-timer'); if (b) renderPopped_timer(b); });
+}
+function poppedTimerStop() {
+    authFetch('/api/timer', { method: 'POST', headers: authHeaders(), body: JSON.stringify({action: 'stop'}) })
+    .then(function() { var b = document.getElementById('poppedWidgetBody-widget-timer'); if (b) renderPopped_timer(b); });
+}
+
+function renderPopped_clock(container) {
+    var now = new Date();
+    var h = String(now.getHours()).padStart(2, '0');
+    var m = String(now.getMinutes()).padStart(2, '0');
+    var s = String(now.getSeconds()).padStart(2, '0');
+    var days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+    // Stardate calculation (TNG-style approximation)
+    var yearFrac = (now.getMonth() * 30 + now.getDate()) / 365;
+    var stardate = ((now.getFullYear() - 2323) + yearFrac).toFixed(1);
+
+    var utcOff = -now.getTimezoneOffset();
+    var utcSign = utcOff >= 0 ? '+' : '-';
+    var utcH = Math.floor(Math.abs(utcOff) / 60);
+    var utcM = Math.abs(utcOff) % 60;
+    var utcStr = 'UTC ' + utcSign + String(utcH).padStart(2, '0') + ':' + String(utcM).padStart(2, '0');
+
+    container.innerHTML =
+        '<div class="pw-clock-display">' + h + ':' + m + ':' + s + '</div>' +
+        '<div class="pw-clock-date">' + days[now.getDay()] + ', ' + months[now.getMonth()] + ' ' + now.getDate() + ', ' + now.getFullYear() + '</div>' +
+        '<div class="pw-clock-sub">Stardate ' + stardate + '</div>' +
+        '<div class="pw-clock-sub">' + utcStr + '</div>';
+}
+
+function renderPopped_sysperf(container) {
+    authFetch('/api/system/perf', { headers: authHeaders() })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.error) { container.innerHTML = '<div class="pw-section-label">Performance data unavailable</div>'; return; }
+        var cpuPct = Math.round(data.cpu_percent || 0);
+        var ramPct = Math.round(data.ram_percent || 0);
+
+        var html = '<div class="pw-section-label">CPU ' + cpuPct + '%</div>';
+        html += '<div class="pw-bar"><div class="pw-bar-fill" style="width:' + cpuPct + '%;background:var(--lcars-success)"></div></div>';
+
+        // Per-core bars
+        var cores = data.cpu_cores || [];
+        if (cores.length > 0) {
+            html += '<div style="margin:4px 0">';
+            cores.forEach(function(pct, i) {
+                var p = Math.round(pct);
+                var color = p > 80 ? 'var(--lcars-error)' : p > 50 ? 'var(--lcars-warning)' : 'var(--lcars-success)';
+                html += '<div class="pw-core-bar"><span class="pw-core-bar-label">C' + i + '</span>' +
+                    '<div class="pw-core-bar-track"><div class="pw-core-bar-fill" style="width:' + p + '%;background:' + color + '"></div></div>' +
+                    '<span class="pw-core-bar-pct">' + p + '%</span></div>';
+            });
+            html += '</div>';
+        }
+
+        html += '<div class="pw-section-label">RAM ' + ramPct + '%</div>';
+        html += '<div class="pw-stat-row"><span>Used</span><span class="pw-stat-val">' + (data.ram_used_gb || 0).toFixed(1) + ' / ' + (data.ram_total_gb || 0).toFixed(1) + ' GB</span></div>';
+        html += '<div class="pw-bar"><div class="pw-bar-fill" style="width:' + ramPct + '%;background:var(--lcars-purple-1)"></div></div>';
+
+        if (data.disk_percent != null) {
+            html += '<div class="pw-section-label">Disk ' + Math.round(data.disk_percent) + '%</div>';
+            html += '<div class="pw-stat-row"><span>Used</span><span class="pw-stat-val">' + (data.disk_used_gb || 0).toFixed(0) + ' / ' + (data.disk_total_gb || 0).toFixed(0) + ' GB</span></div>';
+            html += '<div class="pw-bar"><div class="pw-bar-fill" style="width:' + Math.round(data.disk_percent) + '%;background:var(--lcars-amber)"></div></div>';
+        }
+
+        // Top processes
+        var procs = (data.top_processes || []).slice(0, 5);
+        if (procs.length > 0) {
+            html += '<div class="pw-section-label">Top Processes</div>';
+            procs.forEach(function(p) {
+                html += '<div class="pw-process-row"><span>' + (p.name || '?') + '</span><span>' + (p.cpu || 0).toFixed(1) + '%</span></div>';
+            });
+        }
+
+        if (data.net_sent_mb != null || data.net_recv_mb != null) {
+            html += '<div class="pw-section-label">Network</div>';
+            html += '<div class="pw-stat-row"><span>Sent</span><span class="pw-stat-val">' + (data.net_sent_mb || 0).toFixed(1) + ' MB</span></div>';
+            html += '<div class="pw-stat-row"><span>Recv</span><span class="pw-stat-val">' + (data.net_recv_mb || 0).toFixed(1) + ' MB</span></div>';
+        }
+        container.innerHTML = html;
+    }).catch(function() { container.innerHTML = '<div class="pw-section-label">Unable to load performance data</div>'; });
+}
+
+function renderPopped_news(container) {
+    var location = '';
+    authFetch('/api/weather/location', { headers: authHeaders() }).then(function(r) { return r.json(); })
+    .then(function(loc) { location = loc.location || ''; })
+    .catch(function() {})
+    .then(function() {
+        var url = '/api/news?source=ddgs&category=local';
+        if (location) url += '&location=' + encodeURIComponent(location);
+        return authFetch(url, { headers: authHeaders() });
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        var articles = (data.articles || []).slice(0, 10);
+        var html = '<div class="pw-section-label">Headlines (' + articles.length + ')</div>';
+        if (articles.length === 0) html += '<div style="font-size:11px;color:var(--lcars-text-dim)">No news available</div>';
+        articles.forEach(function(a) {
+            var timeStr = a.published ? new Date(a.published).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+            var src = a.source || '';
+            html += '<div class="pw-news-item">' +
+                '<div class="pw-news-title" onclick="if(typeof openArticleReader===\'function\')openArticleReader(\'' + (a.url || '').replace(/'/g, "\\'") + '\')">' + (a.title || 'Untitled') + '</div>' +
+                '<div class="pw-news-meta">' + src + (timeStr ? ' &middot; ' + timeStr : '') + '</div>' +
+                '</div>';
+        });
+        container.innerHTML = html;
+    }).catch(function() { container.innerHTML = '<div class="pw-section-label">Unable to load news</div>'; });
+}
+
+var POPPED_RENDERERS = {
+    'widget-tasks': renderPopped_tasks, 'widget-calendar': renderPopped_calendar,
+    'widget-habits': renderPopped_habits, 'widget-mood': renderPopped_mood,
+    'widget-system': renderPopped_system, 'widget-gpu': renderPopped_gpu,
+    'widget-weather': renderPopped_weather, 'widget-timer': renderPopped_timer,
+    'widget-clock': renderPopped_clock, 'widget-sysperf': renderPopped_sysperf,
+    'widget-news': renderPopped_news
+};
+
+var POPPED_WIDGET_INTERVALS = {};
+
 function switchSidebarTab(tabId, btn) {
     // If tab is popped out, bring its floating panel to front instead
     var poppedPanel = document.getElementById('poppedPanel-' + tabId);
@@ -11384,48 +12274,48 @@ function initSidebarTabDrag() {
     var container = document.getElementById('sidebarTabContainer');
     if (!container) return;
 
-    var buttons = container.querySelectorAll('.sidebar-tab');
-    buttons.forEach(function(btn) {
-        btn.addEventListener('pointerdown', onTabPointerDown);
-    });
-
     var dragState = null;
     var dropIndicator = null;
 
-    function onTabPointerDown(e) {
-        if (e.button !== 0) return; // left click only
-        var btn = e.currentTarget;
-        var tabId = btn.getAttribute('data-tab');
-        var rect = btn.getBoundingClientRect();
+    // Prevent native drag on tabs
+    container.addEventListener('dragstart', function(e) { e.preventDefault(); });
+
+    // mousedown on container (event delegation)
+    container.addEventListener('mousedown', function(e) {
+        var btn = e.target.closest('.sidebar-tab');
+        if (!btn || e.button !== 0) return;
 
         dragState = {
             btn: btn,
-            tabId: tabId,
+            tabId: btn.getAttribute('data-tab'),
             startX: e.clientX,
             startY: e.clientY,
             dragging: false,
-            clone: null
+            clone: null,
+            overWorkspace: false,
+            dropX: 0,
+            dropY: 0,
+            targetRef: null
         };
 
-        btn.setPointerCapture(e.pointerId);
-        btn.addEventListener('pointermove', onTabPointerMove);
-        btn.addEventListener('pointerup', onTabPointerUp);
-        btn.addEventListener('pointercancel', onTabPointerUp);
         e.preventDefault();
-    }
+    });
 
-    function onTabPointerMove(e) {
+    // Global mousemove
+    document.addEventListener('mousemove', function(e) {
         if (!dragState) return;
+
         var dx = e.clientX - dragState.startX;
         var dy = e.clientY - dragState.startY;
 
-        // Start dragging after 4px movement
         if (!dragState.dragging) {
-            if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+            if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
             dragState.dragging = true;
-            dragState.btn.classList.add('dragging-tab');
 
-            // Create floating clone
+            // Hide the original tab so it doesn't affect layout
+            dragState.btn.style.display = 'none';
+
+            // Create floating clone that follows cursor
             var clone = document.createElement('div');
             clone.className = 'sidebar-tab-drag-clone';
             clone.textContent = dragState.btn.textContent;
@@ -11435,146 +12325,136 @@ function initSidebarTabDrag() {
             document.body.appendChild(clone);
             dragState.clone = clone;
 
-            // Create drop indicator
+            // Create drop indicator line
             dropIndicator = document.createElement('div');
             dropIndicator.className = 'sidebar-tab-drop-indicator';
             container.style.position = 'relative';
             container.appendChild(dropIndicator);
         }
 
-        // Move clone to cursor
+        // Position clone at cursor
         if (dragState.clone) {
             dragState.clone.style.left = (e.clientX + 8) + 'px';
             dragState.clone.style.top = (e.clientY - 12) + 'px';
         }
 
-        // Check if pointer is within sidebar bounds or in workspace
+        // Workspace vs sidebar check
         var sidebar = document.querySelector('.lcars-sidebar');
         var sidebarRect = sidebar ? sidebar.getBoundingClientRect() : null;
 
-        if (sidebarRect && e.clientX < sidebarRect.left) {
-            // Pointer is in workspace area — show pop-out hint
-            if (dragState.clone) {
-                dragState.clone.style.boxShadow = '0 0 20px rgba(153,153,255,0.6)';
-            }
-            if (dropIndicator) dropIndicator.style.display = 'none';
+        if (sidebarRect && e.clientX < sidebarRect.left - 200) {
+            // Cursor in workspace — pop-out mode
             dragState.overWorkspace = true;
             dragState.dropX = e.clientX;
             dragState.dropY = e.clientY;
+            dragState.targetRef = null;
+            if (dragState.clone) {
+                dragState.clone.style.boxShadow = '0 0 20px rgba(153,153,255,0.6)';
+                dragState.clone.textContent = dragState.btn.textContent + ' (pop out)';
+            }
+            if (dropIndicator) dropIndicator.style.display = 'none';
         } else {
-            // Within sidebar — calculate insertion point
+            // Cursor in sidebar — show drop indicator (NO dom moves during drag)
+            dragState.overWorkspace = false;
             if (dragState.clone) {
                 dragState.clone.style.boxShadow = '0 4px 16px rgba(0,0,0,0.5)';
+                dragState.clone.textContent = dragState.btn.textContent;
             }
-            dragState.overWorkspace = false;
-            updateDropIndicator(e.clientX, e.clientY);
+            updateDropTarget(e.clientX, e.clientY);
         }
-    }
+    });
 
-    function updateDropIndicator(cx, cy) {
-        if (!dropIndicator) return;
-        var tabs = Array.from(container.querySelectorAll('.sidebar-tab'));
-        var insertIndex = tabs.length;
+    function updateDropTarget(cx, cy) {
+        // Get only visible tabs (dragging tab is display:none)
+        var visibleTabs = Array.from(container.querySelectorAll('.sidebar-tab')).filter(function(t) {
+            return t !== dragState.btn;
+        });
 
-        for (var i = 0; i < tabs.length; i++) {
-            var rect = tabs[i].getBoundingClientRect();
-            var midX = rect.left + rect.width / 2;
-            var midY = rect.top + rect.height / 2;
-            // If cursor is on the same row, check X midpoint; else check Y
-            if (Math.abs(cy - midY) < rect.height / 2) {
-                if (cx < midX) { insertIndex = i; break; }
-            } else if (cy < midY) {
-                insertIndex = i; break;
-            }
-        }
-
-        dragState.insertIndex = insertIndex;
-
-        // Position the indicator
-        if (insertIndex < tabs.length) {
-            var targetRect = tabs[insertIndex].getBoundingClientRect();
-            var containerRect = container.getBoundingClientRect();
-            dropIndicator.style.display = 'block';
-            dropIndicator.style.left = (targetRect.left - containerRect.left - 1) + 'px';
-            dropIndicator.style.top = (targetRect.top - containerRect.top) + 'px';
-            dropIndicator.style.height = targetRect.height + 'px';
-        } else if (tabs.length > 0) {
-            var lastRect = tabs[tabs.length - 1].getBoundingClientRect();
-            var containerRect = container.getBoundingClientRect();
-            dropIndicator.style.display = 'block';
-            dropIndicator.style.left = (lastRect.right - containerRect.left + 1) + 'px';
-            dropIndicator.style.top = (lastRect.top - containerRect.top) + 'px';
-            dropIndicator.style.height = lastRect.height + 'px';
-        }
-    }
-
-    function cleanupDrag() {
-        if (!dragState) return;
-        var btn = dragState.btn;
-        btn.classList.remove('dragging-tab');
-        btn.removeEventListener('pointermove', onTabPointerMove);
-        btn.removeEventListener('pointerup', onTabPointerUp);
-        btn.removeEventListener('pointercancel', onTabPointerUp);
-        if (dragState.clone) { dragState.clone.remove(); dragState.clone = null; }
-        if (dropIndicator) { dropIndicator.remove(); dropIndicator = null; }
-        // Safety: remove any stray clones/indicators
-        document.querySelectorAll('.sidebar-tab-drag-clone').forEach(function(el) { el.remove(); });
-        container.querySelectorAll('.sidebar-tab-drop-indicator').forEach(function(el) { el.remove(); });
-    }
-
-    function onTabPointerUp(e) {
-        if (!dragState) return;
-        var btn = dragState.btn;
-        try { btn.releasePointerCapture(e.pointerId); } catch(ex) {}
-
-        if (!dragState.dragging) {
-            // It was just a click — switch tab
-            var tabId = dragState.tabId;
-            cleanupDrag();
-            switchSidebarTab(tabId, btn);
-            dragState = null;
+        if (visibleTabs.length === 0) {
+            dragState.targetRef = null;
+            if (dropIndicator) dropIndicator.style.display = 'none';
             return;
         }
 
-        var overWorkspace = dragState.overWorkspace;
-        var tabId = dragState.tabId;
-        var dropX = dragState.dropX;
-        var dropY = dragState.dropY;
-        var insertIndex = dragState.insertIndex;
+        // Find which tab the cursor should go before
+        var targetRef = null;
+        for (var i = 0; i < visibleTabs.length; i++) {
+            var rect = visibleTabs[i].getBoundingClientRect();
+            var midX = rect.left + rect.width / 2;
 
-        cleanupDrag();
-
-        if (overWorkspace) {
-            // Pop out the tab at drop position
-            popOutTab(tabId, dropX, dropY);
-        } else if (typeof insertIndex === 'number') {
-            // Reorder within sidebar
-            var tabs = Array.from(container.querySelectorAll('.sidebar-tab'));
-            var currentIndex = tabs.indexOf(btn);
-            var insertAt = insertIndex;
-            // Adjust for the element being removed before re-insert
-            if (currentIndex < insertAt) insertAt--;
-            if (currentIndex !== insertAt) {
-                btn.remove();
-                var updatedTabs = Array.from(container.querySelectorAll('.sidebar-tab'));
-                if (insertAt >= updatedTabs.length) {
-                    container.appendChild(btn);
-                } else {
-                    container.insertBefore(btn, updatedTabs[insertAt]);
-                }
+            // Cursor is above this tab's row entirely → insert before it
+            if (cy < rect.top) {
+                targetRef = visibleTabs[i];
+                break;
             }
-            saveTabOrder();
+
+            // Cursor is in this tab's row and left of its midpoint → insert before it
+            if (cy >= rect.top && cy <= rect.bottom && cx < midX) {
+                targetRef = visibleTabs[i];
+                break;
+            }
         }
 
-        dragState = null;
+        dragState.targetRef = targetRef;
+
+        // Position the indicator line
+        if (!dropIndicator) return;
+        var containerRect = container.getBoundingClientRect();
+
+        if (targetRef) {
+            var tr = targetRef.getBoundingClientRect();
+            dropIndicator.style.display = 'block';
+            dropIndicator.style.left = (tr.left - containerRect.left - 2) + 'px';
+            dropIndicator.style.top = (tr.top - containerRect.top) + 'px';
+            dropIndicator.style.height = tr.height + 'px';
+        } else {
+            // End position — after the last visible tab
+            var last = visibleTabs[visibleTabs.length - 1];
+            var lr = last.getBoundingClientRect();
+            dropIndicator.style.display = 'block';
+            dropIndicator.style.left = (lr.right - containerRect.left + 2) + 'px';
+            dropIndicator.style.top = (lr.top - containerRect.top) + 'px';
+            dropIndicator.style.height = lr.height + 'px';
+        }
     }
 
-    // Safety: global pointerup to catch missed releases
-    document.addEventListener('pointerup', function() {
-        if (dragState && dragState.dragging) {
-            cleanupDrag();
-            dragState = null;
+    // Global mouseup — finalize drag or fire click
+    document.addEventListener('mouseup', function(e) {
+        if (!dragState) return;
+
+        var wasDragging = dragState.dragging;
+        var tabId = dragState.tabId;
+        var btn = dragState.btn;
+        var overWorkspace = dragState.overWorkspace;
+        var dropX = dragState.dropX;
+        var dropY = dragState.dropY;
+        var targetRef = dragState.targetRef;
+
+        // Restore the tab and clean up
+        btn.style.display = '';
+        btn.classList.remove('dragging-tab');
+        if (dragState.clone) dragState.clone.remove();
+        if (dropIndicator) { dropIndicator.remove(); dropIndicator = null; }
+        document.querySelectorAll('.sidebar-tab-drag-clone').forEach(function(el) { el.remove(); });
+        container.querySelectorAll('.sidebar-tab-drop-indicator').forEach(function(el) { el.remove(); });
+        dragState = null;
+
+        if (!wasDragging) {
+            // Was just a click — switch tab
+            switchSidebarTab(tabId, btn);
+            return;
         }
+
+        if (overWorkspace) {
+            popOutTab(tabId, dropX, dropY);
+        } else {
+            if (targetRef) {
+                container.insertBefore(btn, targetRef);
+            } else {
+                container.appendChild(btn);
+            }
+        }
+        saveTabOrder();
     });
 }
 

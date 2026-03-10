@@ -50,6 +50,7 @@ class ProtocolRegistry:
         result = {
             "input": user_input,
             "context_injections": [],
+            "full_context_injections": [],
             "intercept": False,
             "response": "",
         }
@@ -67,6 +68,9 @@ class ProtocolRegistry:
 
                 if proto_result.get("context_injection"):
                     result["context_injections"].append(proto_result["context_injection"])
+
+                if proto_result.get("full_context_injection"):
+                    result["full_context_injections"].append(proto_result["full_context_injection"])
 
                 # If a protocol intercepts, it handles the response directly
                 if proto_result.get("intercept"):

@@ -44,14 +44,18 @@ from core.vault_pin import (
 )
 from core.memory.personal_log import (
     create_log_entry, list_personal_logs, load_personal_log,
-    delete_personal_log, get_audio_path,
+    delete_personal_log, get_audio_path, get_video_path,
 )
 from core.feature_toggles import load_feature_toggles, save_feature_toggles
+from core.memory.news_service import NewsService
 from server.chat_pipeline import process_chat
 
 
 # --- Session Manager (replaces global state) ---
 session_manager = SessionManager()
+
+# --- News Service (shared singleton) ---
+_news_service = NewsService()
 
 # OAuth state store: maps state_token -> user_id (short-lived, in-memory)
 _oauth_states: dict[str, str] = {}
@@ -86,6 +90,13 @@ async def require_vault_access(request: Request) -> str:
 
 @asynccontextmanager
 async def lifespan(app):
+    # Prime psutil CPU counter (first call always returns 0)
+    try:
+        import psutil
+        psutil.cpu_percent(interval=None)
+    except ImportError:
+        pass
+
     # Startup — try to start Telegram bot
     telegram_app = None
     try:
@@ -269,6 +280,24 @@ class ContactRequest(BaseModel):
     query: Optional[str] = None
 
 
+class CrewFileRequest(BaseModel):
+    action: str  # "add", "update", "delete", "list", "search", "get"
+    profile_id: Optional[str] = None
+    name: Optional[str] = None
+    role: Optional[str] = None
+    relationship: Optional[str] = None
+    department: Optional[str] = None
+    bio: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    birthday: Optional[str] = None
+    likes: Optional[str] = None
+    dislikes: Optional[str] = None
+    notes: Optional[str] = None
+    history: Optional[str] = None
+    query: Optional[str] = None
+
+
 class HabitRequest(BaseModel):
     action: str  # "add", "check", "uncheck", "delete"
     habit_id: Optional[str] = None
@@ -449,6 +478,17 @@ async def chat(req: ChatRequest, user_id: str = Depends(require_user)):
 async def end_session(user_id: str = Depends(require_user)):
     """End the current session — saves transcript, summary, facts, profile."""
     session_manager.end_session(user_id)
+    return {"success": True}
+
+
+@app.post("/api/shutdown")
+async def shutdown():
+    """Save all sessions and shut down gracefully (called by Electron on quit).
+
+    No auth required — only accessible from localhost during app teardown.
+    """
+    logger.info("Shutdown endpoint called — saving all sessions...")
+    session_manager.end_all()
     return {"success": True}
 
 
@@ -1619,6 +1659,43 @@ async def search_contacts(q: str = "", user_id: str = Depends(require_user)):
     return {"contacts": session.contact_manager.list_contacts()}
 
 
+# --- Crew Files ---
+
+@app.post("/api/crew")
+async def manage_crew(req: CrewFileRequest, user_id: str = Depends(require_user)):
+    """Crew files CRUD endpoint."""
+    session = session_manager.get_or_create(user_id)
+    cf = session.crew_files
+    fields = ("role", "relationship", "department", "bio", "phone",
+              "email", "birthday", "likes", "dislikes", "notes", "history")
+    if req.action == "add" and req.name:
+        kwargs = {}
+        for f in fields:
+            val = getattr(req, f, None)
+            if val is not None:
+                kwargs[f] = val
+        profile = cf.add_profile(name=req.name, **kwargs)
+        return {"success": True, "profile": profile}
+    elif req.action == "update" and req.profile_id:
+        kwargs = {}
+        for f in ("name",) + fields:
+            val = getattr(req, f, None)
+            if val is not None:
+                kwargs[f] = val
+        profile = cf.update_profile(req.profile_id, **kwargs)
+        return {"success": bool(profile), "profile": profile}
+    elif req.action == "delete" and req.profile_id:
+        return {"success": cf.delete_profile(req.profile_id)}
+    elif req.action == "get" and req.profile_id:
+        profile = cf.get_profile(req.profile_id)
+        return {"profile": profile}
+    elif req.action == "list":
+        return {"profiles": cf.list_profiles()}
+    elif req.action == "search" and req.query:
+        return {"profiles": cf.search_profiles(req.query)}
+    return {"error": "Invalid action. Use: add, update, delete, get, list, search"}
+
+
 # --- Phase 10: Habits ---
 
 @app.post("/api/habits")
@@ -1736,10 +1813,10 @@ async def get_timer_today(user_id: str = Depends(require_user)):
 # --- Phase 10: Weather ---
 
 @app.get("/api/weather")
-async def get_weather(user_id: str = Depends(require_user)):
-    """Get current weather for saved location."""
+async def get_weather(detail: str = "current", user_id: str = Depends(require_user)):
+    """Get weather for saved location. Use detail=full for forecast."""
     session = session_manager.get_or_create(user_id)
-    return session.weather_service.get_weather()
+    return session.weather_service.get_weather(detail=detail)
 
 
 @app.post("/api/weather/location")
@@ -1756,6 +1833,185 @@ async def get_weather_location(user_id: str = Depends(require_user)):
     session = session_manager.get_or_create(user_id)
     loc = session.weather_service.get_location()
     return {"location": loc}
+
+
+# --- System Performance ---
+
+@app.get("/api/system/perf")
+async def get_system_perf(user_id: str = Depends(require_user)):
+    """Get system performance metrics (CPU, RAM, disk, network)."""
+    try:
+        import psutil
+    except ImportError:
+        return {"error": "psutil not installed"}
+
+    cpu_pct = psutil.cpu_percent(interval=None)
+    cpu_cores = psutil.cpu_percent(percpu=True)
+    mem = psutil.virtual_memory()
+    disk = psutil.disk_usage("/")
+    net = psutil.net_io_counters()
+
+    # Top 10 processes by CPU
+    top_procs = []
+    try:
+        for proc in sorted(
+            psutil.process_iter(["name", "cpu_percent"]),
+            key=lambda p: p.info.get("cpu_percent") or 0,
+            reverse=True,
+        )[:10]:
+            info = proc.info
+            if info.get("cpu_percent", 0) > 0:
+                top_procs.append({
+                    "name": info.get("name", "?"),
+                    "cpu": info.get("cpu_percent", 0),
+                })
+    except (psutil.NoSuchProcess, psutil.AccessDenied):
+        pass
+
+    return {
+        "cpu_percent": cpu_pct,
+        "cpu_cores": cpu_cores,
+        "ram_percent": mem.percent,
+        "ram_used_gb": round(mem.used / (1024 ** 3), 2),
+        "ram_total_gb": round(mem.total / (1024 ** 3), 2),
+        "disk_percent": disk.percent,
+        "disk_used_gb": round(disk.used / (1024 ** 3), 2),
+        "disk_total_gb": round(disk.total / (1024 ** 3), 2),
+        "net_sent_mb": round(net.bytes_sent / (1024 ** 2), 2),
+        "net_recv_mb": round(net.bytes_recv / (1024 ** 2), 2),
+        "top_processes": top_procs,
+    }
+
+
+# --- News Feed ---
+
+@app.get("/api/news")
+async def get_news(
+    source: str = "ddgs",
+    category: str = "local",
+    location: str = "",
+    user_id: str = Depends(require_user),
+):
+    """Get news headlines from the specified source."""
+    articles = _news_service.get_news(
+        source=source, category=category, location=location
+    )
+    return {"articles": articles}
+
+
+@app.get("/api/news/sources")
+async def get_news_sources(user_id: str = Depends(require_user)):
+    """Get available news sources."""
+    return {"sources": _news_service.get_sources()}
+
+
+# --- Web Fetch (article reader) ---
+
+@app.post("/api/web/fetch")
+async def web_fetch_page(
+    request: Request,
+    user_id: str = Depends(require_user),
+):
+    """Fetch and extract rich article content from a URL for in-app reading."""
+    import logging
+    _log = logging.getLogger(__name__)
+    from core.protocols.web_tools import fetch_page_rich
+    body = await request.json()
+    url = body.get("url", "")
+    if not url:
+        return {"error": "No URL provided"}
+    try:
+        _log.info("[ARTICLE] Fetching: %s", url)
+        result = fetch_page_rich(url, max_chars=50000, timeout=15)
+        title = result.get("title", "")
+        html = result.get("html", "")
+        text = result.get("text", "")
+        success = result.get("success", False)
+        _log.info("[ARTICLE] success=%s title=%s html_len=%d text_len=%d",
+                  success, title[:60], len(html), len(text))
+        if not success:
+            return {"title": title, "error": text or "No content extracted", "success": False}
+        if html and len(html) > 100:
+            return {"title": title, "content": html, "success": True}
+        if text and len(text) > 50:
+            # Convert plain text paragraphs to HTML
+            content = ""
+            for p in text.split("\n\n"):
+                p = p.strip()
+                if p:
+                    content += "<p style='margin-bottom:10px'>" + p.replace("\n", "<br>") + "</p>"
+            return {"title": title, "content": content, "success": True}
+        return {"title": title, "error": "No content extracted", "success": False}
+    except Exception as e:
+        return {"error": str(e), "success": False}
+
+
+# --- Video Personal Logs ---
+
+@app.post("/api/personal-logs/video")
+async def create_video_log(
+    video: UploadFile = File(...),
+    text: str = Form(""),
+    user_id: str = Depends(require_user),
+):
+    """Create a personal log with video recording."""
+    session = session_manager.get_or_create(user_id)
+    data_dir = session.memory.user_data_dir
+    if not data_dir:
+        return {"error": "No user data directory"}
+
+    video_bytes = await video.read()
+
+    # Best-effort audio extraction + STT from video
+    transcription = ""
+    try:
+        from pydub import AudioSegment
+        from core.voice.stt_engine import transcribe
+        import numpy as np
+        import wave
+
+        with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as tmp:
+            tmp.write(video_bytes)
+            tmp_path = tmp.name
+
+        audio_seg = AudioSegment.from_file(tmp_path)
+        audio_seg = audio_seg.set_frame_rate(16000).set_channels(1).set_sample_width(2)
+        wav_path = tmp_path.replace(".webm", ".wav")
+        audio_seg.export(wav_path, format="wav")
+
+        with wave.open(wav_path, "rb") as wf:
+            frames = wf.readframes(wf.getnframes())
+            audio_np = np.frombuffer(frames, dtype=np.int16).astype(np.float32) / 32768.0
+
+        transcription = transcribe(audio_np) or ""
+
+        Path(tmp_path).unlink(missing_ok=True)
+        Path(wav_path).unlink(missing_ok=True)
+    except Exception as e:
+        logger.warning("Video audio extraction/STT failed (video still saved): %s", e)
+
+    entry = create_log_entry(
+        text=text or transcription,
+        data_dir=data_dir,
+        video_bytes=video_bytes,
+        transcription=transcription,
+    )
+    return {"success": True, "entry": entry}
+
+
+@app.get("/api/personal-logs/{log_id}/video")
+async def get_log_video(log_id: str, user_id: str = Depends(require_vault_access)):
+    """Serve video file for a personal log."""
+    if ".." in log_id or "/" in log_id or "\\" in log_id:
+        raise HTTPException(status_code=400, detail="Invalid log ID")
+    session = session_manager.get_or_create(user_id)
+    data_dir = session.memory.user_data_dir
+    if not data_dir:
+        raise HTTPException(status_code=404, detail="No user data directory")
+    video_path = get_video_path(log_id, data_dir)
+    if not video_path:
+        raise HTTPException(status_code=404, detail="Video not found")
+    return FileResponse(video_path, media_type="video/webm")
 
 
 # --- Phase 10: Alarms ---

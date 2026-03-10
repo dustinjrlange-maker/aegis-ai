@@ -30,6 +30,7 @@ from core.protocols.bracket_commands import BracketCommandProtocol
 from core.memory.event_manager import EventManager
 from core.memory.mood_manager import MoodManager
 from core.memory.contact_manager import ContactManager
+from core.memory.crew_files import CrewFilesManager
 from core.memory.pinned_messages import PinnedMessageManager
 from core.memory.habit_manager import HabitManager
 from core.memory.behavior_tracker import BehaviorTracker
@@ -105,6 +106,7 @@ class UserSession:
         # Phase 10 managers
         self.mood_manager = MoodManager(user_data_dir)
         self.contact_manager = ContactManager(user_data_dir)
+        self.crew_files = CrewFilesManager(user_data_dir)
         self.pinned_messages = PinnedMessageManager(user_data_dir)
         self.habit_manager = HabitManager(user_data_dir)
         self.behavior_tracker = BehaviorTracker(user_data_dir)

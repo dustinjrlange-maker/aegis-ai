@@ -1,8 +1,8 @@
 """
 Personal Log Storage — Aegis AI
-Freeform journal entries with optional audio recordings.
+Freeform journal entries with optional audio/video recordings.
 Each entry is a JSON file in data/users/{username}/personal_logs/.
-Audio saved to personal_logs/audio/.
+Audio saved to personal_logs/audio/. Video saved to personal_logs/video/.
 """
 
 import json
@@ -27,16 +27,25 @@ def _audio_dir(data_dir: Path) -> Path:
     return d
 
 
+def _video_dir(data_dir: Path) -> Path:
+    """Get the video subdirectory."""
+    d = data_dir / "personal_logs" / "video"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
 def create_log_entry(
     text: str,
     data_dir: Path,
     audio_bytes: bytes | None = None,
     transcription: str | None = None,
+    video_bytes: bytes | None = None,
 ) -> dict:
     """Save a personal log entry. Returns the entry dict."""
     now = datetime.now()
     log_id = now.strftime("%Y-%m-%d_%H%M%S")
     has_audio = audio_bytes is not None and len(audio_bytes) > 0
+    has_video = video_bytes is not None and len(video_bytes) > 0
 
     entry = {
         "id": log_id,
@@ -45,6 +54,8 @@ def create_log_entry(
         "has_audio": has_audio,
         "audio_file": "",
         "transcription": transcription or "",
+        "has_video": has_video,
+        "video_file": "",
     }
 
     # Save audio file
@@ -53,6 +64,13 @@ def create_log_entry(
         audio_path = _audio_dir(data_dir) / audio_filename
         audio_path.write_bytes(audio_bytes)
         entry["audio_file"] = f"audio/{audio_filename}"
+
+    # Save video file
+    if has_video:
+        video_filename = f"log_{log_id}.webm"
+        video_path = _video_dir(data_dir) / video_filename
+        video_path.write_bytes(video_bytes)
+        entry["video_file"] = f"video/{video_filename}"
 
     # Save entry JSON
     entry_path = _logs_dir(data_dir) / f"{log_id}.json"
@@ -76,6 +94,7 @@ def list_personal_logs(data_dir: Path) -> list[dict]:
                 "created": entry["created"],
                 "preview": (entry.get("text") or entry.get("transcription") or "")[:100],
                 "has_audio": entry.get("has_audio", False),
+                "has_video": entry.get("has_video", False),
             })
         except (json.JSONDecodeError, KeyError, IOError) as e:
             logger.warning("Skipping bad log file %s: %s", f.name, e)
@@ -106,6 +125,10 @@ def delete_personal_log(log_id: str, data_dir: Path) -> bool:
         if entry.get("audio_file"):
             audio_path = _logs_dir(data_dir) / entry["audio_file"]
             audio_path.unlink(missing_ok=True)
+        # Delete video file if present
+        if entry.get("video_file"):
+            video_path = _logs_dir(data_dir) / entry["video_file"]
+            video_path.unlink(missing_ok=True)
         # Delete entry
         entry_path.unlink()
         logger.info("Personal log deleted: %s", log_id)
@@ -123,6 +146,17 @@ def get_audio_path(log_id: str, data_dir: Path) -> Path | None:
     audio_path = _logs_dir(data_dir) / entry["audio_file"]
     if audio_path.exists():
         return audio_path
+    return None
+
+
+def get_video_path(log_id: str, data_dir: Path) -> Path | None:
+    """Get the filesystem path to a log's video file."""
+    entry = load_personal_log(log_id, data_dir)
+    if not entry or not entry.get("video_file"):
+        return None
+    video_path = _logs_dir(data_dir) / entry["video_file"]
+    if video_path.exists():
+        return video_path
     return None
 
 

@@ -34,6 +34,7 @@ goals.financial: Money-related goals
 goals.relocation: Moving plans
 life_events.current: What's happening in their life now
 
+Do NOT extract routine daily activities (waking up, eating meals, having coffee, going to bed, relaxing, watching TV). Only extract significant life changes, ongoing situations, or meaningful new information.
 Only output facts. If none found, output: NO NEW FACTS
 
 CONVERSATION:

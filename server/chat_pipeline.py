@@ -53,15 +53,31 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
     )
     session.messages[0] = {"role": "system", "content": refreshed_prompt}
 
-    # Run through input protocols
+    # Run through input protocols — include profile for location-aware protocols
+    user_profile = ""
+    try:
+        fs = session.memory._fact_store
+        if fs:
+            user_profile = fs.render_profile(companion_name="user")
+        if not user_profile:
+            from core.memory.profile import get_profile_summary
+            user_profile = get_profile_summary(data_dir=session.memory.user_data_dir) or ""
+    except Exception:
+        pass
     proto_context = {
         "messages": session.messages,
         "memory": session.memory,
         "char_memory": session.char_memory,
+        "profile": user_profile,
     }
     proto_result = session.protocol_registry.process_input(user_input, proto_context)
 
     if proto_result.get("intercept"):
+        # Save to message history so follow-up works
+        session.messages.append({"role": "user", "content": user_input})
+        session.messages.append({"role": "assistant", "content": proto_result["response"]})
+        # Save transcript incrementally (same as LLM path)
+        session.memory.periodic_save(session.messages)
         return {
             "agent_name": session.agent_name,
             "response": proto_result["response"],
@@ -85,8 +101,17 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
         context_parts.append(char_relevant)
     if emotion_tag:
         context_parts.append(emotion_tag)
-    for injection in budget_injections(proto_result.get("context_injections", [])):
+    injections = proto_result.get("context_injections", [])
+    if injections:
+        logger.info("Protocol injections received: %d", len(injections))
+        for i, inj in enumerate(injections):
+            logger.info("  Injection %d (%d lines): %s", i, len(inj.splitlines()), inj[:150])
+    for injection in budget_injections(injections):
         context_parts.append(injection)
+
+    # Full-context injections bypass budget (article expansion, file analysis)
+    for fc in proto_result.get("full_context_injections", []):
+        context_parts.append(fc)
 
     # File context injection (from /api/files/{id}/analyze)
     if hasattr(session, "_pending_file_context") and session._pending_file_context:
@@ -94,12 +119,20 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
         session._pending_file_context = None
 
     augmented = proto_result["input"]
+    context_system_msg = None
     if context_parts:
-        augmented = "[" + "\n".join(context_parts) + "]\n\n" + augmented
+        context_block = "\n".join(context_parts)
+        # Inject context as a system message so the LLM treats it as
+        # authoritative data (not user chatter wrapped in brackets).
+        context_system_msg = {"role": "system", "content": context_block}
+        logger.info("Context injection (%d chars): %s", len(context_block), context_block[:300])
 
     # Add to history
     session.messages.append({"role": "user", "content": user_input})
-    messages_to_send = session.messages[:-1] + [{"role": "user", "content": augmented}]
+    messages_to_send = list(session.messages[:-1])
+    if context_system_msg:
+        messages_to_send.append(context_system_msg)
+    messages_to_send.append({"role": "user", "content": augmented})
 
     try:
         # Run ollama.chat in a thread so we don't block the event loop
