@@ -3141,6 +3141,27 @@
         }
         .panel-settings-btn { font-size: 14px !important; }
 
+        /* Custom font color override */
+        .lcars-panel.has-custom-font,
+        .lcars-panel.has-custom-font .panel-body,
+        .lcars-panel.has-custom-font .panel-body *,
+        .lcars-panel.has-custom-font .lcars-panel-header span,
+        .lcars-chat-window.has-custom-font,
+        .lcars-chat-window.has-custom-font .panel-body,
+        .lcars-chat-window.has-custom-font .panel-body * {
+            color: var(--panel-font-color) !important;
+        }
+        .lcars-panel.has-custom-font .panel-ctrl-btn,
+        .lcars-chat-window.has-custom-font .panel-ctrl-btn {
+            color: var(--panel-font-color) !important;
+        }
+        .lcars-panel.has-custom-font .settings-label,
+        .lcars-panel.has-custom-font .ps-val,
+        .lcars-panel.has-custom-font .ps-label {
+            color: var(--panel-font-color) !important;
+            opacity: 0.8;
+        }
+
         /* ========== PHASE 10: LCARS PANEL SYSTEM ========== */
 
         .lcars-panel {
@@ -6289,7 +6310,13 @@ function resetPanelLayout() {
     localStorage.removeItem('aegis_panel_themes');
     localStorage.removeItem('aegis_panel_custom_colors');
     localStorage.removeItem('aegis_panel_opacity');
+    localStorage.removeItem('aegis_panel_font_colors');
     localStorage.removeItem('aegis_sidebar_tab_order');
+    // Remove custom font classes from all panels
+    document.querySelectorAll('.has-custom-font').forEach(function(p) {
+        p.classList.remove('has-custom-font');
+        p.style.removeProperty('--panel-font-color');
+    });
     // Snap back all popped tabs before clearing state
     var poppedSaved = localStorage.getItem('aegis_popped_tabs');
     if (poppedSaved) {
@@ -6757,6 +6784,72 @@ function togglePanelSettings(panelId) {
     divider2.className = 'ps-divider';
     dropdown.appendChild(divider2);
 
+    // ── Font color ──
+    var fontLabel = document.createElement('div');
+    fontLabel.className = 'settings-label';
+    fontLabel.textContent = 'FONT COLOR';
+    dropdown.appendChild(fontLabel);
+    var fontSwatches = document.createElement('div');
+    fontSwatches.className = 'panel-color-swatches';
+    var FONT_COLOR_PRESETS = [
+        { name: 'white', hex: '#ffffff' },
+        { name: 'amber', hex: '#f59e0b' },
+        { name: 'blue', hex: '#7dd3fc' },
+        { name: 'green', hex: '#22c55e' },
+        { name: 'pink', hex: '#ec4899' },
+        { name: 'purple', hex: '#c084fc' },
+        { name: 'orange', hex: '#fb923c' },
+        { name: 'ice', hex: '#bae6fd' },
+    ];
+    var currentFont = _getPanelFontColor(panelId);
+    FONT_COLOR_PRESETS.forEach(function(fc) {
+        var s = document.createElement('div');
+        s.className = 'panel-color-swatch font-swatch' + (currentFont === fc.hex ? ' active' : '');
+        s.style.background = fc.hex;
+        s.setAttribute('data-font-color', fc.hex);
+        s.onclick = function() {
+            _setPanelFontColor(panelId, fc.hex);
+            fontSwatches.querySelectorAll('.font-swatch').forEach(function(fs) {
+                fs.classList.toggle('active', fs.getAttribute('data-font-color') === fc.hex);
+            });
+            fontPicker.value = fc.hex;
+        };
+        fontSwatches.appendChild(s);
+    });
+    dropdown.appendChild(fontSwatches);
+    var fontColorRow = document.createElement('div');
+    fontColorRow.className = 'ps-color-row';
+    var fontPicker = document.createElement('input');
+    fontPicker.type = 'color';
+    fontPicker.className = 'ps-picker';
+    fontPicker.value = currentFont || '#ffffff';
+    fontPicker.addEventListener('input', function() {
+        _setPanelFontColor(panelId, this.value);
+        fontSwatches.querySelectorAll('.font-swatch').forEach(function(fs) {
+            fs.classList.remove('active');
+        });
+    });
+    var fontHueSlider = document.createElement('input');
+    fontHueSlider.type = 'range';
+    fontHueSlider.className = 'ps-hue';
+    fontHueSlider.min = '0'; fontHueSlider.max = '360'; fontHueSlider.value = '0';
+    fontHueSlider.addEventListener('input', function() {
+        var hex = _hslToHex(parseInt(this.value), 70, 75);
+        _setPanelFontColor(panelId, hex);
+        fontPicker.value = hex;
+        fontSwatches.querySelectorAll('.font-swatch').forEach(function(fs) {
+            fs.classList.remove('active');
+        });
+    });
+    fontColorRow.appendChild(fontPicker);
+    fontColorRow.appendChild(fontHueSlider);
+    dropdown.appendChild(fontColorRow);
+
+    // ── Divider ──
+    var divider3 = document.createElement('div');
+    divider3.className = 'ps-divider';
+    dropdown.appendChild(divider3);
+
     // ── Action options ──
     var resetSizeOpt = document.createElement('div');
     resetSizeOpt.className = 'ps-option';
@@ -6783,8 +6876,11 @@ function togglePanelSettings(panelId) {
     resetColorOpt.onclick = function() {
         // Remove custom color, reset opacity, restore default theme
         _clearPanelCustomColor(panelId);
+        _clearPanelFontColor(panelId);
         _setPanelOpacity(panelId, 1);
         opSlider.value = '100'; opVal.textContent = '100%';
+        fontPicker.value = '#ffffff';
+        fontSwatches.querySelectorAll('.font-swatch').forEach(function(fs) { fs.classList.remove('active'); });
         // Reset theme to panel's original
         var prefs = JSON.parse(localStorage.getItem('aegis_panel_themes') || '{}');
         delete prefs[panelId];
@@ -6870,6 +6966,32 @@ function _setPanelOpacity(panelId, value) {
     localStorage.setItem('aegis_panel_opacity', JSON.stringify(prefs));
 }
 
+function _getPanelFontColor(panelId) {
+    var prefs = JSON.parse(localStorage.getItem('aegis_panel_font_colors') || '{}');
+    return prefs[panelId] || null;
+}
+
+function _setPanelFontColor(panelId, hex) {
+    var panel = document.getElementById(panelId);
+    if (!panel) return;
+    panel.style.setProperty('--panel-font-color', hex);
+    panel.classList.add('has-custom-font');
+    var prefs = JSON.parse(localStorage.getItem('aegis_panel_font_colors') || '{}');
+    prefs[panelId] = hex;
+    localStorage.setItem('aegis_panel_font_colors', JSON.stringify(prefs));
+}
+
+function _clearPanelFontColor(panelId) {
+    var panel = document.getElementById(panelId);
+    if (panel) {
+        panel.style.removeProperty('--panel-font-color');
+        panel.classList.remove('has-custom-font');
+    }
+    var prefs = JSON.parse(localStorage.getItem('aegis_panel_font_colors') || '{}');
+    delete prefs[panelId];
+    localStorage.setItem('aegis_panel_font_colors', JSON.stringify(prefs));
+}
+
 function restorePanelThemes() {
     var prefs = JSON.parse(localStorage.getItem('aegis_panel_themes') || '{}');
     var customColors = JSON.parse(localStorage.getItem('aegis_panel_custom_colors') || '{}');
@@ -6891,6 +7013,15 @@ function restorePanelThemes() {
         if (panel) {
             var body = panel.querySelector('.panel-body');
             if (body) body.style.opacity = opacities[panelId];
+        }
+    });
+    // Restore font colors
+    var fontColors = JSON.parse(localStorage.getItem('aegis_panel_font_colors') || '{}');
+    Object.keys(fontColors).forEach(function(panelId) {
+        var panel = document.getElementById(panelId);
+        if (panel) {
+            panel.style.setProperty('--panel-font-color', fontColors[panelId]);
+            panel.classList.add('has-custom-font');
         }
     });
 }
