@@ -119,6 +119,25 @@ class GoogleProtocol(Protocol):
             injection = "[Google: " + ". ".join(parts) + ". Do NOT mention unless asked.]"
             result["context_injection"] = injection
 
+        # Inject upcoming Google Calendar event within 30 minutes
+        if self._inject_calendar and self._cached_next_event:
+            evt = self._cached_next_event
+            start = evt.get("start", "")
+            if "T" in start:
+                try:
+                    event_dt = datetime.fromisoformat(start.replace("Z", "+00:00"))
+                    now = datetime.now(event_dt.tzinfo) if event_dt.tzinfo else datetime.now()
+                    diff_min = (event_dt - now).total_seconds() / 60
+                    if 0 < diff_min <= 30:
+                        time_str = _format_time_short(start)
+                        line = f"[Event in ~{int(diff_min)} min: '{evt['summary']}' at {time_str}]"
+                        if result["context_injection"]:
+                            result["context_injection"] += "\n" + line
+                        else:
+                            result["context_injection"] = line
+                except (ValueError, TypeError):
+                    pass
+
         return result
 
     def process_output(self, response, context):

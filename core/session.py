@@ -94,14 +94,15 @@ class UserSession:
         self.protocol_registry.register(SecurityProtocol())
         self.protocol_registry.register(WellnessProtocol())
         self.protocol_registry.register(CommunicationsProtocol())
-        self.protocol_registry.register(OperationsProtocol(data_dir=user_data_dir))
+        # Event manager (local calendar) — created before OperationsProtocol needs it
+        self.event_manager = EventManager(user_data_dir)
+
+        self.protocol_registry.register(OperationsProtocol(
+            data_dir=user_data_dir, event_manager=self.event_manager))
         self.protocol_registry.register(WebProtocol())
         self.protocol_registry.register(GoogleProtocol(data_dir=user_data_dir))
         self.protocol_registry.register(CommandProtocol())
         self.protocol_registry.register(CreativeProtocol())
-
-        # Event manager (local calendar)
-        self.event_manager = EventManager(user_data_dir)
 
         # Phase 10 managers
         self.mood_manager = MoodManager(user_data_dir)

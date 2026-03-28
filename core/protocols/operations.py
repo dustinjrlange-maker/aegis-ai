@@ -23,7 +23,34 @@ class OperationsProtocol(Protocol):
         r"don'?t\s+let\s+me\s+forget\s+(?:to\s+)?(.+)",
     ]
 
-    def __init__(self, data_dir=None):
+    # Patterns that suggest calendar event creation
+    EVENT_PATTERNS = [
+        # "schedule dentist on March 20 at 2pm"
+        r"schedule\s+(.+?)\s+(?:on|for)\s+(.+?)(?:\s+at\s+(.+))?$",
+        # "add/create an event: X on DATE at TIME"
+        r"(?:add|create)\s+(?:an?\s+)?event\s*[:\-]?\s*(.+?)\s+(?:on|for)\s+(.+?)(?:\s+at\s+(.+))?$",
+        # "meeting/appointment/call with X on DATE at TIME"
+        r"(?:meeting|appointment|call)\s+with\s+(.+?)\s+on\s+(.+?)(?:\s+at\s+(.+))?$",
+        # "i have X on DATE at TIME"
+        r"i\s+have\s+(?:a\s+|an\s+)?(.+?)\s+on\s+(.+?)(?:\s+at\s+(.+))?$",
+    ]
+
+    # Day name lookup
+    _DAY_NAMES = {
+        "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
+        "friday": 4, "saturday": 5, "sunday": 6,
+    }
+
+    _MONTH_NAMES = {
+        "january": 1, "february": 2, "march": 3, "april": 4,
+        "may": 5, "june": 6, "july": 7, "august": 8,
+        "september": 9, "october": 10, "november": 11, "december": 12,
+        "jan": 1, "feb": 2, "mar": 3, "apr": 4,
+        "jun": 6, "jul": 7, "aug": 8, "sep": 9,
+        "oct": 10, "nov": 11, "dec": 12,
+    }
+
+    def __init__(self, data_dir=None, event_manager=None):
         super().__init__(
             name="operations",
             description="Digital assistant — tasks, calendar, email, file organization",
@@ -35,6 +62,7 @@ class OperationsProtocol(Protocol):
         else:
             self.TASK_FILE = PROJECT_ROOT / "data" / "tasks.json"
             self.RECURRING_FILE = PROJECT_ROOT / "data" / "recurring.json"
+        self._event_manager = event_manager
         self._tasks = []
         self._recurring = []
         self._load_tasks()
@@ -163,8 +191,112 @@ class OperationsProtocol(Protocol):
 
         return generated
 
+    # --- NLP date/time parsing ---
+
+    @classmethod
+    def _parse_natural_date(cls, text):
+        """Parse natural date text into YYYY-MM-DD string. Returns None on failure."""
+        text = text.strip().lower().rstrip(".,!?")
+        today = date.today()
+
+        if text == "today":
+            return today.isoformat()
+        if text == "tomorrow":
+            return (today + timedelta(days=1)).isoformat()
+        if text == "yesterday":
+            return (today - timedelta(days=1)).isoformat()
+
+        # "next monday", "next friday", etc.
+        next_match = re.match(r"next\s+(\w+)", text)
+        if next_match:
+            day_name = next_match.group(1).lower()
+            if day_name in cls._DAY_NAMES:
+                target_wd = cls._DAY_NAMES[day_name]
+                days_ahead = target_wd - today.weekday()
+                if days_ahead <= 0:
+                    days_ahead += 7
+                return (today + timedelta(days=days_ahead)).isoformat()
+
+        # Bare day name: "thursday", "monday"
+        if text in cls._DAY_NAMES:
+            target_wd = cls._DAY_NAMES[text]
+            days_ahead = target_wd - today.weekday()
+            if days_ahead <= 0:
+                days_ahead += 7
+            return (today + timedelta(days=days_ahead)).isoformat()
+
+        # "March 20", "march 20th", "Mar 20"
+        month_day = re.match(r"(\w+)\s+(\d{1,2})(?:st|nd|rd|th)?", text)
+        if month_day:
+            month_name = month_day.group(1).lower()
+            day_num = int(month_day.group(2))
+            if month_name in cls._MONTH_NAMES:
+                m = cls._MONTH_NAMES[month_name]
+                y = today.year
+                try:
+                    d = date(y, m, day_num)
+                    if d < today:
+                        d = date(y + 1, m, day_num)
+                    return d.isoformat()
+                except ValueError:
+                    pass
+
+        # "3/20", "03/20"
+        slash_match = re.match(r"(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?", text)
+        if slash_match:
+            m = int(slash_match.group(1))
+            d_num = int(slash_match.group(2))
+            y = int(slash_match.group(3)) if slash_match.group(3) else today.year
+            if y < 100:
+                y += 2000
+            try:
+                return date(y, m, d_num).isoformat()
+            except ValueError:
+                pass
+
+        # YYYY-MM-DD (already formatted)
+        iso_match = re.match(r"\d{4}-\d{2}-\d{2}", text)
+        if iso_match:
+            try:
+                date.fromisoformat(iso_match.group())
+                return iso_match.group()
+            except ValueError:
+                pass
+
+        return None
+
+    @staticmethod
+    def _parse_natural_time(text):
+        """Parse natural time text into HH:MM string. Returns None on failure."""
+        if not text:
+            return None
+        text = text.strip().lower().rstrip(".,!?")
+
+        # Named times
+        named = {"noon": "12:00", "midnight": "00:00",
+                 "morning": "09:00", "afternoon": "14:00", "evening": "18:00"}
+        if text in named:
+            return named[text]
+
+        # "3pm", "3:00 PM", "15:00", "3:30pm"
+        time_match = re.match(r"(\d{1,2})(?::(\d{2}))?\s*(am|pm)?", text, re.IGNORECASE)
+        if time_match:
+            h = int(time_match.group(1))
+            m = int(time_match.group(2)) if time_match.group(2) else 0
+            ampm = time_match.group(3)
+            if ampm:
+                ampm = ampm.lower()
+                if ampm == "pm" and h < 12:
+                    h += 12
+                elif ampm == "am" and h == 12:
+                    h = 0
+            if 0 <= h <= 23 and 0 <= m <= 59:
+                return f"{h:02d}:{m:02d}"
+
+        return None
+
     def process_input(self, user_input, context):
-        """Detect task intent from natural language and inject pending task context."""
+        """Detect task/event intent from natural language and inject context."""
         result = {
             "input": user_input,
             "context_injection": "",
@@ -177,20 +309,68 @@ class OperationsProtocol(Protocol):
 
         injection_parts = []
 
-        # NLP task detection — auto-create tasks from conversation
+        # NLP event detection — auto-create events from conversation
         lower = user_input.lower().strip()
-        for pattern in self.TASK_PATTERNS:
-            match = re.search(pattern, lower, re.IGNORECASE)
-            if match:
-                task_text = match.group(1).strip().rstrip(".!,")
-                if len(task_text) > 3:
-                    task = self.add_task(task_text)
-                    injection_parts.append(
-                        f"[System: A task was auto-detected and saved: "
-                        f"'#{task['id']}: {task['text']}'. "
-                        f"Acknowledge this naturally in your response.]"
-                    )
-                break
+        event_created = False
+
+        if self._event_manager:
+            for pattern in self.EVENT_PATTERNS:
+                match = re.search(pattern, lower, re.IGNORECASE)
+                if match:
+                    title = match.group(1).strip().rstrip(".!,")
+                    date_text = match.group(2).strip().rstrip(".!,") if match.group(2) else None
+                    time_text = match.group(3).strip().rstrip(".!,") if match.lastindex >= 3 and match.group(3) else None
+
+                    parsed_date = self._parse_natural_date(date_text) if date_text else None
+                    parsed_time = self._parse_natural_time(time_text) if time_text else None
+
+                    if title and parsed_date and len(title) > 2:
+                        event = self._event_manager.add_event(
+                            title=title, date=parsed_date,
+                            time_start=parsed_time,
+                        )
+                        time_info = f" at {parsed_time}" if parsed_time else ""
+                        injection_parts.append(
+                            f"[System: Event created: '{event['title']}' on {parsed_date}{time_info}. "
+                            f"Acknowledge this naturally in your response.]"
+                        )
+                        event_created = True
+                    break
+
+        # Upcoming event context injection (within 30 minutes)
+        if self._event_manager:
+            try:
+                now = datetime.now()
+                today_str = date.today().isoformat()
+                day_events = self._event_manager.get_events_for_date(today_str)
+                for ev in day_events:
+                    ts = ev.get("time_start")
+                    if not ts:
+                        continue
+                    event_dt = datetime.strptime(f"{today_str} {ts}", "%Y-%m-%d %H:%M")
+                    diff_min = (event_dt - now).total_seconds() / 60
+                    if 0 < diff_min <= 30:
+                        injection_parts.append(
+                            f"[Event in ~{int(diff_min)} min: '{ev['title']}' at {ts}]"
+                        )
+                        break  # Only inject one upcoming event
+            except Exception:
+                pass
+
+        # NLP task detection — auto-create tasks from conversation
+        if not event_created:
+            for pattern in self.TASK_PATTERNS:
+                match = re.search(pattern, lower, re.IGNORECASE)
+                if match:
+                    task_text = match.group(1).strip().rstrip(".!,")
+                    if len(task_text) > 3:
+                        task = self.add_task(task_text)
+                        injection_parts.append(
+                            f"[System: A task was auto-detected and saved: "
+                            f"'#{task['id']}: {task['text']}'. "
+                            f"Acknowledge this naturally in your response.]"
+                        )
+                    break
 
         # Always inject pending tasks — even when a new task was just created
         pending = self.get_pending_tasks()

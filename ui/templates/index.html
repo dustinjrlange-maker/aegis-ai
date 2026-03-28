@@ -1371,6 +1371,86 @@
             padding: 8px 14px;
             cursor: pointer;
         }
+        .cal-event-form select {
+            background: var(--lcars-surface);
+            border: 1px solid var(--lcars-grey-1);
+            border-radius: 4px;
+            color: var(--lcars-text);
+            padding: 8px 10px;
+            font-family: var(--font-body);
+            font-size: 12px;
+        }
+        .cal-event-form select:focus { border-color: var(--lcars-blue-1); outline: none; }
+
+        /* Category colors */
+        .cal-event-dot.cat-work { background: var(--lcars-blue-1); }
+        .cal-event-dot.cat-personal { background: var(--lcars-amber); }
+        .cal-event-dot.cat-health { background: #34c759; }
+        .cal-event-dot.cat-social { background: var(--lcars-lilac); }
+        .cal-event-dot.cat-general { background: var(--lcars-grey-2); }
+        .cal-cat-badge {
+            font-size: 8px;
+            font-family: var(--font-display);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 1px 4px;
+            border-radius: 3px;
+            color: #000;
+        }
+        .cal-cat-badge.cat-work { background: var(--lcars-blue-1); }
+        .cal-cat-badge.cat-personal { background: var(--lcars-amber); }
+        .cal-cat-badge.cat-health { background: #34c759; }
+        .cal-cat-badge.cat-social { background: var(--lcars-lilac); }
+        .cal-cat-badge.cat-general { background: var(--lcars-grey-2); }
+        .cal-recurring-icon {
+            font-size: 10px;
+            color: var(--lcars-text-dim);
+            margin-left: 2px;
+        }
+
+        /* Week view */
+        .cal-week-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+        }
+        .cal-week-col {
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 4px;
+            min-height: 120px;
+            padding: 4px;
+            cursor: pointer;
+        }
+        .cal-week-col:hover { background: rgba(255,255,255,0.05); }
+        .cal-week-col.today { border-color: var(--lcars-blue-1); border-width: 2px; }
+        .cal-week-day-label {
+            font-family: var(--font-display);
+            font-size: 9px;
+            text-transform: uppercase;
+            color: var(--lcars-text-dim);
+            text-align: center;
+            margin-bottom: 4px;
+        }
+        .cal-week-day-num {
+            font-family: var(--font-display);
+            font-size: 12px;
+            text-align: center;
+            margin-bottom: 4px;
+        }
+        .cal-week-event {
+            font-size: 10px;
+            padding: 2px 4px;
+            margin-bottom: 2px;
+            border-radius: 3px;
+            background: rgba(var(--lcars-blue-1-rgb, 153,153,255), 0.15);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .cal-week-event.cat-work { border-left: 2px solid var(--lcars-blue-1); }
+        .cal-week-event.cat-personal { border-left: 2px solid var(--lcars-amber); }
+        .cal-week-event.cat-health { border-left: 2px solid #34c759; }
+        .cal-week-event.cat-social { border-left: 2px solid var(--lcars-lilac); }
 
         /* ========== HISTORY PANEL ========== */
 
@@ -3141,7 +3221,8 @@
         }
         .panel-settings-btn { font-size: 14px !important; }
 
-        /* Custom font color override */
+        /* ── Zone-based font color override ── */
+        /* Legacy compat: keep has-custom-font working for any old code */
         .lcars-panel.has-custom-font,
         .lcars-panel.has-custom-font .panel-body,
         .lcars-panel.has-custom-font .panel-body *,
@@ -3155,12 +3236,140 @@
         .lcars-chat-window.has-custom-font .panel-ctrl-btn {
             color: var(--panel-font-color) !important;
         }
-        .lcars-panel.has-custom-font .settings-label,
-        .lcars-panel.has-custom-font .ps-val,
-        .lcars-panel.has-custom-font .ps-label {
-            color: var(--panel-font-color) !important;
-            opacity: 0.8;
+
+        /* TITLE zone — header text, control buttons */
+        .lcars-panel.has-zone-fonts .lcars-panel-header span,
+        .lcars-panel.has-zone-fonts .panel-ctrl-btn,
+        .lcars-panel.has-zone-fonts .widget-title,
+        .lcars-chat-window.has-zone-fonts .lcars-panel-header span,
+        .lcars-chat-window.has-zone-fonts .panel-ctrl-btn {
+            color: var(--panel-font-title) !important;
         }
+
+        /* PRIMARY zone — main content text */
+        .lcars-panel.has-zone-fonts .panel-body,
+        .lcars-chat-window.has-zone-fonts .panel-body {
+            color: var(--panel-font-primary) !important;
+        }
+        .lcars-panel.has-zone-fonts .task-text,
+        .lcars-panel.has-zone-fonts .news-headline,
+        .lcars-panel.has-zone-fonts .news-headline a,
+        .lcars-panel.has-zone-fonts .cal-event-title,
+        .lcars-panel.has-zone-fonts .cal-day-num,
+        .lcars-panel.has-zone-fonts .weather-condition,
+        .lcars-panel.has-zone-fonts .weather-temp,
+        .lcars-panel.has-zone-fonts .weather-temp-big,
+        .lcars-panel.has-zone-fonts .mood-entry,
+        .lcars-panel.has-zone-fonts .timer-display,
+        .lcars-panel.has-zone-fonts .alarm-label,
+        .lcars-panel.has-zone-fonts .behavior-name,
+        .lcars-panel.has-zone-fonts .contact-name,
+        .lcars-panel.has-zone-fonts .habit-name,
+        .lcars-panel.has-zone-fonts .sysperf-proc-name,
+        .lcars-panel.has-zone-fonts .social-post,
+        .lcars-panel.has-zone-fonts .plog-entry,
+        .lcars-panel.has-zone-fonts .briefing-summary-row,
+        .lcars-panel.has-zone-fonts .pw-mood-entry,
+        .lcars-panel.has-zone-fonts .pw-forecast-day,
+        .lcars-chat-window.has-zone-fonts .task-text,
+        .lcars-chat-window.has-zone-fonts .news-headline a {
+            color: var(--panel-font-primary) !important;
+        }
+
+        /* SECONDARY zone — labels, timestamps, meta text */
+        .lcars-panel.has-zone-fonts .data-row .label,
+        .lcars-panel.has-zone-fonts .stat-label,
+        .lcars-panel.has-zone-fonts .setting-label,
+        .lcars-panel.has-zone-fonts .setting-desc,
+        .lcars-panel.has-zone-fonts .settings-label,
+        .lcars-panel.has-zone-fonts .ps-label,
+        .lcars-panel.has-zone-fonts .ps-val,
+        .lcars-panel.has-zone-fonts .field-label,
+        .lcars-panel.has-zone-fonts .lcars-divider .div-label,
+        .lcars-panel.has-zone-fonts .sysperf-label,
+        .lcars-panel.has-zone-fonts .sysperf-detail-title,
+        .lcars-panel.has-zone-fonts .task-due-badge,
+        .lcars-panel.has-zone-fonts .cal-event-time,
+        .lcars-panel.has-zone-fonts .cal-event-source,
+        .lcars-panel.has-zone-fonts .cal-header,
+        .lcars-panel.has-zone-fonts .mood-time,
+        .lcars-panel.has-zone-fonts .mood-note,
+        .lcars-panel.has-zone-fonts .alarm-time,
+        .lcars-panel.has-zone-fonts .timer-sidebar,
+        .lcars-panel.has-zone-fonts .social-post-status,
+        .lcars-panel.has-zone-fonts .plog-date-label,
+        .lcars-panel.has-zone-fonts .pw-stat-row,
+        .lcars-panel.has-zone-fonts .pw-due,
+        .lcars-panel.has-zone-fonts .pw-day-label,
+        .lcars-panel.has-zone-fonts .pw-section-label,
+        .lcars-panel.has-zone-fonts .notification-item,
+        .lcars-panel.has-zone-fonts .ticker-item,
+        .lcars-panel.has-zone-fonts .status-readout-text,
+        .lcars-chat-window.has-zone-fonts .settings-label,
+        .lcars-chat-window.has-zone-fonts .ps-label,
+        .lcars-chat-window.has-zone-fonts .ps-val {
+            color: var(--panel-font-secondary) !important;
+        }
+
+        /* ACCENT zone — data values, numbers, status indicators */
+        .lcars-panel.has-zone-fonts .data-row .value,
+        .lcars-panel.has-zone-fonts .stat-value,
+        .lcars-panel.has-zone-fonts .sysperf-pct,
+        .lcars-panel.has-zone-fonts .sysperf-proc-val,
+        .lcars-panel.has-zone-fonts .task-priority,
+        .lcars-panel.has-zone-fonts .welcome-card-value,
+        .lcars-panel.has-zone-fonts .behavior-clean,
+        .lcars-panel.has-zone-fonts .behavior-best,
+        .lcars-panel.has-zone-fonts .mood-tag,
+        .lcars-panel.has-zone-fonts .mood-energy,
+        .lcars-panel.has-zone-fonts .pw-stat-val,
+        .lcars-panel.has-zone-fonts .pw-core-bar-pct,
+        .lcars-panel.has-zone-fonts .pw-day-temp,
+        .lcars-chat-window.has-zone-fonts .stat-value {
+            color: var(--panel-font-accent) !important;
+        }
+
+        /* Zone dropdown UI styles */
+        .ps-zone-section { margin: 4px 0 2px; }
+        .ps-zone-toggle {
+            display: flex; align-items: center; gap: 6px;
+            cursor: pointer; padding: 3px 0; font-size: 10px;
+            letter-spacing: 1px; color: #9CA3AF; user-select: none;
+        }
+        .ps-zone-toggle:hover { color: #fff; }
+        .ps-zone-toggle .ps-zone-arrow {
+            display: inline-block; transition: transform 0.2s;
+            font-size: 8px;
+        }
+        .ps-zone-toggle.expanded .ps-zone-arrow { transform: rotate(90deg); }
+        .ps-zone-rows {
+            display: none; padding-left: 6px;
+            border-left: 1px solid rgba(255,255,255,0.1);
+            margin-left: 4px;
+        }
+        .ps-zone-rows.open { display: block; }
+        .ps-zone-row {
+            display: flex; align-items: center; gap: 5px;
+            padding: 3px 0;
+        }
+        .ps-zone-label {
+            font-size: 9px; letter-spacing: 1px; color: #9CA3AF;
+            min-width: 62px; text-transform: uppercase;
+        }
+        .ps-zone-picker {
+            width: 22px; height: 18px; border: none; padding: 0;
+            background: transparent; cursor: pointer; border-radius: 2px;
+        }
+        .ps-zone-swatches {
+            display: flex; gap: 3px; flex-wrap: wrap;
+        }
+        .ps-zone-swatch {
+            width: 14px; height: 14px; border-radius: 2px;
+            cursor: pointer; border: 1px solid rgba(255,255,255,0.2);
+            transition: border-color 0.15s, transform 0.15s;
+        }
+        .ps-zone-swatch:hover { transform: scale(1.2); border-color: #fff; }
+        .ps-zone-swatch.active { border-color: #fff; box-shadow: 0 0 4px rgba(255,255,255,0.5); }
 
         /* ========== PHASE 10: LCARS PANEL SYSTEM ========== */
 
@@ -3887,7 +4096,7 @@
             align-items: center;
             gap: 6px;
             padding: 0 8px;
-            color: #000;
+            color: var(--widget-title-color, #000);
             font-family: var(--font-display);
             font-size: 12px;
             font-weight: 700;
@@ -4026,25 +4235,92 @@
             align-items: center;
             height: 100%;
             white-space: nowrap;
-            animation: tickerScroll 40s linear infinite;
             padding-left: 90px;
+            will-change: transform;
         }
         .ticker-item {
             font-family: var(--font-mono);
             font-size: 11px;
-            color: var(--lcars-amber);
+            color: var(--ticker-item-color, var(--lcars-amber));
             padding: 0 12px;
             letter-spacing: 1px;
         }
         .ticker-sep {
             font-family: var(--font-mono);
             font-size: 10px;
-            color: var(--lcars-grey-2);
+            color: var(--ticker-sep-color, var(--lcars-grey-2));
             padding: 0 4px;
         }
-        @keyframes tickerScroll {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-50%); }
+
+        /* Ticker settings gear */
+        .ticker-gear {
+            position: absolute; right: 4px; top: 0; height: 100%;
+            display: flex; align-items: center; z-index: 2;
+        }
+        .ticker-gear-btn {
+            background: none; border: none; color: var(--lcars-grey-2);
+            font-size: 13px; cursor: pointer; padding: 2px 6px;
+            opacity: 0; transition: opacity 0.2s;
+        }
+        .lcars-ticker:hover .ticker-gear-btn { opacity: 0.7; }
+        .ticker-gear-btn:hover { opacity: 1 !important; color: #fff; }
+
+        /* Ticker settings dropdown */
+        .ticker-settings-dropdown {
+            position: fixed;
+            background: var(--lcars-surface); border: 1px solid var(--lcars-grey-1);
+            border-radius: 8px; padding: 10px; z-index: 10001;
+            min-width: 260px; box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+            display: none; max-height: 400px; overflow-y: auto;
+        }
+        .ticker-settings-dropdown.open { display: block; }
+        .ticker-settings-dropdown .settings-label {
+            font-family: var(--font-display);
+            font-size: 9px; font-weight: 700; letter-spacing: 2px;
+            color: var(--lcars-text-dim); text-transform: uppercase;
+            margin: 8px 0 4px; padding: 0;
+        }
+        .ticker-settings-dropdown .settings-label:first-child { margin-top: 0; }
+        .ticker-settings-dropdown .ts-color-row {
+            display: flex; align-items: center; gap: 4px; margin-bottom: 4px;
+        }
+        .ticker-settings-dropdown .ts-color-row input[type="color"] {
+            width: 24px; height: 24px; border: 1px solid var(--lcars-grey-1);
+            border-radius: 4px; padding: 0; cursor: pointer; background: none;
+        }
+        .ticker-settings-dropdown .ts-swatch {
+            width: 22px; height: 22px; border-radius: 4px; cursor: pointer;
+            border: 2px solid transparent; transition: border-color 0.15s;
+        }
+        .ticker-settings-dropdown .ts-swatch:hover { border-color: rgba(255,255,255,0.5); }
+        .ticker-settings-dropdown .ts-swatch.active { border-color: #fff; }
+        .ticker-settings-dropdown .ts-slider-row {
+            display: flex; align-items: center; gap: 6px; margin-bottom: 4px;
+        }
+        .ticker-settings-dropdown .ts-slider-row input[type="range"] {
+            flex: 1; height: 4px; accent-color: var(--lcars-amber);
+        }
+        .ticker-settings-dropdown .ts-slider-row .ts-val {
+            font-family: var(--font-display); font-size: 10px;
+            color: var(--lcars-text-dim); min-width: 40px; text-align: right;
+        }
+        .ticker-settings-dropdown .ts-divider {
+            border-top: 1px solid var(--lcars-grey-1); margin: 8px 0;
+        }
+
+        /* Checkbox items grid */
+        .ticker-item-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 2px 12px;
+        }
+        .ticker-item-toggle {
+            display: flex; align-items: center; gap: 5px;
+            padding: 3px 0; cursor: pointer; font-size: 10px;
+            font-family: var(--font-display); color: var(--lcars-text-dim);
+            letter-spacing: 0.5px;
+        }
+        .ticker-item-toggle:hover { color: #fff; }
+        .ticker-item-toggle input[type="checkbox"] {
+            accent-color: var(--lcars-amber); cursor: pointer;
         }
 
         .lcars-content.layout-focus .lcars-ticker { display: none; }
@@ -4394,6 +4670,27 @@
         .widget-color-swatch.sw-green { background: var(--lcars-success); }
         .widget-color-swatch.sw-pink { background: var(--lcars-pink-1); }
         .widget-color-swatch.sw-ice { background: var(--lcars-ice); }
+
+        .widget-settings-dropdown .ws-divider {
+            border-top: 1px solid var(--lcars-grey-1); margin: 2px 0;
+        }
+        .widget-settings-dropdown .ws-label {
+            font-family: var(--font-display); font-size: 9px; font-weight: 700;
+            letter-spacing: 2px; color: var(--lcars-text-dim); text-transform: uppercase;
+        }
+        .widget-settings-dropdown .ws-font-row {
+            display: flex; align-items: center; gap: 4px;
+        }
+        .widget-settings-dropdown .ws-font-row input[type="color"] {
+            width: 22px; height: 22px; border: 1px solid var(--lcars-grey-1);
+            border-radius: 3px; background: none; cursor: pointer; padding: 0;
+        }
+        .widget-settings-dropdown .ws-font-swatch {
+            width: 20px; height: 20px; border-radius: 4px;
+            border: 2px solid transparent; cursor: pointer; transition: border-color 0.15s;
+        }
+        .widget-settings-dropdown .ws-font-swatch:hover { border-color: var(--lcars-text); }
+        .widget-settings-dropdown .ws-font-swatch.active { border-color: #fff; }
 
         /* ========== SIDEBAR TAB TITLE ========== */
         .sidebar-tab-title {
@@ -5104,6 +5401,9 @@
                 <span class="ticker-item">AWAITING DATA</span>
                 <span class="ticker-sep">///</span>
             </div>
+            <div class="ticker-gear">
+                <button class="ticker-gear-btn" onclick="toggleTickerSettings()" aria-label="Ticker settings">&#x2699;</button>
+            </div>
         </div>
 
         <!-- Widget Dock (fixed left strip) -->
@@ -5512,11 +5812,16 @@
         <div class="pbar-seg" style="flex:1;background:var(--lcars-lilac)"></div>
     </div>
     <div class="panel-body">
+        <!-- View toggle -->
+        <div style="display:flex;gap:4px;margin-bottom:8px">
+            <button id="calViewMonth" class="sidebar-action-btn" onclick="calSwitchView('month')" style="flex:1;font-size:11px;padding:4px">MONTH</button>
+            <button id="calViewWeek" class="sidebar-action-btn" onclick="calSwitchView('week')" style="flex:1;font-size:11px;padding:4px;opacity:0.5">WEEK</button>
+        </div>
         <!-- Month navigation -->
         <div class="cal-nav">
-            <button onclick="calPrevMonth()" aria-label="Previous month">&lt;</button>
+            <button onclick="calPrev()" aria-label="Previous">&lt;</button>
             <span id="calMonthLabel"></span>
-            <button onclick="calNextMonth()" aria-label="Next month">&gt;</button>
+            <button onclick="calNext()" aria-label="Next">&gt;</button>
         </div>
         <!-- Calendar grid -->
         <div id="calGridView">
@@ -5530,6 +5835,10 @@
                 <div class="cal-header">Sat</div>
             </div>
             <div class="cal-grid" id="calDays"></div>
+        </div>
+        <!-- Week view (hidden by default) -->
+        <div id="calWeekView" style="display:none">
+            <div class="cal-week-grid" id="calWeekDays"></div>
         </div>
         <!-- Day detail view (hidden by default) -->
         <div id="calDayView" style="display:none">
@@ -5554,9 +5863,35 @@
                     <input type="time" id="calEventEnd" placeholder="End" style="flex:1">
                 </div>
                 <input type="text" id="calEventDesc" placeholder="Description (optional)">
+                <select id="calEventCategory" style="font-size:12px">
+                    <option value="general">General</option>
+                    <option value="work">Work</option>
+                    <option value="personal">Personal</option>
+                    <option value="health">Health</option>
+                    <option value="social">Social</option>
+                </select>
+                <select id="calEventRepeat" style="font-size:12px">
+                    <option value="none">No repeat</option>
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="weekdays">Weekdays</option>
+                </select>
+                <input type="date" id="calEventRepeatUntil" placeholder="Repeat until (optional)" style="display:none">
+                <select id="calEventReminder" style="font-size:12px">
+                    <option value="0">No reminder</option>
+                    <option value="5">5 minutes before</option>
+                    <option value="15">15 minutes before</option>
+                    <option value="30">30 minutes before</option>
+                    <option value="60">1 hour before</option>
+                </select>
                 <label style="font-size:11px;color:var(--lcars-text-dim);display:flex;align-items:center;gap:6px">
                     <input type="checkbox" id="calEventAllDay"> All day
                 </label>
+                <label id="calGoogleToggle" style="font-size:11px;color:var(--lcars-text-dim);display:none;align-items:center;gap:6px">
+                    <input type="checkbox" id="calEventGoogle"> Save to Google Calendar
+                </label>
+                <div id="calConflictWarning" style="display:none;font-size:11px;color:var(--lcars-orange);padding:4px 0"></div>
                 <button onclick="calAddEvent()">CREATE</button>
             </div>
         </div>
@@ -6310,12 +6645,29 @@ function resetPanelLayout() {
     localStorage.removeItem('aegis_panel_themes');
     localStorage.removeItem('aegis_panel_custom_colors');
     localStorage.removeItem('aegis_panel_opacity');
+    localStorage.removeItem('aegis_ticker_prefs');
+    // Reset ticker to defaults
+    var ticker = document.getElementById('lcarsTicker');
+    if (ticker) {
+        ticker.style.removeProperty('--ticker-item-color');
+        ticker.style.removeProperty('--ticker-sep-color');
+        var dd = document.querySelector('.ticker-settings-dropdown');
+        if (dd) dd.remove();
+    }
+    TICKER_SPEED = 55;
+    _tickerLastItems = '';
+    refreshTicker();
     localStorage.removeItem('aegis_panel_font_colors');
     localStorage.removeItem('aegis_sidebar_tab_order');
     // Remove custom font classes from all panels
-    document.querySelectorAll('.has-custom-font').forEach(function(p) {
+    document.querySelectorAll('.has-custom-font, .has-zone-fonts').forEach(function(p) {
         p.classList.remove('has-custom-font');
+        p.classList.remove('has-zone-fonts');
         p.style.removeProperty('--panel-font-color');
+        p.style.removeProperty('--panel-font-title');
+        p.style.removeProperty('--panel-font-primary');
+        p.style.removeProperty('--panel-font-secondary');
+        p.style.removeProperty('--panel-font-accent');
     });
     // Snap back all popped tabs before clearing state
     var poppedSaved = localStorage.getItem('aegis_popped_tabs');
@@ -6362,6 +6714,10 @@ function resetPanelLayout() {
         chatWin.classList.remove('theme-custom');
         chatWin.classList.add('theme-blue');
     }
+    // Reset widget title font colors
+    document.querySelectorAll('.lcars-widget').forEach(function(w) {
+        w.style.removeProperty('--widget-title-color');
+    });
     showToast('Layout reset — all positions, colors and opacity cleared');
 }
 
@@ -6784,66 +7140,107 @@ function togglePanelSettings(panelId) {
     divider2.className = 'ps-divider';
     dropdown.appendChild(divider2);
 
-    // ── Font color ──
+    // ── Font colors (zone-based) ──
     var fontLabel = document.createElement('div');
     fontLabel.className = 'settings-label';
-    fontLabel.textContent = 'FONT COLOR';
+    fontLabel.textContent = 'FONT COLORS';
     dropdown.appendChild(fontLabel);
-    var fontSwatches = document.createElement('div');
-    fontSwatches.className = 'panel-color-swatches';
-    var FONT_COLOR_PRESETS = [
-        { name: 'white', hex: '#ffffff' },
-        { name: 'amber', hex: '#f59e0b' },
-        { name: 'blue', hex: '#7dd3fc' },
-        { name: 'green', hex: '#22c55e' },
-        { name: 'pink', hex: '#ec4899' },
-        { name: 'purple', hex: '#c084fc' },
-        { name: 'orange', hex: '#fb923c' },
-        { name: 'ice', hex: '#bae6fd' },
-    ];
-    var currentFont = _getPanelFontColor(panelId);
-    FONT_COLOR_PRESETS.forEach(function(fc) {
-        var s = document.createElement('div');
-        s.className = 'panel-color-swatch font-swatch' + (currentFont === fc.hex ? ' active' : '');
-        s.style.background = fc.hex;
-        s.setAttribute('data-font-color', fc.hex);
-        s.onclick = function() {
-            _setPanelFontColor(panelId, fc.hex);
-            fontSwatches.querySelectorAll('.font-swatch').forEach(function(fs) {
-                fs.classList.toggle('active', fs.getAttribute('data-font-color') === fc.hex);
-            });
-            fontPicker.value = fc.hex;
-        };
-        fontSwatches.appendChild(s);
-    });
-    dropdown.appendChild(fontSwatches);
-    var fontColorRow = document.createElement('div');
-    fontColorRow.className = 'ps-color-row';
-    var fontPicker = document.createElement('input');
-    fontPicker.type = 'color';
-    fontPicker.className = 'ps-picker';
-    fontPicker.value = currentFont || '#ffffff';
-    fontPicker.addEventListener('input', function() {
-        _setPanelFontColor(panelId, this.value);
-        fontSwatches.querySelectorAll('.font-swatch').forEach(function(fs) {
-            fs.classList.remove('active');
+
+    var fontSection = document.createElement('div');
+    fontSection.className = 'ps-zone-section';
+
+    // Helper: build a zone row (picker + swatches)
+    function _buildZoneRow(zone, label, onColor) {
+        var row = document.createElement('div');
+        row.className = 'ps-zone-row';
+        row.setAttribute('data-zone', zone);
+        var lbl = document.createElement('span');
+        lbl.className = 'ps-zone-label';
+        lbl.textContent = label;
+        row.appendChild(lbl);
+        var picker = document.createElement('input');
+        picker.type = 'color';
+        picker.className = 'ps-zone-picker';
+        picker.value = '#ffffff';
+        picker.addEventListener('input', function() {
+            onColor(this.value);
+            _refreshZoneSwatches(dropdown, panelId);
+        });
+        row.appendChild(picker);
+        var swatchWrap = document.createElement('div');
+        swatchWrap.className = 'ps-zone-swatches';
+        FONT_ZONE_PRESETS.forEach(function(fc) {
+            var sw = document.createElement('div');
+            sw.className = 'ps-zone-swatch';
+            sw.style.background = fc.hex;
+            sw.setAttribute('data-hex', fc.hex);
+            sw.onclick = function() {
+                onColor(fc.hex);
+                picker.value = fc.hex;
+                _refreshZoneSwatches(dropdown, panelId);
+            };
+            swatchWrap.appendChild(sw);
+        });
+        row.appendChild(swatchWrap);
+        return row;
+    }
+
+    // Master "ALL" row — sets all 4 zones
+    var masterRow = _buildZoneRow('master', 'ALL', function(hex) {
+        _setPanelFontMaster(panelId, hex);
+        // Sync per-zone picker values
+        FONT_ZONE_NAMES.forEach(function(z) {
+            var zRow = fontSection.querySelector('[data-zone="' + z + '"]');
+            if (zRow) {
+                var zp = zRow.querySelector('.ps-zone-picker');
+                if (zp) zp.value = hex;
+            }
         });
     });
-    var fontHueSlider = document.createElement('input');
-    fontHueSlider.type = 'range';
-    fontHueSlider.className = 'ps-hue';
-    fontHueSlider.min = '0'; fontHueSlider.max = '360'; fontHueSlider.value = '0';
-    fontHueSlider.addEventListener('input', function() {
-        var hex = _hslToHex(parseInt(this.value), 70, 75);
-        _setPanelFontColor(panelId, hex);
-        fontPicker.value = hex;
-        fontSwatches.querySelectorAll('.font-swatch').forEach(function(fs) {
-            fs.classList.remove('active');
+    fontSection.appendChild(masterRow);
+
+    // PER-SECTION toggle
+    var toggle = document.createElement('div');
+    toggle.className = 'ps-zone-toggle';
+    toggle.innerHTML = '<span class="ps-zone-arrow">&#9654;</span> PER-SECTION';
+    var zoneRows = document.createElement('div');
+    zoneRows.className = 'ps-zone-rows';
+    toggle.onclick = function() {
+        toggle.classList.toggle('expanded');
+        zoneRows.classList.toggle('open');
+    };
+    fontSection.appendChild(toggle);
+
+    // 4 zone rows
+    FONT_ZONE_NAMES.forEach(function(zone) {
+        var row = _buildZoneRow(zone, FONT_ZONE_LABELS[zone], function(hex) {
+            _setPanelFontZone(panelId, zone, hex);
         });
+        zoneRows.appendChild(row);
     });
-    fontColorRow.appendChild(fontPicker);
-    fontColorRow.appendChild(fontHueSlider);
-    dropdown.appendChild(fontColorRow);
+    fontSection.appendChild(zoneRows);
+    dropdown.appendChild(fontSection);
+
+    // Initialize swatch active states
+    _refreshZoneSwatches(dropdown, panelId);
+    // Set picker values from current state
+    var currentZones = _getPanelFontColor(panelId);
+    if (currentZones) {
+        FONT_ZONE_NAMES.forEach(function(z) {
+            var zRow = fontSection.querySelector('[data-zone="' + z + '"]');
+            if (zRow && currentZones[z]) {
+                var zp = zRow.querySelector('.ps-zone-picker');
+                if (zp) zp.value = currentZones[z];
+            }
+        });
+        // Set master picker if all same
+        var allSame = currentZones.title && currentZones.title === currentZones.primary &&
+                      currentZones.primary === currentZones.secondary && currentZones.secondary === currentZones.accent;
+        if (allSame) {
+            var mp = masterRow.querySelector('.ps-zone-picker');
+            if (mp) mp.value = currentZones.title;
+        }
+    }
 
     // ── Divider ──
     var divider3 = document.createElement('div');
@@ -6879,8 +7276,9 @@ function togglePanelSettings(panelId) {
         _clearPanelFontColor(panelId);
         _setPanelOpacity(panelId, 1);
         opSlider.value = '100'; opVal.textContent = '100%';
-        fontPicker.value = '#ffffff';
-        fontSwatches.querySelectorAll('.font-swatch').forEach(function(fs) { fs.classList.remove('active'); });
+        // Reset zone pickers and swatches
+        fontSection.querySelectorAll('.ps-zone-picker').forEach(function(p) { p.value = '#ffffff'; });
+        fontSection.querySelectorAll('.ps-zone-swatch').forEach(function(s) { s.classList.remove('active'); });
         // Reset theme to panel's original
         var prefs = JSON.parse(localStorage.getItem('aegis_panel_themes') || '{}');
         delete prefs[panelId];
@@ -6966,30 +7364,100 @@ function _setPanelOpacity(panelId, value) {
     localStorage.setItem('aegis_panel_opacity', JSON.stringify(prefs));
 }
 
+// ── Zone-based font color constants ──
+var FONT_ZONE_NAMES = ['title', 'primary', 'secondary', 'accent'];
+var FONT_ZONE_LABELS = { title: 'TITLE', primary: 'PRIMARY', secondary: 'SECONDARY', accent: 'ACCENT' };
+var FONT_ZONE_PRESETS = [
+    { name: 'white', hex: '#ffffff' },
+    { name: 'amber', hex: '#f59e0b' },
+    { name: 'blue', hex: '#7dd3fc' },
+    { name: 'green', hex: '#22c55e' },
+    { name: 'pink', hex: '#ec4899' },
+];
+
+// Returns zone object {title, primary, secondary, accent} or null. Auto-migrates old string format.
 function _getPanelFontColor(panelId) {
     var prefs = JSON.parse(localStorage.getItem('aegis_panel_font_colors') || '{}');
-    return prefs[panelId] || null;
+    var val = prefs[panelId];
+    if (!val) return null;
+    // Migrate old string format -> zone object
+    if (typeof val === 'string') {
+        var migrated = { title: val, primary: val, secondary: val, accent: val };
+        prefs[panelId] = migrated;
+        localStorage.setItem('aegis_panel_font_colors', JSON.stringify(prefs));
+        return migrated;
+    }
+    return val;
 }
 
-function _setPanelFontColor(panelId, hex) {
+// Apply all 4 zone colors from a zones object
+function _setPanelFontColor(panelId, zones) {
     var panel = document.getElementById(panelId);
     if (!panel) return;
-    panel.style.setProperty('--panel-font-color', hex);
-    panel.classList.add('has-custom-font');
+    // Support legacy: if called with a string, treat as master color
+    if (typeof zones === 'string') {
+        zones = { title: zones, primary: zones, secondary: zones, accent: zones };
+    }
+    FONT_ZONE_NAMES.forEach(function(z) {
+        if (zones[z]) panel.style.setProperty('--panel-font-' + z, zones[z]);
+    });
+    panel.classList.add('has-zone-fonts');
+    panel.classList.remove('has-custom-font');
     var prefs = JSON.parse(localStorage.getItem('aegis_panel_font_colors') || '{}');
-    prefs[panelId] = hex;
+    prefs[panelId] = zones;
     localStorage.setItem('aegis_panel_font_colors', JSON.stringify(prefs));
+}
+
+// Set a single zone color, merging with existing
+function _setPanelFontZone(panelId, zone, hex) {
+    var current = _getPanelFontColor(panelId) || { title: null, primary: null, secondary: null, accent: null };
+    current[zone] = hex;
+    _setPanelFontColor(panelId, current);
+}
+
+// Set all 4 zones to the same color
+function _setPanelFontMaster(panelId, hex) {
+    _setPanelFontColor(panelId, { title: hex, primary: hex, secondary: hex, accent: hex });
 }
 
 function _clearPanelFontColor(panelId) {
     var panel = document.getElementById(panelId);
     if (panel) {
+        FONT_ZONE_NAMES.forEach(function(z) {
+            panel.style.removeProperty('--panel-font-' + z);
+        });
         panel.style.removeProperty('--panel-font-color');
+        panel.classList.remove('has-zone-fonts');
         panel.classList.remove('has-custom-font');
     }
     var prefs = JSON.parse(localStorage.getItem('aegis_panel_font_colors') || '{}');
     delete prefs[panelId];
     localStorage.setItem('aegis_panel_font_colors', JSON.stringify(prefs));
+}
+
+// Refresh active state on zone swatches in the dropdown
+function _refreshZoneSwatches(dropdown, panelId) {
+    var current = _getPanelFontColor(panelId);
+    FONT_ZONE_NAMES.forEach(function(zone) {
+        var row = dropdown.querySelector('[data-zone="' + zone + '"]');
+        if (!row) return;
+        var curHex = current ? (current[zone] || '') : '';
+        row.querySelectorAll('.ps-zone-swatch').forEach(function(sw) {
+            sw.classList.toggle('active', sw.getAttribute('data-hex') === curHex);
+        });
+        var picker = row.querySelector('.ps-zone-picker');
+        if (picker && curHex) picker.value = curHex;
+    });
+    // Also refresh master row
+    var masterRow = dropdown.querySelector('[data-zone="master"]');
+    if (masterRow && current) {
+        var allSame = current.title && current.title === current.primary && current.primary === current.secondary && current.secondary === current.accent;
+        masterRow.querySelectorAll('.ps-zone-swatch').forEach(function(sw) {
+            sw.classList.toggle('active', allSame && sw.getAttribute('data-hex') === current.title);
+        });
+        var mp = masterRow.querySelector('.ps-zone-picker');
+        if (mp && allSame && current.title) mp.value = current.title;
+    }
 }
 
 function restorePanelThemes() {
@@ -7015,15 +7483,28 @@ function restorePanelThemes() {
             if (body) body.style.opacity = opacities[panelId];
         }
     });
-    // Restore font colors
+    // Restore font colors (zone-based)
     var fontColors = JSON.parse(localStorage.getItem('aegis_panel_font_colors') || '{}');
+    var fontMigrated = false;
     Object.keys(fontColors).forEach(function(panelId) {
         var panel = document.getElementById(panelId);
-        if (panel) {
-            panel.style.setProperty('--panel-font-color', fontColors[panelId]);
-            panel.classList.add('has-custom-font');
+        if (!panel) return;
+        var val = fontColors[panelId];
+        // Migrate old string format
+        if (typeof val === 'string') {
+            val = { title: val, primary: val, secondary: val, accent: val };
+            fontColors[panelId] = val;
+            fontMigrated = true;
         }
+        FONT_ZONE_NAMES.forEach(function(z) {
+            if (val[z]) panel.style.setProperty('--panel-font-' + z, val[z]);
+        });
+        panel.classList.add('has-zone-fonts');
+        panel.classList.remove('has-custom-font');
     });
+    if (fontMigrated) {
+        localStorage.setItem('aegis_panel_font_colors', JSON.stringify(fontColors));
+    }
 }
 
 function initPanelCollapseButtons() {
@@ -8080,9 +8561,12 @@ var calCurrentDate = new Date();
 var _calSelectedDay = null;
 var _calLocalEvents = [];
 var _calGoogleEvents = [];
+var _calView = 'month'; // 'month' or 'week'
 
 var MONTH_NAMES = ['January','February','March','April','May','June',
     'July','August','September','October','November','December'];
+var DAY_NAMES_SHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+var DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
 function openCalendarPanel() {
     document.getElementById('calendarPanelOverlay').classList.add('open');
@@ -8091,7 +8575,9 @@ function openCalendarPanel() {
     restorePanelPosition(panel);
     calCurrentDate = new Date();
     _calSelectedDay = null;
-    calRenderMonth();
+    calRender();
+    // Check Google connection to show/hide toggle
+    calCheckGoogleStatus();
 }
 
 function closeCalendarPanel() {
@@ -8100,27 +8586,43 @@ function closeCalendarPanel() {
     popPanelStack('calendarPanelOverlay');
 }
 
-function calPrevMonth() {
-    calCurrentDate.setMonth(calCurrentDate.getMonth() - 1);
+function calSwitchView(view) {
+    _calView = view;
+    document.getElementById('calViewMonth').style.opacity = view === 'month' ? '1' : '0.5';
+    document.getElementById('calViewWeek').style.opacity = view === 'week' ? '1' : '0.5';
     _calSelectedDay = null;
-    calRenderMonth();
+    calRender();
 }
 
-function calNextMonth() {
-    calCurrentDate.setMonth(calCurrentDate.getMonth() + 1);
+function calPrev() {
+    if (_calView === 'month') {
+        calCurrentDate.setMonth(calCurrentDate.getMonth() - 1);
+    } else {
+        calCurrentDate.setDate(calCurrentDate.getDate() - 7);
+    }
     _calSelectedDay = null;
-    calRenderMonth();
+    calRender();
 }
 
-async function calRenderMonth() {
-    var y = calCurrentDate.getFullYear();
-    var m = calCurrentDate.getMonth() + 1;
+function calNext() {
+    if (_calView === 'month') {
+        calCurrentDate.setMonth(calCurrentDate.getMonth() + 1);
+    } else {
+        calCurrentDate.setDate(calCurrentDate.getDate() + 7);
+    }
+    _calSelectedDay = null;
+    calRender();
+}
 
-    document.getElementById('calMonthLabel').textContent = MONTH_NAMES[m - 1] + ' ' + y;
-    document.getElementById('calGridView').style.display = '';
-    document.getElementById('calDayView').style.display = 'none';
-    document.getElementById('calAddForm').style.display = 'none';
+function calRender() {
+    if (_calView === 'week') {
+        calRenderWeek();
+    } else {
+        calRenderMonth();
+    }
+}
 
+async function calFetchMonth(y, m) {
     try {
         var res = await authFetch(API + '/calendar/month/' + y + '/' + m);
         var data = await res.json();
@@ -8130,9 +8632,21 @@ async function calRenderMonth() {
         _calLocalEvents = [];
         _calGoogleEvents = [];
     }
+}
 
-    // Build day grid
-    var firstDay = new Date(y, m - 1, 1).getDay(); // 0=Sun
+async function calRenderMonth() {
+    var y = calCurrentDate.getFullYear();
+    var m = calCurrentDate.getMonth() + 1;
+
+    document.getElementById('calMonthLabel').textContent = MONTH_NAMES[m - 1] + ' ' + y;
+    document.getElementById('calGridView').style.display = '';
+    document.getElementById('calWeekView').style.display = 'none';
+    document.getElementById('calDayView').style.display = 'none';
+    document.getElementById('calAddForm').style.display = 'none';
+
+    await calFetchMonth(y, m);
+
+    var firstDay = new Date(y, m - 1, 1).getDay();
     var daysInMonth = new Date(y, m, 0).getDate();
     var prevDays = new Date(y, m - 1, 0).getDate();
 
@@ -8143,26 +8657,26 @@ async function calRenderMonth() {
 
     var cells = '';
 
-    // Previous month fill
     for (var p = firstDay - 1; p >= 0; p--) {
         var pd = prevDays - p;
         cells += '<div class="cal-day other-month"><span class="cal-day-num">' + pd + '</span></div>';
     }
 
-    // Current month
     for (var d = 1; d <= daysInMonth; d++) {
         var dateStr = y + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0');
         var isToday = (dateStr === todayStr);
 
-        // Count events for this day
-        var localCount = _calLocalEvents.filter(function(e) { return e.date === dateStr; }).length;
-        var googleCount = _calGoogleEvents.filter(function(e) { return e.date === dateStr; }).length;
+        var dayLocal = _calLocalEvents.filter(function(e) { return e.date === dateStr; });
+        var dayGoogle = _calGoogleEvents.filter(function(e) { return e.date === dateStr; });
 
         var dots = '';
-        if (localCount > 0 || googleCount > 0) {
+        if (dayLocal.length > 0 || dayGoogle.length > 0) {
             dots = '<div class="cal-event-dots">';
-            for (var li = 0; li < Math.min(localCount, 3); li++) dots += '<div class="cal-event-dot"></div>';
-            for (var gi = 0; gi < Math.min(googleCount, 3); gi++) dots += '<div class="cal-event-dot google"></div>';
+            for (var li = 0; li < Math.min(dayLocal.length, 3); li++) {
+                var cat = (dayLocal[li].category || 'general');
+                dots += '<div class="cal-event-dot cat-' + cat + '"></div>';
+            }
+            for (var gi = 0; gi < Math.min(dayGoogle.length, 3); gi++) dots += '<div class="cal-event-dot google"></div>';
             dots += '</div>';
         }
 
@@ -8172,7 +8686,6 @@ async function calRenderMonth() {
         '</div>';
     }
 
-    // Next month fill
     var totalCells = firstDay + daysInMonth;
     var remaining = (7 - (totalCells % 7)) % 7;
     for (var n = 1; n <= remaining; n++) {
@@ -8182,20 +8695,82 @@ async function calRenderMonth() {
     document.getElementById('calDays').innerHTML = cells;
 }
 
+async function calRenderWeek() {
+    // Find start of week (Sunday)
+    var ref = new Date(calCurrentDate);
+    var dayOfWeek = ref.getDay();
+    var weekStart = new Date(ref);
+    weekStart.setDate(ref.getDate() - dayOfWeek);
+
+    var weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+
+    // Update label
+    var startLabel = MONTH_NAMES[weekStart.getMonth()] + ' ' + weekStart.getDate();
+    var endLabel = MONTH_NAMES[weekEnd.getMonth()] + ' ' + weekEnd.getDate() + ', ' + weekEnd.getFullYear();
+    document.getElementById('calMonthLabel').textContent = startLabel + ' - ' + endLabel;
+
+    document.getElementById('calGridView').style.display = 'none';
+    document.getElementById('calWeekView').style.display = '';
+    document.getElementById('calDayView').style.display = 'none';
+    document.getElementById('calAddForm').style.display = 'none';
+
+    // Fetch events for the month(s) covering this week
+    await calFetchMonth(weekStart.getFullYear(), weekStart.getMonth() + 1);
+    // If the week spans two months, also fetch the next month
+    if (weekEnd.getMonth() !== weekStart.getMonth()) {
+        var extra = [];
+        try {
+            var res2 = await authFetch(API + '/calendar/month/' + weekEnd.getFullYear() + '/' + (weekEnd.getMonth() + 1));
+            var data2 = await res2.json();
+            extra = (data2.local_events || []).concat(data2.google_events || []);
+        } catch(e) {}
+        _calLocalEvents = _calLocalEvents.concat(extra.filter(function(e) { return !e.source || e.source !== 'google'; }));
+        _calGoogleEvents = _calGoogleEvents.concat(extra.filter(function(e) { return e.source === 'google'; }));
+    }
+
+    var today = new Date();
+    var todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+
+    var cols = '';
+    for (var i = 0; i < 7; i++) {
+        var colDate = new Date(weekStart);
+        colDate.setDate(weekStart.getDate() + i);
+        var dateStr = colDate.getFullYear() + '-' + String(colDate.getMonth() + 1).padStart(2, '0') + '-' + String(colDate.getDate()).padStart(2, '0');
+        var isToday = (dateStr === todayStr);
+
+        var evts = _calLocalEvents.filter(function(e) { return e.date === dateStr; })
+            .concat(_calGoogleEvents.filter(function(e) { return e.date === dateStr; }));
+
+        var evtHtml = '';
+        evts.forEach(function(ev) {
+            var cat = ev.category || (ev.source === 'google' ? '' : 'general');
+            var timeLabel = ev.time_start ? ev.time_start + ' ' : '';
+            evtHtml += '<div class="cal-week-event cat-' + cat + '">' + escapeHtml(timeLabel + ev.title) + '</div>';
+        });
+
+        cols += '<div class="cal-week-col' + (isToday ? ' today' : '') + '" onclick="calShowDay(\'' + dateStr + '\')">' +
+            '<div class="cal-week-day-label">' + DAY_NAMES_SHORT[i] + '</div>' +
+            '<div class="cal-week-day-num">' + colDate.getDate() + '</div>' +
+            evtHtml +
+        '</div>';
+    }
+
+    document.getElementById('calWeekDays').innerHTML = cols;
+}
+
 function calShowDay(dateStr) {
     _calSelectedDay = dateStr;
     document.getElementById('calGridView').style.display = 'none';
+    document.getElementById('calWeekView').style.display = 'none';
     document.getElementById('calDayView').style.display = '';
     document.getElementById('calAddForm').style.display = 'none';
 
-    // Format label
     var parts = dateStr.split('-');
     var dt = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-    var dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
     document.getElementById('calDayLabel').textContent =
-        dayNames[dt.getDay()] + ', ' + MONTH_NAMES[dt.getMonth()] + ' ' + dt.getDate() + ', ' + dt.getFullYear();
+        DAY_NAMES[dt.getDay()] + ', ' + MONTH_NAMES[dt.getMonth()] + ' ' + dt.getDate() + ', ' + dt.getFullYear();
 
-    // Gather events
     var dayLocal = _calLocalEvents.filter(function(e) { return e.date === dateStr; });
     var dayGoogle = _calGoogleEvents.filter(function(e) { return e.date === dateStr; });
     var all = dayLocal.concat(dayGoogle);
@@ -8210,12 +8785,16 @@ function calShowDay(dateStr) {
         var timeStr = ev.all_day ? 'All day' : (ev.time_start || '');
         if (ev.time_end && !ev.all_day) timeStr += ' - ' + ev.time_end;
         var source = ev.source === 'google' ? '<span class="cal-event-source">Google</span>' : '';
-        var deleteBtn = ev.read_only ? '' :
-            '<span class="cal-event-delete" onclick="calDeleteEvent(\'' + ev.id + '\')">DEL</span>';
+        var cat = ev.category || 'general';
+        var catBadge = (ev.source !== 'google' && cat !== 'general') ?
+            '<span class="cal-cat-badge cat-' + cat + '">' + cat + '</span>' : '';
+        var recurIcon = ev._is_recurring_instance ? '<span class="cal-recurring-icon">&#x21BB;</span>' : '';
+        // Google events get edit/delete too now
+        var deleteBtn = '<span class="cal-event-delete" onclick="calDeleteEvent(\'' + ev.id + '\',' + (ev.source === 'google') + ')">DEL</span>';
         return '<div class="cal-event-item">' +
             '<span class="cal-event-time">' + escapeHtml(timeStr) + '</span>' +
             '<span class="cal-event-title">' + escapeHtml(ev.title) + '</span>' +
-            source + deleteBtn +
+            recurIcon + catBadge + source + deleteBtn +
         '</div>';
     }).join('');
 }
@@ -8223,7 +8802,11 @@ function calShowDay(dateStr) {
 function calCloseDay() {
     _calSelectedDay = null;
     document.getElementById('calDayView').style.display = 'none';
-    document.getElementById('calGridView').style.display = '';
+    if (_calView === 'week') {
+        document.getElementById('calWeekView').style.display = '';
+    } else {
+        document.getElementById('calGridView').style.display = '';
+    }
 }
 
 function calShowAddForm() {
@@ -8234,7 +8817,64 @@ function calShowAddForm() {
     document.getElementById('calEventStart').value = '';
     document.getElementById('calEventEnd').value = '';
     document.getElementById('calEventDesc').value = '';
+    document.getElementById('calEventCategory').value = 'general';
+    document.getElementById('calEventRepeat').value = 'none';
+    document.getElementById('calEventRepeatUntil').value = '';
+    document.getElementById('calEventRepeatUntil').style.display = 'none';
+    document.getElementById('calEventReminder').value = '0';
     document.getElementById('calEventAllDay').checked = false;
+    document.getElementById('calEventGoogle').checked = false;
+    document.getElementById('calConflictWarning').style.display = 'none';
+}
+
+// Show/hide repeat-until when repeat type changes
+document.addEventListener('change', function(e) {
+    if (e.target && e.target.id === 'calEventRepeat') {
+        document.getElementById('calEventRepeatUntil').style.display =
+            e.target.value !== 'none' ? '' : 'none';
+    }
+});
+
+// Real-time conflict checking on time blur
+document.addEventListener('focusout', function(e) {
+    if (e.target && (e.target.id === 'calEventStart' || e.target.id === 'calEventEnd')) {
+        calCheckConflicts();
+    }
+});
+
+async function calCheckConflicts() {
+    var date = document.getElementById('calEventDate').value;
+    var start = document.getElementById('calEventStart').value;
+    var end = document.getElementById('calEventEnd').value;
+    var warn = document.getElementById('calConflictWarning');
+    if (!date || !start || !end) { warn.style.display = 'none'; return; }
+    try {
+        var res = await authFetch(API + '/events/conflicts?date=' + date + '&time_start=' + start + '&time_end=' + end);
+        var data = await res.json();
+        if (data.conflicts && data.conflicts.length) {
+            warn.textContent = 'Overlaps with: ' + data.conflicts.map(function(c) {
+                return c.title + ' (' + c.time_start + '-' + c.time_end + ')';
+            }).join(', ');
+            warn.style.display = '';
+        } else {
+            warn.style.display = 'none';
+        }
+    } catch (e) { warn.style.display = 'none'; }
+}
+
+async function calCheckGoogleStatus() {
+    try {
+        var res = await authFetch(API + '/protocol/google');
+        var data = await res.json();
+        var toggle = document.getElementById('calGoogleToggle');
+        if (data.connected) {
+            toggle.style.display = 'flex';
+        } else {
+            toggle.style.display = 'none';
+        }
+    } catch (e) {
+        document.getElementById('calGoogleToggle').style.display = 'none';
+    }
 }
 
 function calHideAddForm() {
@@ -8242,7 +8882,11 @@ function calHideAddForm() {
     if (_calSelectedDay) {
         document.getElementById('calDayView').style.display = '';
     } else {
-        document.getElementById('calGridView').style.display = '';
+        if (_calView === 'week') {
+            document.getElementById('calWeekView').style.display = '';
+        } else {
+            document.getElementById('calGridView').style.display = '';
+        }
     }
 }
 
@@ -8259,16 +8903,34 @@ async function calAddEvent() {
         time_end: document.getElementById('calEventEnd').value || null,
         description: document.getElementById('calEventDesc').value || '',
         all_day: document.getElementById('calEventAllDay').checked,
+        category: document.getElementById('calEventCategory').value || 'general',
+        repeat_type: document.getElementById('calEventRepeat').value || 'none',
+        repeat_until: document.getElementById('calEventRepeatUntil').value || null,
+        reminder_minutes: parseInt(document.getElementById('calEventReminder').value) || 0,
+        save_to_google: document.getElementById('calEventGoogle').checked,
     };
 
     try {
-        await authFetch(API + '/events', {
+        var res = await authFetch(API + '/events', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(body),
         });
-        showToast('Event created');
-        await calRenderMonth();
+        var data = await res.json();
+
+        if (data.source === 'google') {
+            showToast('Event saved to Google Calendar');
+        } else {
+            showToast('Event created');
+        }
+
+        // Show conflict warning if any
+        if (data.conflicts && data.conflicts.length) {
+            var names = data.conflicts.map(function(c) { return c.title + ' at ' + c.time_start; }).join(', ');
+            showToast('Overlaps with: ' + names, 'warning', 5000);
+        }
+
+        await calRender();
         if (_calSelectedDay) calShowDay(_calSelectedDay);
         else calHideAddForm();
     } catch (e) {
@@ -8276,20 +8938,51 @@ async function calAddEvent() {
     }
 }
 
-async function calDeleteEvent(eventId) {
-    try {
-        await authFetch(API + '/events', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({action: 'delete', event_id: eventId}),
-        });
-        showToast('Event deleted');
-        await calRenderMonth();
-        if (_calSelectedDay) calShowDay(_calSelectedDay);
-    } catch (e) {
-        showToast('Failed to delete event');
+async function calDeleteEvent(eventId, isGoogle) {
+    if (isGoogle) {
+        try {
+            await authFetch(API + '/calendar/google', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({action: 'delete', event_id: eventId}),
+            });
+            showToast('Google event deleted');
+        } catch (e) {
+            showToast('Failed to delete Google event');
+            return;
+        }
+    } else {
+        try {
+            await authFetch(API + '/events', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({action: 'delete', event_id: eventId}),
+            });
+            showToast('Event deleted');
+        } catch (e) {
+            showToast('Failed to delete event');
+            return;
+        }
     }
+    await calRender();
+    if (_calSelectedDay) calShowDay(_calSelectedDay);
 }
+
+async function checkEventReminders() {
+    try {
+        var res = await authFetch(API + '/events/reminders/check');
+        var data = await res.json();
+        if (data.due && data.due.length) {
+            data.due.forEach(function(ev) {
+                showToast('Upcoming: ' + ev.title + ' at ' + ev.time_start, 'info', 8000);
+            });
+        }
+    } catch (e) {}
+}
+
+// Backward compat aliases
+function calPrevMonth() { calPrev(); }
+function calNextMonth() { calNext(); }
 
 // ========== HISTORY PANEL ==========
 
@@ -10078,6 +10771,7 @@ async function init() {
     initPanelCollapseButtons();
     restoreChatWindowTheme();
     setInterval(checkAlarms, 30000);
+    setInterval(checkEventReminders, 30000);
     setInterval(loadWeather, 300000); // refresh weather every 5 min
     setInterval(function() { if (_currentLayout !== 'focus') renderWidgetSysperf(); }, 5000); // refresh sysperf widget every 5s
 
@@ -10734,6 +11428,13 @@ function saveWidgetPrefs(prefs) {
 }
 
 var _widgetThemes = ['amber', 'blue', 'purple', 'green', 'pink', 'ice'];
+var WIDGET_FONT_SWATCHES = [
+    { color: '#000000', label: 'Black' },
+    { color: '#ffffff', label: 'White' },
+    { color: '#FFCC66', label: 'Amber' },
+    { color: '#3B82F6', label: 'Blue' },
+    { color: '#22c55e', label: 'Green' },
+];
 
 function saveWidgetDockState() {
     var prefs = loadWidgetPrefs();
@@ -11272,6 +11973,53 @@ function _toggleWidgetColorDropdown(widgetId, gearBtn, widgetEl) {
     colorRow.appendChild(wHueSlider);
     dropdown.appendChild(colorRow);
 
+    // ── Title font color section ──
+    var divider = document.createElement('div');
+    divider.className = 'ws-divider';
+    dropdown.appendChild(divider);
+
+    var fontLabel = document.createElement('div');
+    fontLabel.className = 'ws-label';
+    fontLabel.textContent = 'TITLE COLOR';
+    dropdown.appendChild(fontLabel);
+
+    var fontRow = document.createElement('div');
+    fontRow.className = 'ws-font-row';
+
+    var currentPrefs = loadWidgetPrefs();
+    var currentTitleColor = (currentPrefs[widgetId] && currentPrefs[widgetId].titleColor) || '#000000';
+
+    var fontPicker = document.createElement('input');
+    fontPicker.type = 'color';
+    fontPicker.value = currentTitleColor;
+
+    function applyTitleColor(hex) {
+        widgetEl.style.setProperty('--widget-title-color', hex);
+        fontPicker.value = hex;
+        fontRow.querySelectorAll('.ws-font-swatch').forEach(function(s) {
+            s.classList.toggle('active', s.dataset.color === hex);
+        });
+        var prefs = loadWidgetPrefs();
+        prefs[widgetId] = prefs[widgetId] || {};
+        prefs[widgetId].titleColor = hex;
+        saveWidgetPrefs(prefs);
+    }
+
+    fontPicker.addEventListener('input', function() { applyTitleColor(this.value); });
+    fontRow.appendChild(fontPicker);
+
+    WIDGET_FONT_SWATCHES.forEach(function(sw) {
+        var swatch = document.createElement('div');
+        swatch.className = 'ws-font-swatch' + (currentTitleColor === sw.color ? ' active' : '');
+        swatch.style.background = sw.color;
+        swatch.title = sw.label;
+        swatch.dataset.color = sw.color;
+        if (sw.color === '#000000') swatch.style.border = '2px solid ' + (currentTitleColor === sw.color ? '#fff' : '#555');
+        swatch.onclick = function() { applyTitleColor(sw.color); };
+        fontRow.appendChild(swatch);
+    });
+    dropdown.appendChild(fontRow);
+
     document.body.appendChild(dropdown);
 }
 
@@ -11356,6 +12104,9 @@ function applyLayout(name) {
                 if (wp.theme === 'custom' && wp.customColor) {
                     w.style.setProperty('--widget-custom-color', wp.customColor);
                 }
+            }
+            if (wp.titleColor) {
+                w.style.setProperty('--widget-title-color', wp.titleColor);
             }
         }
     }
@@ -11569,31 +12320,319 @@ function initClock() {
     _clockInterval = setInterval(renderClock, 1000);
 }
 
-// ========== DATA TICKER ==========
+// ========== DATA TICKER (smooth JS-driven scroll) ==========
 
-var _tickerData = {};  // cached from API responses
+var _tickerData = {};       // cached from API responses
+var _tickerScrollPos = 0;   // current px offset
+var _tickerHalfWidth = 0;   // width of one copy of the content
+var _tickerAnimId = null;   // requestAnimationFrame handle
+var _tickerLastTime = 0;    // last frame timestamp
+var _tickerLastItems = '';   // cache to avoid unnecessary DOM writes
+var TICKER_SPEED = 55;      // pixels per second
+
+// ========== TICKER SETTINGS ==========
+var TICKER_ITEMS = [
+    { key: 'messages', label: 'MESSAGES', defaultOn: true },
+    { key: 'model', label: 'MODEL', defaultOn: true },
+    { key: 'agent', label: 'AGENT', defaultOn: true },
+    { key: 'tasksPending', label: 'TASKS PENDING', defaultOn: true },
+    { key: 'tasksCompleted', label: 'TASKS COMPLETED', defaultOn: true },
+    { key: 'nextTask', label: 'NEXT TASK', defaultOn: true },
+    { key: 'mood', label: 'MOOD', defaultOn: true },
+    { key: 'session', label: 'SESSION TIME', defaultOn: true },
+    { key: 'stardate', label: 'STARDATE', defaultOn: true },
+    { key: 'time', label: 'SYSTEM TIME', defaultOn: true },
+    { key: 'weather', label: 'WEATHER', defaultOn: false },
+    { key: 'timer', label: 'ACTIVE TIMER', defaultOn: false },
+    { key: 'alarm', label: 'NEXT ALARM', defaultOn: false },
+    { key: 'habits', label: 'HABITS', defaultOn: false },
+    { key: 'sysperf', label: 'CPU / RAM', defaultOn: false },
+    { key: 'news', label: 'NEWS HEADLINE', defaultOn: false },
+];
+
+var TICKER_COLOR_SWATCHES = [
+    { color: '#ffffff', label: 'White' },
+    { color: '#FFCC66', label: 'Amber' },
+    { color: '#3B82F6', label: 'Blue' },
+    { color: '#22c55e', label: 'Green' },
+    { color: '#EC4899', label: 'Pink' },
+];
+var TICKER_SEP_SWATCHES = [
+    { color: '#6B7280', label: 'Grey' },
+    { color: '#FFCC66', label: 'Amber' },
+    { color: '#3B82F6', label: 'Blue' },
+    { color: '#374151', label: 'Dim' },
+];
+
+function _getTickerPrefs() {
+    var defaults = {
+        color: '#FFCC66',
+        sepColor: '#6B7280',
+        speed: 55,
+        items: {}
+    };
+    TICKER_ITEMS.forEach(function(it) { defaults.items[it.key] = it.defaultOn; });
+    try {
+        var saved = JSON.parse(localStorage.getItem('aegis_ticker_prefs'));
+        if (saved) {
+            if (saved.color) defaults.color = saved.color;
+            if (saved.sepColor) defaults.sepColor = saved.sepColor;
+            if (typeof saved.speed === 'number') defaults.speed = saved.speed;
+            if (saved.items) {
+                TICKER_ITEMS.forEach(function(it) {
+                    if (typeof saved.items[it.key] === 'boolean') defaults.items[it.key] = saved.items[it.key];
+                });
+            }
+        }
+    } catch (e) {}
+    return defaults;
+}
+
+function _saveTickerPrefs(prefs) {
+    try { localStorage.setItem('aegis_ticker_prefs', JSON.stringify(prefs)); } catch(e) {}
+}
+
+function _applyTickerColors(prefs) {
+    var ticker = document.getElementById('lcarsTicker');
+    if (!ticker) return;
+    ticker.style.setProperty('--ticker-item-color', prefs.color);
+    ticker.style.setProperty('--ticker-sep-color', prefs.sepColor);
+}
+
+function _isTickerItemEnabled(key) {
+    var prefs = _getTickerPrefs();
+    return !!prefs.items[key];
+}
+
+function restoreTickerPrefs() {
+    var prefs = _getTickerPrefs();
+    _applyTickerColors(prefs);
+    TICKER_SPEED = prefs.speed;
+}
+
+function toggleTickerSettings() {
+    var ticker = document.getElementById('lcarsTicker');
+    if (!ticker) return;
+    var existing = document.querySelector('.ticker-settings-dropdown');
+    if (existing) { existing.classList.toggle('open'); return; }
+
+    var prefs = _getTickerPrefs();
+
+    var dropdown = document.createElement('div');
+    dropdown.className = 'ticker-settings-dropdown open';
+    dropdown.onclick = function(ev) { ev.stopPropagation(); };
+
+    var html = '';
+
+    // TICKER COLOR section
+    html += '<div class="settings-label">TICKER COLOR</div>';
+    html += '<div class="ts-color-row">';
+    html += '<input type="color" id="tickerColorPicker" value="' + prefs.color + '">';
+    TICKER_COLOR_SWATCHES.forEach(function(s) {
+        var active = (prefs.color.toLowerCase() === s.color.toLowerCase()) ? ' active' : '';
+        html += '<div class="ts-swatch' + active + '" data-target="color" style="background:' + s.color + '" title="' + s.label + '" onclick="setTickerColor(this,\'' + s.color + '\')"></div>';
+    });
+    html += '</div>';
+
+    // SEPARATOR COLOR section
+    html += '<div class="settings-label">SEPARATOR COLOR</div>';
+    html += '<div class="ts-color-row">';
+    html += '<input type="color" id="tickerSepColorPicker" value="' + prefs.sepColor + '">';
+    TICKER_SEP_SWATCHES.forEach(function(s) {
+        var active = (prefs.sepColor.toLowerCase() === s.color.toLowerCase()) ? ' active' : '';
+        html += '<div class="ts-swatch' + active + '" data-target="sep" style="background:' + s.color + '" title="' + s.label + '" onclick="setTickerSepColor(this,\'' + s.color + '\')"></div>';
+    });
+    html += '</div>';
+
+    // SPEED slider
+    html += '<div class="settings-label">SPEED</div>';
+    html += '<div class="ts-slider-row">';
+    html += '<input type="range" id="tickerSpeedSlider" min="20" max="120" value="' + prefs.speed + '">';
+    html += '<span class="ts-val" id="tickerSpeedVal">' + prefs.speed + ' px/s</span>';
+    html += '</div>';
+
+    // Divider
+    html += '<div class="ts-divider"></div>';
+
+    // DATA ITEMS section
+    html += '<div class="settings-label">DATA ITEMS</div>';
+    html += '<div class="ticker-item-grid">';
+    TICKER_ITEMS.forEach(function(it) {
+        var checked = prefs.items[it.key] ? ' checked' : '';
+        html += '<label class="ticker-item-toggle">';
+        html += '<input type="checkbox" data-ticker-key="' + it.key + '"' + checked + '>';
+        html += it.label + '</label>';
+    });
+    html += '</div>';
+
+    dropdown.innerHTML = html;
+    document.body.appendChild(dropdown);
+
+    // Position dropdown relative to ticker
+    var tickerRect = ticker.getBoundingClientRect();
+    dropdown.style.top = (tickerRect.bottom + 2) + 'px';
+    dropdown.style.right = (window.innerWidth - tickerRect.right + 4) + 'px';
+
+    // Wire up color picker events
+    var colorPicker = dropdown.querySelector('#tickerColorPicker');
+    colorPicker.addEventListener('input', function() {
+        var p = _getTickerPrefs();
+        p.color = colorPicker.value;
+        _saveTickerPrefs(p);
+        _applyTickerColors(p);
+        // Clear active on color swatches
+        dropdown.querySelectorAll('.ts-swatch[data-target="color"]').forEach(function(sw) { sw.classList.remove('active'); });
+    });
+
+    var sepPicker = dropdown.querySelector('#tickerSepColorPicker');
+    sepPicker.addEventListener('input', function() {
+        var p = _getTickerPrefs();
+        p.sepColor = sepPicker.value;
+        _saveTickerPrefs(p);
+        _applyTickerColors(p);
+        dropdown.querySelectorAll('.ts-swatch[data-target="sep"]').forEach(function(sw) { sw.classList.remove('active'); });
+    });
+
+    // Wire up speed slider
+    var speedSlider = dropdown.querySelector('#tickerSpeedSlider');
+    var speedVal = dropdown.querySelector('#tickerSpeedVal');
+    speedSlider.addEventListener('input', function() {
+        var v = parseInt(speedSlider.value, 10);
+        TICKER_SPEED = v;
+        speedVal.textContent = v + ' px/s';
+        var p = _getTickerPrefs();
+        p.speed = v;
+        _saveTickerPrefs(p);
+    });
+
+    // Wire up checkbox events
+    dropdown.querySelectorAll('input[data-ticker-key]').forEach(function(cb) {
+        cb.addEventListener('change', function() {
+            var p = _getTickerPrefs();
+            p.items[cb.getAttribute('data-ticker-key')] = cb.checked;
+            _saveTickerPrefs(p);
+            _tickerLastItems = ''; // force rebuild
+            refreshTicker();
+        });
+    });
+
+    // Close on outside click
+    setTimeout(function() {
+        function closeHandler(e) {
+            if (!dropdown.contains(e.target) && !e.target.classList.contains('ticker-gear-btn')) {
+                dropdown.classList.remove('open');
+                document.removeEventListener('click', closeHandler);
+            }
+        }
+        document.addEventListener('click', closeHandler);
+    }, 10);
+}
+
+function setTickerColor(swatch, color) {
+    var prefs = _getTickerPrefs();
+    prefs.color = color;
+    _saveTickerPrefs(prefs);
+    _applyTickerColors(prefs);
+    var picker = document.getElementById('tickerColorPicker');
+    if (picker) picker.value = color;
+    // Update active states
+    var dropdown = swatch.closest('.ticker-settings-dropdown');
+    if (dropdown) dropdown.querySelectorAll('.ts-swatch[data-target="color"]').forEach(function(sw) {
+        sw.classList.toggle('active', sw === swatch);
+    });
+}
+
+function setTickerSepColor(swatch, color) {
+    var prefs = _getTickerPrefs();
+    prefs.sepColor = color;
+    _saveTickerPrefs(prefs);
+    _applyTickerColors(prefs);
+    var picker = document.getElementById('tickerSepColorPicker');
+    if (picker) picker.value = color;
+    var dropdown = swatch.closest('.ticker-settings-dropdown');
+    if (dropdown) dropdown.querySelectorAll('.ts-swatch[data-target="sep"]').forEach(function(sw) {
+        sw.classList.toggle('active', sw === swatch);
+    });
+}
 
 function refreshTicker() {
-    var track = document.getElementById('tickerTrack');
-    if (!track) return;
+    var prefs = _getTickerPrefs();
+    var items = prefs.items;
 
-    var items = [];
+    // Determine which endpoints are needed based on enabled items
+    var needStatus = items.messages || items.model || items.agent;
+    var needTasks = items.tasksPending || items.tasksCompleted || items.nextTask;
+    var needMoods = items.mood;
+    var needWeather = items.weather;
+    var needTimer = items.timer;
+    var needAlarm = items.alarm;
+    var needHabits = items.habits;
+    var needSysperf = items.sysperf;
+    var needNews = items.news;
 
-    // Gather data from available sources
-    authFetch(API + '/status').then(function(r) { return r.json(); }).then(function(data) {
-        _tickerData.status = data;
-        buildTickerContent();
-    }).catch(function() {});
+    var pending = 0;
+    if (needStatus) pending++;
+    if (needTasks) pending++;
+    if (needMoods) pending++;
+    if (needWeather) pending++;
+    if (needTimer) pending++;
+    if (needAlarm) pending++;
+    if (needHabits) pending++;
+    if (needSysperf) pending++;
+    if (needNews) pending++;
 
-    authFetch(API + '/tasks').then(function(r) { return r.json(); }).then(function(data) {
-        _tickerData.tasks = data;
-        buildTickerContent();
-    }).catch(function() {});
+    if (pending === 0) { buildTickerContent(); return; }
 
-    authFetch(API + '/moods').then(function(r) { return r.json(); }).then(function(data) {
-        _tickerData.moods = data;
-        buildTickerContent();
-    }).catch(function() {});
+    function onDone() {
+        pending--;
+        if (pending <= 0) buildTickerContent();
+    }
+
+    if (needStatus) {
+        authFetch(API + '/status').then(function(r) { return r.json(); }).then(function(data) {
+            _tickerData.status = data;
+        }).catch(function() {}).then(onDone);
+    }
+    if (needTasks) {
+        authFetch(API + '/tasks').then(function(r) { return r.json(); }).then(function(data) {
+            _tickerData.tasks = data;
+        }).catch(function() {}).then(onDone);
+    }
+    if (needMoods) {
+        authFetch(API + '/moods').then(function(r) { return r.json(); }).then(function(data) {
+            _tickerData.moods = data;
+        }).catch(function() {}).then(onDone);
+    }
+    if (needWeather) {
+        authFetch(API + '/weather').then(function(r) { return r.json(); }).then(function(data) {
+            _tickerData.weather = data;
+        }).catch(function() {}).then(onDone);
+    }
+    if (needTimer) {
+        authFetch(API + '/timer/active').then(function(r) { return r.json(); }).then(function(data) {
+            _tickerData.timer = data;
+        }).catch(function() {}).then(onDone);
+    }
+    if (needAlarm) {
+        authFetch(API + '/alarms').then(function(r) { return r.json(); }).then(function(data) {
+            _tickerData.alarms = data;
+        }).catch(function() {}).then(onDone);
+    }
+    if (needHabits) {
+        authFetch(API + '/habits/today').then(function(r) { return r.json(); }).then(function(data) {
+            _tickerData.habits = data;
+        }).catch(function() {}).then(onDone);
+    }
+    if (needSysperf) {
+        authFetch(API + '/system/perf').then(function(r) { return r.json(); }).then(function(data) {
+            _tickerData.sysperf = data;
+        }).catch(function() {}).then(onDone);
+    }
+    if (needNews) {
+        authFetch(API + '/news').then(function(r) { return r.json(); }).then(function(data) {
+            _tickerData.news = data;
+        }).catch(function() {}).then(onDone);
+    }
 }
 
 function buildTickerContent() {
@@ -11603,32 +12642,36 @@ function buildTickerContent() {
     var items = [];
     var sep = '<span class="ticker-sep">///</span>';
 
-    // Uptime / session
-    if (_tickerData.status) {
-        var msgCount = _tickerData.status.message_count || 0;
-        items.push('MESSAGES: ' + msgCount);
-        var model = _tickerData.status.model || '--';
-        items.push('MODEL: ' + model.toUpperCase());
-        if (_tickerData.status.agent_name) {
-            items.push('AGENT: ' + _tickerData.status.agent_name.toUpperCase());
-        }
+    // Status-based items
+    if (_isTickerItemEnabled('messages') && _tickerData.status) {
+        items.push('MESSAGES: ' + (_tickerData.status.message_count || 0));
+    }
+    if (_isTickerItemEnabled('model') && _tickerData.status) {
+        items.push('MODEL: ' + (_tickerData.status.model || '--').toUpperCase());
+    }
+    if (_isTickerItemEnabled('agent') && _tickerData.status && _tickerData.status.agent_name) {
+        items.push('AGENT: ' + _tickerData.status.agent_name.toUpperCase());
     }
 
     // Tasks
     if (_tickerData.tasks && _tickerData.tasks.tasks) {
-        var pending = _tickerData.tasks.tasks.filter(function(t) { return !t.completed; });
-        var completed = _tickerData.tasks.tasks.filter(function(t) { return t.completed; });
-        items.push('TASKS PENDING: ' + pending.length);
-        items.push('TASKS COMPLETED: ' + completed.length);
-        if (pending.length > 0) {
-            var nextTask = pending[0].title || pending[0].description || '--';
+        var pendingTasks = _tickerData.tasks.tasks.filter(function(t) { return !t.completed; });
+        var completedTasks = _tickerData.tasks.tasks.filter(function(t) { return t.completed; });
+        if (_isTickerItemEnabled('tasksPending')) {
+            items.push('TASKS PENDING: ' + pendingTasks.length);
+        }
+        if (_isTickerItemEnabled('tasksCompleted')) {
+            items.push('TASKS COMPLETED: ' + completedTasks.length);
+        }
+        if (_isTickerItemEnabled('nextTask') && pendingTasks.length > 0) {
+            var nextTask = pendingTasks[0].title || pendingTasks[0].description || '--';
             if (nextTask.length > 30) nextTask = nextTask.substring(0, 30) + '...';
             items.push('NEXT: ' + nextTask.toUpperCase());
         }
     }
 
     // Mood
-    if (_tickerData.moods && _tickerData.moods.moods && _tickerData.moods.moods.length > 0) {
+    if (_isTickerItemEnabled('mood') && _tickerData.moods && _tickerData.moods.moods && _tickerData.moods.moods.length > 0) {
         var latestMood = _tickerData.moods.moods[_tickerData.moods.moods.length - 1];
         if (latestMood.mood) {
             items.push('MOOD: ' + latestMood.mood.toUpperCase());
@@ -11636,42 +12679,160 @@ function buildTickerContent() {
     }
 
     // Session time
-    if (window._sessionStartTime) {
+    if (_isTickerItemEnabled('session') && window._sessionStartTime) {
         var elapsed = Math.floor((Date.now() - window._sessionStartTime) / 1000);
         items.push('SESSION: ' + formatDuration(elapsed));
     }
 
     // Stardate
-    items.push('STARDATE: ' + computeStardate());
+    if (_isTickerItemEnabled('stardate')) {
+        items.push('STARDATE: ' + computeStardate());
+    }
 
     // System time
-    var now = new Date();
-    var h = String(now.getHours()).padStart(2, '0');
-    var m = String(now.getMinutes()).padStart(2, '0');
-    items.push('TIME: ' + h + ':' + m);
+    if (_isTickerItemEnabled('time')) {
+        var now = new Date();
+        var h = String(now.getHours()).padStart(2, '0');
+        var m = String(now.getMinutes()).padStart(2, '0');
+        items.push('TIME: ' + h + ':' + m);
+    }
+
+    // Weather
+    if (_isTickerItemEnabled('weather') && _tickerData.weather) {
+        var w = _tickerData.weather;
+        var temp = (w.temperature != null) ? w.temperature + '' : '--';
+        var cond = (w.condition || '').toUpperCase();
+        items.push('WEATHER: ' + temp + (cond ? ' ' + cond : ''));
+    }
+
+    // Active Timer
+    if (_isTickerItemEnabled('timer') && _tickerData.timer) {
+        var tm = _tickerData.timer;
+        if (tm.active && tm.label) {
+            var tmElapsed = tm.elapsed_seconds ? formatDuration(tm.elapsed_seconds) : '--';
+            items.push('TIMER: ' + tm.label.toUpperCase() + ' ' + tmElapsed);
+        } else if (tm.active) {
+            items.push('TIMER: ACTIVE');
+        } else {
+            items.push('TIMER: NONE');
+        }
+    }
+
+    // Next Alarm
+    if (_isTickerItemEnabled('alarm') && _tickerData.alarms) {
+        var alarms = _tickerData.alarms.alarms || _tickerData.alarms;
+        if (Array.isArray(alarms) && alarms.length > 0) {
+            var nextAlarm = alarms[0];
+            var aLabel = (nextAlarm.label || nextAlarm.title || 'ALARM').toUpperCase();
+            var aTime = nextAlarm.time || nextAlarm.due || '--';
+            items.push('ALARM: ' + aLabel + ' @ ' + aTime);
+        } else {
+            items.push('ALARM: NONE');
+        }
+    }
+
+    // Habits
+    if (_isTickerItemEnabled('habits') && _tickerData.habits) {
+        var hData = _tickerData.habits.habits || _tickerData.habits;
+        if (Array.isArray(hData)) {
+            var hDone = hData.filter(function(h) { return h.done_today; }).length;
+            items.push('HABITS: ' + hDone + '/' + hData.length);
+        }
+    }
+
+    // CPU / RAM
+    if (_isTickerItemEnabled('sysperf') && _tickerData.sysperf) {
+        var sp = _tickerData.sysperf;
+        var cpu = (sp.cpu_percent != null) ? sp.cpu_percent + '%' : '--';
+        var ram = (sp.ram_percent != null) ? sp.ram_percent + '%' : '--';
+        items.push('CPU: ' + cpu + ' / RAM: ' + ram);
+    }
+
+    // News Headline
+    if (_isTickerItemEnabled('news') && _tickerData.news) {
+        var nData = _tickerData.news;
+        var headlines = nData.articles || nData.headlines || nData;
+        if (Array.isArray(headlines) && headlines.length > 0) {
+            var headline = headlines[0].title || headlines[0].headline || '--';
+            if (headline.length > 50) headline = headline.substring(0, 50) + '...';
+            items.push('NEWS: ' + headline.toUpperCase());
+        }
+    }
 
     if (items.length === 0) {
         items.push('SYSTEM ONLINE');
         items.push('AWAITING DATA');
     }
 
-    // Build HTML — duplicate for seamless loop
-    var html = '';
-    for (var pass = 0; pass < 2; pass++) {
-        for (var i = 0; i < items.length; i++) {
-            html += '<span class="ticker-item">' + escapeHtml(items[i]) + '</span>';
-            html += sep;
-        }
+    // Only rebuild DOM if content actually changed
+    var itemsKey = items.join('|');
+    if (itemsKey === _tickerLastItems) return;
+    _tickerLastItems = itemsKey;
+
+    // Build single copy to measure, then duplicate for seamless loop
+    var singleHtml = '';
+    for (var i = 0; i < items.length; i++) {
+        singleHtml += '<span class="ticker-item">' + escapeHtml(items[i]) + '</span>';
+        singleHtml += sep;
     }
 
-    track.innerHTML = html;
+    // Measure one copy's width
+    var measurer = document.createElement('span');
+    measurer.style.cssText = 'display:inline-flex;visibility:hidden;position:absolute;';
+    measurer.innerHTML = singleHtml;
+    track.appendChild(measurer);
+    var oneWidth = measurer.offsetWidth;
+    track.removeChild(measurer);
+
+    // Adjust scroll position proportionally if width changed
+    if (_tickerHalfWidth > 0 && oneWidth > 0) {
+        var ratio = _tickerScrollPos / _tickerHalfWidth;
+        _tickerScrollPos = ratio * oneWidth;
+    }
+    _tickerHalfWidth = oneWidth;
+
+    // Repeat enough copies so content always fills the viewport + one extra
+    var containerWidth = track.parentElement ? track.parentElement.offsetWidth : window.innerWidth;
+    var copies = Math.ceil(containerWidth / Math.max(oneWidth, 1)) + 1;
+    if (copies < 2) copies = 2;
+    var fullHtml = '';
+    for (var c = 0; c < copies; c++) fullHtml += singleHtml;
+    track.innerHTML = fullHtml;
+}
+
+function _animateTicker(timestamp) {
+    if (!_tickerLastTime) _tickerLastTime = timestamp;
+    var dt = (timestamp - _tickerLastTime) / 1000; // seconds
+    _tickerLastTime = timestamp;
+
+    // Cap dt to avoid large jumps (e.g. after tab was backgrounded)
+    if (dt > 0.5) dt = 0.016;
+
+    _tickerScrollPos += TICKER_SPEED * dt;
+
+    // Wrap seamlessly when we've scrolled past one full copy
+    if (_tickerHalfWidth > 0 && _tickerScrollPos >= _tickerHalfWidth) {
+        _tickerScrollPos -= _tickerHalfWidth;
+    }
+
+    var track = document.getElementById('tickerTrack');
+    if (track) {
+        track.style.transform = 'translateX(' + (-_tickerScrollPos) + 'px)';
+    }
+
+    _tickerAnimId = requestAnimationFrame(_animateTicker);
 }
 
 function initTicker() {
     window._sessionStartTime = Date.now();
+    restoreTickerPrefs();
     refreshTicker();
     if (_tickerInterval) clearInterval(_tickerInterval);
     _tickerInterval = setInterval(refreshTicker, 60000);
+    // Start smooth animation loop
+    if (_tickerAnimId) cancelAnimationFrame(_tickerAnimId);
+    _tickerLastTime = 0;
+    _tickerAnimId = requestAnimationFrame(_animateTicker);
 }
 
 async function quickToggleHabit(habitId, doneToday) {

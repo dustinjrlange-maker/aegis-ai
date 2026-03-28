@@ -254,6 +254,10 @@ class EventRequest(BaseModel):
     category: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
+    repeat_type: Optional[str] = "none"
+    repeat_until: Optional[str] = None
+    reminder_minutes: Optional[int] = 0
+    save_to_google: Optional[bool] = False
 
 
 class MoodRequest(BaseModel):
@@ -597,33 +601,96 @@ async def toggle_task_star(req: TaskStarRequest, user_id: str = Depends(require_
 
 @app.post("/api/events")
 async def manage_events(req: EventRequest, user_id: str = Depends(require_user)):
-    """Local event CRUD."""
+    """Local event CRUD with recurring events, conflicts, and optional Google write."""
     session = session_manager.get_or_create(user_id)
     em = session.event_manager
     if req.action == "add" and req.title and req.date:
+        # Check conflicts (advisory)
+        conflicts = []
+        if req.time_start and req.time_end:
+            conflicts = em.check_conflicts(req.date, req.time_start, req.time_end)
+
+        # Optional: save to Google Calendar instead of local
+        if req.save_to_google:
+            try:
+                google_proto = session.protocol_registry.get("google")
+                if google_proto:
+                    creds = google_proto._get_creds()
+                    if creds:
+                        from core.protocols.google_tools import calendar_create
+                        start_str = req.date
+                        end_str = req.date
+                        if req.time_start:
+                            start_str = f"{req.date}T{req.time_start}:00"
+                            if req.time_end:
+                                end_str = f"{req.date}T{req.time_end}:00"
+                            else:
+                                from datetime import datetime as dt, timedelta
+                                end_dt = dt.strptime(start_str, "%Y-%m-%dT%H:%M:%S") + timedelta(hours=1)
+                                end_str = end_dt.strftime("%Y-%m-%dT%H:%M:%S")
+                        result = calendar_create(creds, req.title, start_str, end_str,
+                                                 description=req.description or "")
+                        return {"success": result.get("success", False),
+                                "google_event": result, "conflicts": conflicts,
+                                "source": "google"}
+            except Exception:
+                pass
+            return {"error": "Google Calendar not connected or write failed"}
+
         event = em.add_event(
             title=req.title, date=req.date,
             time_start=req.time_start, time_end=req.time_end,
             description=req.description or "",
             all_day=req.all_day or False,
             category=req.category or "general",
+            repeat_type=req.repeat_type or "none",
+            repeat_until=req.repeat_until,
+            reminder_minutes=req.reminder_minutes or 0,
         )
-        return {"success": True, "event": event}
+        return {"success": True, "event": event, "conflicts": conflicts}
     elif req.action == "update" and req.event_id:
         updates = {}
         for field in ("title", "date", "time_start", "time_end",
-                       "description", "all_day", "category"):
+                       "description", "all_day", "category",
+                       "repeat_type", "repeat_until", "reminder_minutes"):
             val = getattr(req, field, None)
             if val is not None:
                 updates[field] = val
         event = em.update_event(req.event_id, **updates)
         return {"success": bool(event), "event": event}
     elif req.action == "delete" and req.event_id:
+        # If it's a recurring instance (contains _r), delete just that occurrence
+        if "_r" in req.event_id:
+            # Extract date from synthetic ID: "abc123_r20260320" -> "2026-03-20"
+            r_part = req.event_id.split("_r")[1]
+            if len(r_part) == 8:
+                occ_date = f"{r_part[:4]}-{r_part[4:6]}-{r_part[6:8]}"
+                return {"success": em.delete_occurrence(req.event_id, occ_date)}
         return {"success": em.delete_event(req.event_id)}
     elif req.action == "list":
         events = em.list_events(req.start_date, req.end_date)
         return {"events": events}
     return {"error": "Invalid action. Use: add, update, delete, list"}
+
+
+@app.get("/api/events/conflicts")
+async def check_event_conflicts(
+    date: str, time_start: str, time_end: str,
+    exclude_id: str = None,
+    user_id: str = Depends(require_user),
+):
+    """Real-time conflict checking for calendar UI."""
+    session = session_manager.get_or_create(user_id)
+    conflicts = session.event_manager.check_conflicts(date, time_start, time_end, exclude_id)
+    return {"conflicts": conflicts}
+
+
+@app.get("/api/events/reminders/check")
+async def check_event_reminders(user_id: str = Depends(require_user)):
+    """Check for event reminders that are due now."""
+    session = session_manager.get_or_create(user_id)
+    due = session.event_manager.check_due_reminders()
+    return {"due": due}
 
 
 @app.get("/api/calendar/month/{year}/{month}")
@@ -656,14 +723,14 @@ async def calendar_month(year: int, month: int, user_id: str = Depends(require_u
                         ev_date = ev.get("start", "")[:10]
                         if start_date <= ev_date <= end_date:
                             google_events.append({
-                                "id": "g_" + ev.get("summary", "")[:8],
+                                "id": "google_" + ev.get("google_id", ev.get("summary", "")[:8]),
                                 "title": ev.get("summary", "(no title)"),
                                 "date": ev_date,
                                 "time_start": ev.get("start", "")[11:16] or None,
                                 "time_end": ev.get("end", "")[11:16] or None,
                                 "description": ev.get("location", ""),
                                 "source": "google",
-                                "read_only": True,
+                                "read_only": False,
                             })
     except Exception:
         pass
@@ -674,6 +741,59 @@ async def calendar_month(year: int, month: int, user_id: str = Depends(require_u
         "local_events": local_events,
         "google_events": google_events,
     }
+
+
+@app.post("/api/calendar/google")
+async def google_calendar_write(req: EventRequest, user_id: str = Depends(require_user)):
+    """Google Calendar write operations: create, update, delete."""
+    session = session_manager.get_or_create(user_id)
+    google_proto = session.protocol_registry.get("google")
+    if not google_proto:
+        return {"error": "Google integration not available"}
+
+    creds = google_proto._get_creds()
+    if not creds:
+        return {"error": "Google account not connected"}
+
+    if req.action == "create" and req.title:
+        from core.protocols.google_tools import calendar_create
+        date_str = req.date or ""
+        start_str = date_str
+        end_str = date_str
+        if req.time_start:
+            start_str = f"{date_str}T{req.time_start}:00"
+            if req.time_end:
+                end_str = f"{date_str}T{req.time_end}:00"
+            else:
+                from datetime import datetime as dt, timedelta
+                end_dt = dt.strptime(start_str, "%Y-%m-%dT%H:%M:%S") + timedelta(hours=1)
+                end_str = end_dt.strftime("%Y-%m-%dT%H:%M:%S")
+        result = calendar_create(creds, req.title, start_str, end_str,
+                                 description=req.description or "")
+        return result
+
+    elif req.action == "update" and req.event_id:
+        from core.protocols.google_tools import calendar_update
+        real_id = req.event_id.replace("google_", "", 1) if req.event_id.startswith("google_") else req.event_id
+        updates = {}
+        if req.title:
+            updates["summary"] = req.title
+        if req.description:
+            updates["description"] = req.description
+        if req.date and req.time_start:
+            updates["start"] = f"{req.date}T{req.time_start}:00"
+            if req.time_end:
+                updates["end"] = f"{req.date}T{req.time_end}:00"
+        result = calendar_update(creds, real_id, **updates)
+        return result
+
+    elif req.action == "delete" and req.event_id:
+        from core.protocols.google_tools import calendar_delete
+        real_id = req.event_id.replace("google_", "", 1) if req.event_id.startswith("google_") else req.event_id
+        result = calendar_delete(creds, real_id)
+        return result
+
+    return {"error": "Invalid action. Use: create, update, delete"}
 
 
 @app.get("/api/briefing")

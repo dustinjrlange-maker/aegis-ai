@@ -381,6 +381,7 @@ def _format_event(event):
     start = event.get("start", {})
     end = event.get("end", {})
     return {
+        "google_id": event.get("id", ""),
         "summary": event.get("summary", "(no title)"),
         "start": start.get("dateTime", start.get("date", "")),
         "end": end.get("dateTime", end.get("date", "")),
@@ -517,4 +518,63 @@ def calendar_create(creds, summary, start, end, description=""):
         }
     except Exception as e:
         logger.warning("Could not create calendar event: %s", e)
+        return {"success": False, "error": str(e)}
+
+
+def calendar_update(creds, event_id, **kwargs):
+    """Update an existing Google Calendar event.
+
+    Accepted kwargs: summary, description, start, end (ISO strings).
+    Returns {success, event_id} or {success: False, error: ...}.
+    """
+    service = _get_calendar_service(creds)
+    if not service:
+        return {"success": False, "error": "Calendar service unavailable"}
+
+    try:
+        # Fetch existing event first
+        existing = service.events().get(calendarId="primary", eventId=event_id).execute()
+
+        if "summary" in kwargs:
+            existing["summary"] = kwargs["summary"]
+        if "description" in kwargs:
+            existing["description"] = kwargs["description"]
+        if "start" in kwargs:
+            start_val = kwargs["start"]
+            is_date = len(start_val) <= 10
+            existing["start"] = {"date": start_val} if is_date else {"dateTime": start_val}
+        if "end" in kwargs:
+            end_val = kwargs["end"]
+            is_date = len(end_val) <= 10
+            existing["end"] = {"date": end_val} if is_date else {"dateTime": end_val}
+
+        result = service.events().update(
+            calendarId="primary",
+            eventId=event_id,
+            body=existing,
+        ).execute()
+
+        return {
+            "success": True,
+            "event_id": result.get("id", ""),
+        }
+    except Exception as e:
+        logger.warning("Could not update calendar event %s: %s", event_id, e)
+        return {"success": False, "error": str(e)}
+
+
+def calendar_delete(creds, event_id):
+    """Delete a Google Calendar event.
+
+    Returns {success: True} or {success: False, error: ...}.
+    """
+    service = _get_calendar_service(creds)
+    if not service:
+        return {"success": False, "error": "Calendar service unavailable"}
+
+    try:
+        service.events().delete(calendarId="primary", eventId=event_id).execute()
+        return {"success": True}
+    except Exception as e:
+        logger.warning("Could not delete calendar event %s: %s", event_id, e)
         return {"success": False, "error": str(e)}
