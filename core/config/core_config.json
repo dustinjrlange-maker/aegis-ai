@@ -77,5 +77,10 @@
         "calendar_injection": true,
         "email_injection": true,
         "cache_ttl_seconds": 300
+    },
+
+    "operations": {
+        "spellcheck_titles": true,
+        "spellcheck_timeout_seconds": 5
     }
 }

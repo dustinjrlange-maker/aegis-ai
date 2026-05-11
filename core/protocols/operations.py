@@ -5,11 +5,14 @@ Handles the companion's daily digital life.
 """
 
 import json
+import logging
 import re
 from datetime import datetime, date, timedelta
 from pathlib import Path
 from core.protocols.base import Protocol
-from core.config import PROJECT_ROOT
+from core.config import PROJECT_ROOT, CONFIG
+
+logger = logging.getLogger(__name__)
 
 
 _LEADING_POLITENESS = [
@@ -531,6 +534,87 @@ class OperationsProtocol(Protocol):
 
     # --- Task Management ---
 
+    def _spellcheck_title(self, text: str) -> str:
+        """Send a task title through Pike's LLM to fix typos. Preserves
+        names/brands/acronyms via prompt instruction. Returns the original
+        text on any failure (timeout, off-script reply, length mismatch).
+
+        Gated by config flag `operations.spellcheck_titles`. Skipped for very
+        short titles since there's not much room for typos and not much value
+        in the LLM round-trip.
+        """
+        ops_cfg = CONFIG.get("operations", {}) if isinstance(CONFIG, dict) else {}
+        if not ops_cfg.get("spellcheck_titles", True):
+            return text
+        if not text or len(text.strip()) < 4:
+            return text
+
+        try:
+            import ollama  # local import — avoids hard dep at module load
+        except ImportError:
+            return text
+
+        timeout = float(ops_cfg.get("spellcheck_timeout_seconds", 5))
+        model = (CONFIG.get("model") or {}).get("chat") if isinstance(CONFIG, dict) else None
+        if not model:
+            return text
+
+        prompt = (
+            "Fix only the spelling errors in this short task title. Rules:\n"
+            "- Do not add or remove words.\n"
+            "- Preserve names, brand names, and acronyms unchanged "
+            "(e.g. Milo, Krunch, RB, FFL, MCP).\n"
+            "- Preserve the original word order and capitalization style.\n"
+            "- If the title has no spelling errors, return it unchanged.\n"
+            "- Return ONLY the corrected title. No quotes, no explanation, no markdown.\n\n"
+            f"Title: {text}\n"
+            "Corrected:"
+        )
+
+        try:
+            response = ollama.chat(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                options={"temperature": 0.0, "num_predict": 60},
+                stream=False,
+                keep_alive="5m",
+            )
+            raw = (response.get("message", {}) or {}).get("content", "") or ""
+        except Exception as e:
+            logger.debug("Spellcheck LLM call failed: %s", e)
+            return text
+
+        # Strip qwen <think> tags if present
+        raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL | re.IGNORECASE)
+        # First non-empty line only
+        for line in raw.splitlines():
+            cleaned = line.strip()
+            if cleaned:
+                raw = cleaned
+                break
+        else:
+            return text
+
+        # Strip surrounding quotes / leading prose
+        raw = raw.strip().strip('"').strip("'").strip()
+        # Some models like to prefix with "Corrected: " or "Title: ". Strip.
+        raw = re.sub(r"^(corrected|title|fixed|answer)\s*:\s*", "", raw, flags=re.IGNORECASE)
+        raw = raw.strip().strip('"').strip("'").strip()
+
+        if not raw:
+            return text
+
+        # Sanity: output length should be within 0.5x–2x of input
+        orig_len = len(text)
+        if not (orig_len * 0.5 <= len(raw) <= orig_len * 2 + 8):
+            logger.debug("Spellcheck output length out of bounds (%d → %d), keeping original",
+                         orig_len, len(raw))
+            return text
+
+        if raw != text:
+            logger.info("Spellcheck: %r → %r", text, raw)
+        return raw
+
     def add_task(self, text, priority="normal", due=None, category="general",
                  activity_type="general"):
         """Add a task to the list. Silently dedupes against a recent similar task.
@@ -545,6 +629,7 @@ class OperationsProtocol(Protocol):
         text = clean_task_title(text)
         if not text or len(text) < 2:
             return None
+        text = self._spellcheck_title(text)
         now_ts = datetime.now()
         norm = text.strip().lower()
         norm_words = {w for w in norm.split() if len(w) > 2}  # ignore tiny words like "to", "a"
