@@ -363,6 +363,169 @@ def gmail_send(creds, to, subject, body, reply_to_id=None):
 
 
 # ---------------------------------------------------------------------------
+# Gmail Drafts
+# ---------------------------------------------------------------------------
+
+
+def _build_mime_message(to, subject, body, reply_to_id=None, service=None):
+    """Build a base64-encoded MIME message and (optional) thread id for a reply."""
+    import base64
+    from email.mime.text import MIMEText
+
+    message = MIMEText(body)
+    message["to"] = to
+    message["subject"] = subject
+
+    thread_id = None
+    if reply_to_id and service:
+        try:
+            original = service.users().messages().get(
+                userId="me", id=reply_to_id, format="metadata",
+                metadataHeaders=["Message-ID"],
+            ).execute()
+            orig_headers = {h["name"]: h["value"] for h in original.get("payload", {}).get("headers", [])}
+            if "Message-ID" in orig_headers:
+                message["In-Reply-To"] = orig_headers["Message-ID"]
+                message["References"] = orig_headers["Message-ID"]
+            thread_id = original.get("threadId")
+        except Exception as e:
+            logger.warning("Could not fetch original for reply context: %s", e)
+
+    raw = base64.urlsafe_b64encode(message.as_bytes()).decode("ascii")
+    return raw, thread_id
+
+
+def gmail_create_draft(creds, to, subject, body, reply_to_id=None):
+    """Create a draft email (saved to user's Gmail drafts, NOT sent).
+
+    Returns {success, draft_id, message_id} or {success: False, error: ...}.
+    """
+    service = _get_gmail_service(creds)
+    if not service:
+        return {"success": False, "error": "Gmail service unavailable"}
+
+    try:
+        raw, thread_id = _build_mime_message(to, subject, body, reply_to_id, service)
+        draft_body = {"message": {"raw": raw}}
+        if thread_id:
+            draft_body["message"]["threadId"] = thread_id
+
+        result = service.users().drafts().create(userId="me", body=draft_body).execute()
+        return {
+            "success": True,
+            "draft_id": result.get("id", ""),
+            "message_id": result.get("message", {}).get("id", ""),
+        }
+    except Exception as e:
+        logger.warning("Could not create Gmail draft: %s", e)
+        return {"success": False, "error": str(e)}
+
+
+def gmail_list_drafts(creds, max_results=20):
+    """List recent drafts.
+
+    Returns list of {draft_id, message_id, subject, to, snippet, updated}.
+    """
+    service = _get_gmail_service(creds)
+    if not service:
+        return []
+
+    try:
+        results = service.users().drafts().list(
+            userId="me",
+            maxResults=max_results,
+        ).execute()
+
+        drafts = []
+        for stub in results.get("drafts", []):
+            draft = service.users().drafts().get(
+                userId="me",
+                id=stub["id"],
+                format="metadata",
+            ).execute()
+            msg = draft.get("message", {})
+            headers = {h["name"]: h["value"] for h in msg.get("payload", {}).get("headers", [])}
+            drafts.append({
+                "draft_id": draft.get("id", ""),
+                "message_id": msg.get("id", ""),
+                "subject": headers.get("Subject", "(no subject)"),
+                "to": headers.get("To", ""),
+                "snippet": msg.get("snippet", ""),
+                "updated": headers.get("Date", ""),
+            })
+
+        return drafts
+    except Exception as e:
+        logger.warning("Could not list Gmail drafts: %s", e)
+        return []
+
+
+def gmail_get_draft(creds, draft_id):
+    """Get full draft contents.
+
+    Returns {draft_id, message_id, subject, to, body, thread_id} or None.
+    """
+    service = _get_gmail_service(creds)
+    if not service:
+        return None
+
+    try:
+        draft = service.users().drafts().get(
+            userId="me", id=draft_id, format="full",
+        ).execute()
+        msg = draft.get("message", {})
+        headers = {h["name"]: h["value"] for h in msg.get("payload", {}).get("headers", [])}
+        body = _extract_body(msg.get("payload", {}))
+        return {
+            "draft_id": draft.get("id", ""),
+            "message_id": msg.get("id", ""),
+            "subject": headers.get("Subject", "(no subject)"),
+            "to": headers.get("To", ""),
+            "body": body,
+            "thread_id": msg.get("threadId", ""),
+        }
+    except Exception as e:
+        logger.warning("Could not get Gmail draft %s: %s", draft_id, e)
+        return None
+
+
+def gmail_send_draft(creds, draft_id):
+    """Send a previously-saved draft. EXPLICIT user-confirmed sends only.
+
+    Returns {success, message_id} or {success: False, error: ...}.
+    """
+    service = _get_gmail_service(creds)
+    if not service:
+        return {"success": False, "error": "Gmail service unavailable"}
+
+    try:
+        result = service.users().drafts().send(
+            userId="me", body={"id": draft_id},
+        ).execute()
+        return {"success": True, "message_id": result.get("id", "")}
+    except Exception as e:
+        logger.warning("Could not send Gmail draft %s: %s", draft_id, e)
+        return {"success": False, "error": str(e)}
+
+
+def gmail_delete_draft(creds, draft_id):
+    """Discard a draft. Irreversible.
+
+    Returns {success} or {success: False, error: ...}.
+    """
+    service = _get_gmail_service(creds)
+    if not service:
+        return {"success": False, "error": "Gmail service unavailable"}
+
+    try:
+        service.users().drafts().delete(userId="me", id=draft_id).execute()
+        return {"success": True}
+    except Exception as e:
+        logger.warning("Could not delete Gmail draft %s: %s", draft_id, e)
+        return {"success": False, "error": str(e)}
+
+
+# ---------------------------------------------------------------------------
 # Calendar Functions
 # ---------------------------------------------------------------------------
 

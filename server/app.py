@@ -45,6 +45,7 @@ from core.vault_pin import (
 from core.memory.personal_log import (
     create_log_entry, list_personal_logs, load_personal_log,
     delete_personal_log, get_audio_path, get_video_path,
+    update_personal_log_title,
 )
 from core.feature_toggles import load_feature_toggles, save_feature_toggles
 from core.memory.news_service import NewsService
@@ -213,6 +214,10 @@ class PersonalLogRequest(BaseModel):
     text: str
 
 
+class PersonalLogTitleUpdate(BaseModel):
+    title: str
+
+
 class FeatureToggleRequest(BaseModel):
     feature: str
     enabled: bool
@@ -225,6 +230,7 @@ class TaskUpdateRequest(BaseModel):
     due: Optional[str] = None
     activity_type: Optional[str] = None
     starred: Optional[bool] = None
+    notes: Optional[str] = None
 
 
 class SubtaskRequest(BaseModel):
@@ -529,11 +535,17 @@ async def manage_tasks(req: TaskRequest, user_id: str = Depends(require_user)):
     elif req.action == "done" and req.task_id:
         task = ops.complete_task(req.task_id)
         return {"success": bool(task), "task": task}
+    elif req.action == "uncomplete" and req.task_id:
+        task = ops.uncomplete_task(req.task_id)
+        return {"success": bool(task), "task": task}
     elif req.action == "remove" and req.task_id:
         removed = ops.remove_task(req.task_id)
         return {"success": removed}
     elif req.action == "list":
-        return {"tasks": ops.get_pending_tasks()}
+        # Return ALL tasks (pending + completed) so the UI can show
+        # strike-through for recently-completed ones. Clients that only want
+        # pending tasks should filter on `t.completed`.
+        return {"tasks": list(ops._tasks)}
     else:
         return {"error": "Invalid action. Use: add, done, remove, list"}
 
@@ -565,6 +577,8 @@ async def update_task(req: TaskUpdateRequest, user_id: str = Depends(require_use
         updates["activity_type"] = req.activity_type
     if req.starred is not None:
         updates["starred"] = req.starred
+    if req.notes is not None:
+        updates["notes"] = req.notes
     task = ops.update_task(req.task_id, **updates)
     return {"success": bool(task), "task": task}
 
@@ -597,6 +611,133 @@ async def toggle_task_star(req: TaskStarRequest, user_id: str = Depends(require_
         return {"error": "Operations protocol not available"}
     task = ops.toggle_star(req.task_id)
     return {"success": bool(task), "task": task}
+
+
+# ── Task attachments (image uploads) ────────────────────────────────────────
+
+_ATTACHMENT_ALLOWED_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".heif", ".bmp"}
+_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024  # 10 MB
+_ATTACHMENT_MEDIA_TYPES = {
+    ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+    ".png": "image/png", ".gif": "image/gif",
+    ".webp": "image/webp", ".heic": "image/heic",
+    ".heif": "image/heif", ".bmp": "image/bmp",
+}
+
+
+def _safe_attachment_name(raw: str) -> str:
+    """Reduce an uploaded filename to a safe stem + allowed extension.
+    Strips directory separators, keeps `a-zA-Z0-9._-`, and lower-cases the ext."""
+    import re as _re
+    from pathlib import Path as _P
+    name = _P(raw or "").name  # strips any path
+    stem, _, ext = name.rpartition(".")
+    if not stem:
+        stem, ext = name, ""
+    stem = _re.sub(r"[^A-Za-z0-9._-]", "_", stem)[:80] or "file"
+    ext = "." + _re.sub(r"[^A-Za-z0-9]", "", ext).lower() if ext else ""
+    return stem + ext
+
+
+def _task_attachments_dir(session, task_id: int):
+    """Resolve the on-disk directory for a task's attachments. Created on demand."""
+    from pathlib import Path as _P
+    base = _P(session.memory.user_data_dir) / "task_attachments" / str(task_id)
+    base.mkdir(parents=True, exist_ok=True)
+    return base
+
+
+@app.post("/api/tasks/{task_id}/attachments")
+async def upload_task_attachment(
+    task_id: int,
+    file: UploadFile = File(...),
+    user_id: str = Depends(require_user),
+):
+    """Upload an image attachment for a task. Multipart 'file' field."""
+    session = session_manager.get_or_create(user_id)
+    ops = session.protocol_registry.get("operations")
+    if not ops:
+        raise HTTPException(status_code=503, detail="Operations protocol not available")
+
+    # Verify task exists
+    task = next((t for t in ops._tasks if t["id"] == task_id), None)
+    if not task:
+        raise HTTPException(status_code=404, detail=f"Task #{task_id} not found")
+
+    safe = _safe_attachment_name(file.filename or "upload")
+    from pathlib import Path as _P
+    ext = _P(safe).suffix.lower()
+    if ext not in _ATTACHMENT_ALLOWED_EXTS:
+        raise HTTPException(
+            status_code=415,
+            detail=f"Unsupported file type {ext!r}. Allowed: {sorted(_ATTACHMENT_ALLOWED_EXTS)}",
+        )
+
+    data = await file.read()
+    if len(data) > _ATTACHMENT_MAX_BYTES:
+        raise HTTPException(status_code=413, detail="File exceeds 10 MB limit")
+    if len(data) == 0:
+        raise HTTPException(status_code=400, detail="Empty file")
+
+    # Resolve collisions by appending -1, -2, ... before the extension
+    target_dir = _task_attachments_dir(session, task_id)
+    target_path = target_dir / safe
+    if target_path.exists():
+        stem, suffix = _P(safe).stem, _P(safe).suffix
+        n = 1
+        while True:
+            candidate = target_dir / f"{stem}-{n}{suffix}"
+            if not candidate.exists():
+                target_path = candidate
+                break
+            n += 1
+
+    target_path.write_bytes(data)
+    ops.add_attachment(task_id, target_path.name)
+    return {"success": True, "filename": target_path.name, "size": len(data)}
+
+
+@app.get("/api/tasks/{task_id}/attachments/{filename}")
+async def get_task_attachment(
+    task_id: int,
+    filename: str,
+    user_id: str = Depends(require_user),
+):
+    """Serve an image attachment for a task."""
+    session = session_manager.get_or_create(user_id)
+    safe = _safe_attachment_name(filename)
+    target_dir = _task_attachments_dir(session, task_id)
+    path = target_dir / safe
+    if not path.exists() or not path.is_file():
+        raise HTTPException(status_code=404, detail="Attachment not found")
+    from pathlib import Path as _P
+    media_type = _ATTACHMENT_MEDIA_TYPES.get(_P(safe).suffix.lower(), "application/octet-stream")
+    return FileResponse(str(path), media_type=media_type, filename=safe)
+
+
+@app.delete("/api/tasks/{task_id}/attachments/{filename}")
+async def delete_task_attachment(
+    task_id: int,
+    filename: str,
+    user_id: str = Depends(require_user),
+):
+    """Delete an attachment from a task — removes the file AND the task record entry."""
+    session = session_manager.get_or_create(user_id)
+    ops = session.protocol_registry.get("operations")
+    if not ops:
+        raise HTTPException(status_code=503, detail="Operations protocol not available")
+    safe = _safe_attachment_name(filename)
+    target_dir = _task_attachments_dir(session, task_id)
+    path = target_dir / safe
+    file_removed = False
+    if path.exists() and path.is_file():
+        try:
+            path.unlink()
+            file_removed = True
+        except OSError:
+            pass
+    ops.remove_attachment(task_id, safe)
+    return {"success": True, "file_removed": file_removed, "filename": safe}
 
 
 @app.post("/api/events")
@@ -810,11 +951,13 @@ async def get_briefing(user_id: str = Depends(require_user)):
     overdue_tasks = []
     due_today = []
     high_priority_tasks = []
+    all_pending = []
     total_pending = 0
 
     if ops:
         for task in ops.get_pending_tasks():
             total_pending += 1
+            all_pending.append(task)
             if task.get("priority") == "high":
                 high_priority_tasks.append(task)
             due = task.get("due")
@@ -827,6 +970,11 @@ async def get_briefing(user_id: str = Depends(require_user)):
                         due_today.append(task)
                 except (ValueError, TypeError):
                     pass
+
+    # "Other pending" — pending tasks not surfaced in overdue/due-today/high-priority,
+    # so the Pending stat is never silently un-clickable.
+    surfaced_ids = {id(t) for t in overdue_tasks + due_today + high_priority_tasks}
+    other_pending = [t for t in all_pending if id(t) not in surfaced_ids]
 
     # Local events
     events_today = session.event_manager.list_events(today_str, today_str)
@@ -878,6 +1026,7 @@ async def get_briefing(user_id: str = Depends(require_user)):
         "overdue_tasks": overdue_tasks,
         "due_today": due_today,
         "high_priority_tasks": high_priority_tasks,
+        "other_pending": other_pending,
         "events_today": events_today + google_today,
         "events_upcoming": events_upcoming + google_upcoming,
         "total_pending": total_pending,
@@ -887,6 +1036,107 @@ async def get_briefing(user_id: str = Depends(require_user)):
         "timer_summary": timer_summary,
         "weather": weather,
     }
+
+
+@app.get("/api/briefing/narrative")
+async def get_briefing_narrative(
+    period: str | None = None,
+    unit: str | None = None,
+    user_id: str = Depends(require_user),
+):
+    """Get the personality-voiced briefing narrative.
+
+    period: morning | afternoon | evening | late (optional — auto-detected from time of day)
+    unit:   F | C (optional, default F) — temperature unit for the narrative prose
+    """
+    from core.briefing import generate_narrative_briefing
+    session = session_manager.get_or_create(user_id)
+    return generate_narrative_briefing(session, period=period, unit=(unit or "F"))
+
+
+# ── Email assistant ─────────────────────────────────────────────────────────
+# All email writing is gated through Gmail drafts. There is NO endpoint that
+# both composes and sends in one call. Sending requires:
+#   POST /api/email/send-draft/{draft_id}  body: {"confirm": true}
+
+
+@app.get("/api/email/inbox-digest")
+async def email_inbox_digest(max_messages: int = 10, user_id: str = Depends(require_user)):
+    """Pike-voiced summary of the user's recent inbox."""
+    from core.email_assistant import get_inbox_digest
+    session = session_manager.get_or_create(user_id)
+    return get_inbox_digest(session, max_messages=max_messages)
+
+
+@app.get("/api/email/drafts")
+async def email_list_drafts(max_results: int = 20, user_id: str = Depends(require_user)):
+    """List the user's recent Gmail drafts."""
+    from core.email_assistant import list_drafts
+    session = session_manager.get_or_create(user_id)
+    return {"drafts": list_drafts(session, max_results=max_results)}
+
+
+@app.get("/api/email/drafts/{draft_id}")
+async def email_get_draft(draft_id: str, user_id: str = Depends(require_user)):
+    """Get one draft's full contents."""
+    from core.email_assistant import get_draft
+    session = session_manager.get_or_create(user_id)
+    draft = get_draft(session, draft_id)
+    if not draft:
+        return {"error": "Draft not found"}
+    return draft
+
+
+@app.post("/api/email/draft-reply")
+async def email_draft_reply(body: dict, user_id: str = Depends(require_user)):
+    """Draft a reply to an inbox message. Saves to Gmail drafts. Does NOT send.
+
+    Body: {message_id: str, intent?: str}
+    """
+    from core.email_assistant import draft_reply
+    session = session_manager.get_or_create(user_id)
+    message_id = body.get("message_id", "").strip()
+    if not message_id:
+        return {"success": False, "error": "message_id required"}
+    intent = body.get("intent")
+    return draft_reply(session, message_id, intent=intent)
+
+
+@app.post("/api/email/draft")
+async def email_draft_new(body: dict, user_id: str = Depends(require_user)):
+    """Draft a fresh email (not a reply). Saves to Gmail drafts. Does NOT send.
+
+    Body: {to: str, intent: str, subject?: str}
+    """
+    from core.email_assistant import draft_new
+    session = session_manager.get_or_create(user_id)
+    to = body.get("to", "").strip()
+    intent = body.get("intent", "").strip()
+    if not to or not intent:
+        return {"success": False, "error": "to and intent required"}
+    subject_hint = body.get("subject")
+    return draft_new(session, to=to, intent=intent, subject_hint=subject_hint)
+
+
+@app.post("/api/email/send-draft/{draft_id}")
+async def email_send_draft(draft_id: str, body: dict, user_id: str = Depends(require_user)):
+    """Send a previously-saved draft. EXPLICIT user confirmation required.
+
+    Body: {confirm: true}  — must be true. Belt-and-suspenders against accidental sends.
+    """
+    if body.get("confirm") is not True:
+        return {"success": False, "error": "Send requires {\"confirm\": true} in body"}
+    from core.email_assistant import send_draft
+    session = session_manager.get_or_create(user_id)
+    return send_draft(session, draft_id)
+
+
+@app.delete("/api/email/drafts/{draft_id}")
+async def email_discard_draft(draft_id: str, user_id: str = Depends(require_user)):
+    """Discard a draft. Irreversible."""
+    from core.email_assistant import discard_draft
+    session = session_manager.get_or_create(user_id)
+    return discard_draft(session, draft_id)
 
 
 @app.get("/api/notifications")
@@ -1564,6 +1814,25 @@ async def delete_personal_log_endpoint(log_id: str, user_id: str = Depends(requi
     if delete_personal_log(log_id, data_dir):
         return {"success": True}
     return {"success": False, "error": "Log not found"}
+
+
+@app.patch("/api/personal-logs/{log_id}")
+async def update_personal_log_endpoint(
+    log_id: str,
+    req: PersonalLogTitleUpdate,
+    user_id: str = Depends(require_vault_access),
+):
+    """Update the title of a personal log entry. Stamps title_edited_at."""
+    if ".." in log_id or "/" in log_id or "\\" in log_id:
+        return {"error": "Invalid log ID"}
+    session = session_manager.get_or_create(user_id)
+    data_dir = session.memory.user_data_dir
+    if not data_dir:
+        return {"error": "No user data directory"}
+    entry = update_personal_log_title(log_id, req.title, data_dir)
+    if entry:
+        return {"success": True, "entry": entry}
+    return {"success": False, "error": "Log not found or invalid title"}
 
 
 @app.get("/api/personal-logs/{log_id}/audio")

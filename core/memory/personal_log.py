@@ -47,9 +47,11 @@ def create_log_entry(
     has_audio = audio_bytes is not None and len(audio_bytes) > 0
     has_video = video_bytes is not None and len(video_bytes) > 0
 
+    default_title = (text or "").strip().split("\n")[0][:80] or f"Log {log_id}"
     entry = {
         "id": log_id,
         "created": now.isoformat(),
+        "title": default_title,
         "text": text or "",
         "has_audio": has_audio,
         "audio_file": "",
@@ -89,9 +91,12 @@ def list_personal_logs(data_dir: Path) -> list[dict]:
     for f in sorted(logs_path.glob("*.json"), reverse=True):
         try:
             entry = json.loads(f.read_text(encoding="utf-8"))
+            fallback_title = (entry.get("text") or entry.get("transcription") or "").strip().split("\n")[0][:80]
             entries.append({
                 "id": entry["id"],
                 "created": entry["created"],
+                "title": entry.get("title") or fallback_title or f"Log {entry['id']}",
+                "title_edited_at": entry.get("title_edited_at"),
                 "preview": (entry.get("text") or entry.get("transcription") or "")[:100],
                 "has_audio": entry.get("has_audio", False),
                 "has_video": entry.get("has_video", False),
@@ -136,6 +141,29 @@ def delete_personal_log(log_id: str, data_dir: Path) -> bool:
     except (json.JSONDecodeError, IOError) as e:
         logger.warning("Error deleting log %s: %s", log_id, e)
         return False
+
+
+def update_personal_log_title(log_id: str, new_title: str, data_dir: Path) -> dict | None:
+    """Update the title of a personal log entry. Stamps title_edited_at with current time."""
+    entry_path = _logs_dir(data_dir) / f"{log_id}.json"
+    if not entry_path.exists():
+        return None
+    new_title = (new_title or "").strip()[:200]
+    if not new_title:
+        return None
+    try:
+        entry = json.loads(entry_path.read_text(encoding="utf-8"))
+        entry["title"] = new_title
+        entry["title_edited_at"] = datetime.now().isoformat()
+        entry_path.write_text(
+            json.dumps(entry, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        logger.info("Personal log title updated: %s", log_id)
+        return entry
+    except (json.JSONDecodeError, IOError) as e:
+        logger.warning("Could not update title for %s: %s", log_id, e)
+        return None
 
 
 def get_audio_path(log_id: str, data_dir: Path) -> Path | None:

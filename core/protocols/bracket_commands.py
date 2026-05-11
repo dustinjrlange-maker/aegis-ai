@@ -44,11 +44,38 @@ class BracketCommandProtocol(Protocol):
                 "response": "",
             }
 
-        names = ", ".join(f"[{n}:]" for n in sorted(self._handlers))
-        injection = (
-            f"Available actions you can place at the END of your response: {names}. "
-            "Use them when appropriate — do NOT use them in every message."
+        # Per-command guidance — explicit examples beat a bare list for small models.
+        guidance = {
+            "ADD_TASK": "[ADD_TASK: short task title] — REQUIRED when the user asks you to add, create, make, set, or schedule a task, or asks you to remind them about something. Use the user's exact subject as the title.",
+            "ADD_EVENT": "[ADD_EVENT: YYYY-MM-DD | title] — when the user mentions an appointment or event on a specific date.",
+            "COMPLETE_TASK": (
+                "[COMPLETE_TASK: #N or task title] — use when the user has FINISHED or DONE a task. "
+                "Trigger words: done, finished, completed, complete, wrapped up, checked off, knocked out. "
+                "Examples: 'mark X done' → [COMPLETE_TASK: X]. 'I finished X' → [COMPLETE_TASK: X]. "
+                "Keeps the task in history with a strikethrough."
+            ),
+            "REMOVE_TASK": (
+                "[REMOVE_TASK: #N or task title] — use ONLY when the user wants the task ENTIRELY GONE because it "
+                "was a mistake, no longer needed, or should be cancelled. "
+                "Trigger words: delete, remove, cancel, get rid of, scrap, throw out. "
+                "Examples: 'delete X' → [REMOVE_TASK: X]. 'cancel X' → [REMOVE_TASK: X]. "
+                "If the user said the task is DONE/FINISHED, use COMPLETE_TASK instead, NOT this one."
+            ),
+            "ADD_MOOD": "[ADD_MOOD: mood1, mood2 | note] — when the user reports how they're feeling.",
+            "ADD_CONTACT": "[ADD_CONTACT: name | relationship] — when the user mentions a new person to remember.",
+            "REMEMBER": "[REMEMBER: fact] — when the user tells you something to commit to long-term memory.",
+        }
+        lines = ["Available actions for the END of your response:"]
+        for name in sorted(self._handlers):
+            lines.append("  " + guidance.get(name, f"[{name}: arg]"))
+        lines.append(
+            "Place each bracket on its own line at the very end of your reply. "
+            "Emit a bracket EVERY time the user explicitly requests that action "
+            "(\"add a task to ...\", \"make a task ...\", \"remind me to ...\"); "
+            "do NOT skip it just because you already acknowledged in prose. "
+            "Do NOT emit brackets during casual chat where the user is not requesting an action."
         )
+        injection = "\n".join(lines)
 
         return {
             "input": user_input,

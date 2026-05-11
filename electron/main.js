@@ -149,6 +149,64 @@ function killOrphanedServer(port) {
     });
 }
 
+// ── Ollama health check ──────────────────────────────────────────────────────
+// Pike's brain (qwen3:8b) lives in Ollama. The Ollama tray app sometimes
+// doesn't bind the API daemon to port 11434 cleanly, leaving the FastAPI
+// server unable to reach it. We probe before starting Python; if Ollama is
+// down, we spawn `ollama serve` detached so it outlives Electron.
+
+const OLLAMA_PORT = 11434;
+let ollamaProcess = null;
+
+function probeOllama() {
+    return new Promise((resolve) => {
+        const req = http.get(`http://127.0.0.1:${OLLAMA_PORT}/`, (res) => {
+            res.resume();
+            resolve(true);
+        });
+        req.on('error', () => resolve(false));
+        req.setTimeout(1500, () => { req.destroy(); resolve(false); });
+    });
+}
+
+function startOllama() {
+    try {
+        ollamaProcess = spawn('ollama', ['serve'], {
+            detached: true,
+            stdio: 'ignore',
+            windowsHide: true,
+            shell: process.platform === 'win32',
+        });
+        ollamaProcess.on('error', (err) => {
+            console.error(`[electron] Ollama spawn error: ${err.message}`);
+        });
+        ollamaProcess.unref();
+        return true;
+    } catch (err) {
+        console.error(`[electron] Failed to spawn ollama: ${err.message}`);
+        return false;
+    }
+}
+
+async function ensureOllama(timeoutMs = 30000) {
+    if (await probeOllama()) {
+        console.log('[electron] Ollama already running');
+        return true;
+    }
+    console.log('[electron] Ollama not responding — starting `ollama serve`');
+    if (!startOllama()) return false;
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+        await new Promise(r => setTimeout(r, 1000));
+        if (await probeOllama()) {
+            console.log(`[electron] Ollama is up (${Date.now() - start}ms)`);
+            return true;
+        }
+    }
+    console.error(`[electron] Ollama failed to start within ${timeoutMs}ms — Pike will be unavailable`);
+    return false;
+}
+
 // ── Health check ─────────────────────────────────────────────────────────────
 
 function waitForServer(port, timeoutMs = 30000) {
@@ -400,6 +458,12 @@ app.whenReady().then(async () => {
     try {
         // Kill any orphaned server from a previous crashed session
         await killOrphanedServer(8484);
+
+        // Make sure Ollama (Pike's brain) is reachable before starting Python
+        const ollamaOk = await ensureOllama();
+        if (!ollamaOk) {
+            console.warn('[electron] Continuing without Ollama — chat will fail until it comes up');
+        }
 
         serverPort = await waitForPort(8484);
         console.log(`[electron] Using port ${serverPort}`);

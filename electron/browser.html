@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AEGIS Browser</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; overflow: hidden; background: #000; font-family: 'Segoe UI', Arial, sans-serif; }
+
+/* ── LCARS Navigation Bar ─────────────────────────────────────── */
+.lcars-nav {
+    display: flex;
+    align-items: center;
+    height: 42px;
+    background: #000;
+    padding: 0;
+    gap: 0;
+    -webkit-app-region: drag;
+    user-select: none;
+}
+.lcars-nav-elbow {
+    width: 48px;
+    height: 42px;
+    background: #5b9bd5;
+    border-radius: 24px 0 0 0;
+    flex-shrink: 0;
+}
+.lcars-nav-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 8px;
+    height: 100%;
+    background: #000;
+    -webkit-app-region: no-drag;
+}
+.nav-btn {
+    background: #1a1a2e;
+    border: 1px solid #5b9bd544;
+    color: #7eb8e0;
+    font-size: 16px;
+    width: 32px;
+    height: 28px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, color 0.15s;
+}
+.nav-btn:hover { background: #5b9bd5; color: #000; }
+.nav-btn:active { background: #7eb8e0; }
+.nav-btn.disabled { opacity: 0.3; pointer-events: none; }
+
+.lcars-url-bar {
+    flex: 1;
+    height: 26px;
+    background: #0a0a1a;
+    border: 1px solid #5b9bd544;
+    border-radius: 4px;
+    color: #7eb8e0;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 12px;
+    padding: 0 10px;
+    outline: none;
+    -webkit-app-region: no-drag;
+}
+.lcars-url-bar:focus { border-color: #5b9bd5; background: #0d0d24; }
+
+.lcars-nav-bar-seg {
+    flex: 1;
+    height: 28px;
+    background: linear-gradient(90deg, #5b9bd5, #9b8ec4, #5b9bd5);
+    border-radius: 8px;
+    margin: 0 6px;
+    min-width: 40px;
+    -webkit-app-region: drag;
+}
+
+.nav-label-btn {
+    background: #9b8ec4;
+    border: none;
+    color: #000;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    height: 28px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+    -webkit-app-region: no-drag;
+}
+.nav-label-btn:hover { background: #b8ade0; }
+
+.nav-endcap {
+    width: 32px;
+    height: 42px;
+    background: #9b8ec4;
+    border-radius: 0 0 24px 0;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-app-region: no-drag;
+}
+
+.win-close-btn {
+    background: none;
+    border: none;
+    color: #000;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    width: 32px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.win-close-btn:hover { background: #c04040; color: #fff; border-radius: 0 0 24px 0; }
+
+/* ── Loading Bar ──────────────────────────────────────────────── */
+.loading-bar {
+    height: 2px;
+    background: #000;
+    position: relative;
+    overflow: hidden;
+}
+.loading-bar.active::after {
+    content: '';
+    position: absolute;
+    top: 0; left: -40%;
+    width: 40%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, #5b9bd5, #9b8ec4, transparent);
+    animation: loading-slide 1.2s ease-in-out infinite;
+}
+@keyframes loading-slide {
+    0% { left: -40%; }
+    100% { left: 100%; }
+}
+
+/* ── Webview fills remaining space ────────────────────────────── */
+.browser-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+webview {
+    flex: 1;
+    border: none;
+}
+
+/* ── Status Bar ───────────────────────────────────────────────── */
+.lcars-status-bar {
+    height: 22px;
+    background: #000;
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    gap: 8px;
+}
+.status-text {
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 10px;
+    color: #5b9bd566;
+    letter-spacing: 1px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.status-indicator {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #5b9bd5;
+    flex-shrink: 0;
+}
+.status-indicator.loading { animation: pulse-status 1s ease-in-out infinite; }
+@keyframes pulse-status {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 1; }
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+}
+</style>
+</head>
+<body>
+
+<div class="lcars-nav">
+    <div class="lcars-nav-elbow"></div>
+    <div class="lcars-nav-controls">
+        <button class="nav-btn" id="btnBack" title="Back" onclick="navBack()">&#x25C4;</button>
+        <button class="nav-btn" id="btnForward" title="Forward" onclick="navForward()">&#x25BA;</button>
+        <button class="nav-btn" id="btnReload" title="Reload" onclick="navReload()">&#x21BB;</button>
+    </div>
+    <input class="lcars-url-bar" id="urlBar" type="text" spellcheck="false" placeholder="Enter URL..." onkeydown="if(event.key==='Enter')navGo(this.value)">
+    <div class="lcars-nav-bar-seg"></div>
+    <button class="nav-label-btn" id="btnExternal" onclick="openExternal()">OPEN IN BROWSER</button>
+    <div class="nav-endcap">
+        <button class="win-close-btn" onclick="closeWindow()">&#x2715;</button>
+    </div>
+</div>
+<div class="loading-bar" id="loadingBar"></div>
+
+<div class="browser-content">
+    <webview id="webview" src="about:blank" partition="persist:aegis-browser"></webview>
+</div>
+
+<div class="lcars-status-bar">
+    <div class="status-indicator" id="statusDot"></div>
+    <span class="status-text" id="statusText">Ready</span>
+</div>
+
+<script>
+    const webview = document.getElementById('webview');
+    const urlBar = document.getElementById('urlBar');
+    const loadingBar = document.getElementById('loadingBar');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const btnBack = document.getElementById('btnBack');
+    const btnForward = document.getElementById('btnForward');
+
+    let currentUrl = '';
+    let browserPref = 'system';
+
+    // Navigation functions
+    function navBack() { webview.goBack(); }
+    function navForward() { webview.goForward(); }
+    function navReload() { webview.reload(); }
+    function navGo(url) {
+        if (!url) return;
+        if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+        webview.loadURL(url);
+    }
+    function openExternal() {
+        if (!window.browserAPI || !currentUrl) return;
+        if (browserPref && browserPref !== 'system') {
+            window.browserAPI.openInSpecificBrowser(currentUrl, browserPref);
+        } else {
+            window.browserAPI.openExternal(currentUrl);
+        }
+    }
+    function closeWindow() {
+        if (window.browserAPI) window.browserAPI.closeWindow();
+    }
+
+    // Webview events
+    webview.addEventListener('did-start-loading', () => {
+        loadingBar.classList.add('active');
+        statusDot.classList.add('loading');
+        statusText.textContent = 'Loading...';
+    });
+    webview.addEventListener('did-stop-loading', () => {
+        loadingBar.classList.remove('active');
+        statusDot.classList.remove('loading');
+        statusText.textContent = webview.getTitle() || currentUrl || 'Ready';
+    });
+    webview.addEventListener('did-navigate', (e) => {
+        currentUrl = e.url;
+        urlBar.value = e.url;
+        updateNavButtons();
+    });
+    webview.addEventListener('did-navigate-in-page', (e) => {
+        currentUrl = e.url;
+        urlBar.value = e.url;
+        updateNavButtons();
+    });
+    webview.addEventListener('page-title-updated', (e) => {
+        statusText.textContent = e.title;
+        document.title = 'AEGIS - ' + e.title;
+    });
+    webview.addEventListener('did-fail-load', (e) => {
+        if (e.errorCode === -3) return; // Aborted, ignore
+        loadingBar.classList.remove('active');
+        statusDot.classList.remove('loading');
+        statusText.textContent = 'Failed: ' + (e.errorDescription || 'Unknown error');
+    });
+
+    function updateNavButtons() {
+        btnBack.classList.toggle('disabled', !webview.canGoBack());
+        btnForward.classList.toggle('disabled', !webview.canGoForward());
+    }
+
+    // Listen for initial URL and browser preference from main process
+    if (window.browserAPI) {
+        window.browserAPI.onNavigate((url) => {
+            currentUrl = url;
+            urlBar.value = url;
+            webview.loadURL(url);
+        });
+        window.browserAPI.onBrowserPref((pref) => {
+            browserPref = pref;
+            // Update button label to show which browser
+            var names = { system: 'BROWSER', chrome: 'CHROME', firefox: 'FIREFOX', edge: 'EDGE', brave: 'BRAVE' };
+            var btn = document.getElementById('btnExternal');
+            if (btn) btn.textContent = 'OPEN IN ' + (names[pref] || 'BROWSER');
+        });
+    }
+</script>
+</body>
+</html>

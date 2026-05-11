@@ -1,0 +1,311 @@
+"""Pike-voiced email assistant.
+
+Wraps the Gmail tools (read/list/draft/send) with personality-aware
+summarization and drafting. Hard rule baked in at this layer:
+
+    Drafts are SAVED to the user's Gmail drafts folder. They are NEVER sent
+    automatically. Sending requires an explicit `send_draft(draft_id)` call —
+    a separate operation the user (not Pike) initiates.
+
+The reply drafter writes in the user's voice (first person, addressed to the
+correspondent). The inbox digest writes in Pike's voice (third-person
+narration of the inbox state).
+"""
+from __future__ import annotations
+
+import logging
+
+import ollama
+
+from core.config import CONFIG
+from core.protocols import google_tools as gt
+
+logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
+
+
+def _creds_from_session(session):
+    """Pull Google OAuth creds from the session, or None if not authorized."""
+    google_proto = session.protocol_registry.get("google")
+    if not google_proto:
+        return None
+    return google_proto._get_creds()
+
+
+def _llm(messages: list[dict]) -> str:
+    """Call the chat model and return the response content."""
+    response = ollama.chat(
+        model=CONFIG["model"]["chat"],
+        messages=messages,
+    )
+    return response["message"]["content"]
+
+
+def _format_messages_for_llm(messages: list[dict]) -> str:
+    """Render an inbox listing as a compact text block for the LLM."""
+    if not messages:
+        return "(inbox empty)"
+    lines = []
+    for i, m in enumerate(messages, 1):
+        sender = (m.get("sender") or "Unknown").strip()
+        subject = (m.get("subject") or "(no subject)").strip()
+        snippet = (m.get("snippet") or "").strip()
+        if len(snippet) > 200:
+            snippet = snippet[:200] + "…"
+        lines.append(f"[{i}] From: {sender}\n    Subject: {subject}\n    Preview: {snippet}")
+    return "\n\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+
+
+def get_inbox_digest(session, max_messages: int = 10) -> dict:
+    """Pike-voiced summary of recent inbox.
+
+    Returns: {narrative, unread_count, messages, error?}
+    """
+    creds = _creds_from_session(session)
+    if not creds:
+        return {
+            "narrative": "Email is not connected. Authorize Google access in settings first.",
+            "unread_count": 0,
+            "messages": [],
+            "error": "not_authorized",
+        }
+
+    try:
+        unread_count = gt.gmail_unread_count(creds)
+        messages = gt.gmail_list_messages(creds, max_results=max_messages)
+    except Exception as e:
+        logger.exception("Inbox digest fetch failed")
+        return {
+            "narrative": f"[Inbox unavailable — {e}]",
+            "unread_count": 0,
+            "messages": [],
+            "error": str(e),
+        }
+
+    if not messages:
+        return {
+            "narrative": "Inbox is clear. Nothing waiting.",
+            "unread_count": unread_count,
+            "messages": [],
+        }
+
+    facts_text = _format_messages_for_llm(messages)
+    user_prompt = (
+        f"Summarize the user's recent inbox in 3-5 sentences. "
+        f"Lead with the most important or time-sensitive items. "
+        f"Group obvious noise (newsletters, promos) into one mention. "
+        f"Mention unread count ({unread_count}) only if non-zero. "
+        f"Do not invent senders or subjects — only use what's listed below. "
+        f"Stay in character.\n\n"
+        f"INBOX (most recent first):\n{facts_text}\n\n"
+        f"Brief now."
+    )
+
+    try:
+        raw = _llm([
+            {"role": "system", "content": session.system_prompt_base},
+            {"role": "user", "content": user_prompt},
+        ])
+        narrative = session.clean_reply(raw).strip()
+    except Exception as e:
+        logger.exception("Inbox digest LLM call failed")
+        narrative = f"[Briefing failed — {e}]"
+
+    return {
+        "narrative": narrative,
+        "unread_count": unread_count,
+        "messages": messages,
+    }
+
+
+def draft_reply(session, message_id: str, intent: str | None = None) -> dict:
+    """Draft a reply to a specific inbox message.
+
+    Args:
+        message_id: Gmail message id to reply to.
+        intent: Optional natural-language hint about the reply
+            ("polite decline", "accept the meeting", "ask for clarification on X").
+
+    Returns: {success, draft_id, body, subject, to, original?, error?}
+
+    The draft is SAVED to the user's Gmail drafts. NOT sent.
+    """
+    creds = _creds_from_session(session)
+    if not creds:
+        return {"success": False, "error": "Email not authorized"}
+
+    original = gt.gmail_get_message(creds, message_id)
+    if not original:
+        return {"success": False, "error": f"Could not load message {message_id}"}
+
+    intent_block = f"User's intent for the reply: {intent}\n" if intent else ""
+    user_prompt = (
+        f"Draft a reply email IN THE USER'S VOICE (first person, addressed to the "
+        f"sender). Keep it natural and matching the tone of the original. "
+        f"3-8 sentences typical. Sign off appropriately. Do NOT include a "
+        f"subject line in your output — only the body text. Do NOT add "
+        f"'[draft]' markers, disclaimers, or meta-commentary. Output plain text "
+        f"ready to send.\n\n"
+        f"{intent_block}"
+        f"ORIGINAL EMAIL:\n"
+        f"From: {original.get('from', 'Unknown')}\n"
+        f"Subject: {original.get('subject', '(no subject)')}\n"
+        f"Date: {original.get('date', '')}\n\n"
+        f"{original.get('body', '')}\n\n"
+        f"--- end of original ---\n\n"
+        f"Reply body:"
+    )
+
+    try:
+        raw = _llm([
+            {"role": "system", "content": session.system_prompt_base},
+            {"role": "user", "content": user_prompt},
+        ])
+        body = session.clean_reply(raw).strip()
+    except Exception as e:
+        logger.exception("Reply drafting LLM call failed")
+        return {"success": False, "error": f"LLM failed: {e}"}
+
+    # Reply subject: prepend "Re:" if not already there
+    orig_subject = original.get("subject", "")
+    subject = orig_subject if orig_subject.lower().startswith("re:") else f"Re: {orig_subject}"
+
+    # Recipient: parse "Name <email>" from the From header — fallback to whole header
+    sender = original.get("from", "")
+    to = sender  # Gmail accepts "Name <email>" format directly
+
+    result = gt.gmail_create_draft(
+        creds, to=to, subject=subject, body=body, reply_to_id=message_id,
+    )
+    if not result.get("success"):
+        return {
+            "success": False,
+            "error": result.get("error", "Draft creation failed"),
+            "body": body,  # return body so user can copy/paste manually
+        }
+
+    return {
+        "success": True,
+        "draft_id": result["draft_id"],
+        "body": body,
+        "subject": subject,
+        "to": to,
+        "original": {
+            "subject": orig_subject,
+            "from": sender,
+            "snippet": (original.get("body", "") or "")[:200],
+        },
+    }
+
+
+def draft_new(session, to: str, intent: str, subject_hint: str | None = None) -> dict:
+    """Draft a new email (not a reply).
+
+    Args:
+        to: Recipient email address.
+        intent: What the email should say (natural language).
+        subject_hint: Optional subject line; if omitted, the LLM proposes one.
+
+    Returns: {success, draft_id, body, subject, to, error?}
+    """
+    creds = _creds_from_session(session)
+    if not creds:
+        return {"success": False, "error": "Email not authorized"}
+
+    if subject_hint:
+        subject_instruction = f"Subject line: {subject_hint}"
+        subject_block = ""
+    else:
+        subject_instruction = "Propose a brief, accurate subject line."
+        subject_block = (
+            "Output format: first line is `Subject: <line>`, blank line, then "
+            "the body. Nothing else."
+        )
+
+    user_prompt = (
+        f"Draft an email IN THE USER'S VOICE to {to}. {subject_instruction} "
+        f"Keep tone natural and concise. 3-8 sentences typical. "
+        f"Do NOT add '[draft]' markers or meta-commentary.\n"
+        f"{subject_block}\n\n"
+        f"What the email should convey:\n{intent}\n\n"
+        f"Draft:"
+    )
+
+    try:
+        raw = _llm([
+            {"role": "system", "content": session.system_prompt_base},
+            {"role": "user", "content": user_prompt},
+        ])
+        text = session.clean_reply(raw).strip()
+    except Exception as e:
+        logger.exception("New-draft LLM call failed")
+        return {"success": False, "error": f"LLM failed: {e}"}
+
+    # Parse subject if model included one
+    subject = subject_hint or "(no subject)"
+    body = text
+    if not subject_hint and text.lower().startswith("subject:"):
+        first_line, _, rest = text.partition("\n")
+        subject = first_line[len("subject:"):].strip()
+        body = rest.lstrip("\n").strip()
+
+    result = gt.gmail_create_draft(creds, to=to, subject=subject, body=body)
+    if not result.get("success"):
+        return {
+            "success": False,
+            "error": result.get("error", "Draft creation failed"),
+            "body": body,
+            "subject": subject,
+        }
+
+    return {
+        "success": True,
+        "draft_id": result["draft_id"],
+        "body": body,
+        "subject": subject,
+        "to": to,
+    }
+
+
+def list_drafts(session, max_results: int = 20) -> list[dict]:
+    """List recent drafts. Pure passthrough."""
+    creds = _creds_from_session(session)
+    if not creds:
+        return []
+    return gt.gmail_list_drafts(creds, max_results=max_results)
+
+
+def get_draft(session, draft_id: str) -> dict | None:
+    """Get a draft's full contents. Pure passthrough."""
+    creds = _creds_from_session(session)
+    if not creds:
+        return None
+    return gt.gmail_get_draft(creds, draft_id)
+
+
+def send_draft(session, draft_id: str) -> dict:
+    """Send a previously-saved draft. EXPLICIT confirm step.
+
+    Caller is responsible for collecting user intent before invoking this.
+    """
+    creds = _creds_from_session(session)
+    if not creds:
+        return {"success": False, "error": "Email not authorized"}
+    return gt.gmail_send_draft(creds, draft_id)
+
+
+def discard_draft(session, draft_id: str) -> dict:
+    """Discard a draft. Irreversible."""
+    creds = _creds_from_session(session)
+    if not creds:
+        return {"success": False, "error": "Email not authorized"}
+    return gt.gmail_delete_draft(creds, draft_id)

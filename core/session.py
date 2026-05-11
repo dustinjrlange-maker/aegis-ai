@@ -128,6 +128,7 @@ class UserSession:
         bracket_proto.register_handler("REMEMBER", self._handle_remember)
         bracket_proto.register_handler("ADD_TASK", self._handle_add_task)
         bracket_proto.register_handler("COMPLETE_TASK", self._handle_complete_task)
+        bracket_proto.register_handler("REMOVE_TASK", self._handle_remove_task)
         bracket_proto.register_handler("ADD_EVENT", self._handle_add_event)
         bracket_proto.register_handler("ADD_MOOD", self._handle_add_mood)
         bracket_proto.register_handler("ADD_CONTACT", self._handle_add_contact)
@@ -152,24 +153,104 @@ class UserSession:
         return "No fact store available"
 
     def _handle_add_task(self, task_text: str) -> str:
-        """Create a task via the operations protocol."""
-        ops = self.protocol_registry.get("operations")
-        if ops:
-            task = ops.add_task(task_text)
-            return f"Task #{task['id']} created"
-        return "Operations protocol not available"
+        """Create a task via the operations protocol.
 
-    def _handle_complete_task(self, task_ref: str) -> str:
-        """Complete a task by ID (accepts '#3' or '3')."""
+        Accepts either bare text or text with a trailing "| due: DATE" /
+        "| deadline: DATE" / "| by: DATE" suffix. The pipe-suffixed form is
+        parsed so the due date lands in its proper field instead of being
+        baked into the title (which prevented dedup against NLP-created
+        tasks).
+        """
         ops = self.protocol_registry.get("operations")
         if not ops:
             return "Operations protocol not available"
+
+        due = None
+        if "|" in task_text:
+            head, tail = task_text.split("|", 1)
+            head = head.strip()
+            tail_lower = tail.strip().lower()
+            for prefix in ("due:", "deadline:", "by:"):
+                if tail_lower.startswith(prefix):
+                    due_text = tail.strip()[len(prefix):].strip()
+                    parser = getattr(ops, "_parse_natural_date", None)
+                    if parser:
+                        parsed = parser(due_text)
+                        due = parsed or due_text
+                    else:
+                        due = due_text
+                    task_text = head
+                    break
+
+        task = ops.add_task(task_text, due=due)
+        if task is None:
+            return "Task text was empty or duplicate"
+        return f"Task #{task['id']} created"
+
+    def _handle_complete_task(self, task_ref: str) -> str:
+        """Complete a task by ID ('#3' / '3') or fuzzy title match."""
+        ops = self.protocol_registry.get("operations")
+        if not ops:
+            return "Operations protocol not available"
+        match = self._resolve_task_ref(ops, task_ref)
+        if match is None:
+            return f"No pending task matches '{task_ref}'"
+        if ops.complete_task(match["id"]):
+            return f"Task #{match['id']} '{match['text']}' completed"
+        return f"Task #{match['id']} could not be completed"
+
+    def _handle_remove_task(self, task_ref: str) -> str:
+        """Remove (delete) a task by ID ('#3' / '3') or fuzzy title match."""
+        ops = self.protocol_registry.get("operations")
+        if not ops:
+            return "Operations protocol not available"
+        match = self._resolve_task_ref(ops, task_ref)
+        if match is None:
+            return f"No pending task matches '{task_ref}'"
+        if ops.remove_task(match["id"]):
+            return f"Task #{match['id']} '{match['text']}' removed"
+        return f"Task #{match['id']} could not be removed"
+
+    def _resolve_task_ref(self, ops, task_ref: str):
+        """Resolve a task reference (numeric ID or fuzzy text) to an actual pending task.
+
+        Returns the task dict on match, or None. Matches against pending tasks
+        only — completed tasks are excluded from text-based matching.
+        """
+        ref = (task_ref or "").strip().lstrip("#").strip()
+        if not ref:
+            return None
+        # Try ID first
         try:
-            task_id = int(task_ref.strip().lstrip("#"))
+            target_id = int(ref)
+            for t in ops.get_pending_tasks():
+                if t.get("id") == target_id:
+                    return t
+            return None
         except ValueError:
-            return f"Invalid task ID: {task_ref}"
-        result = ops.complete_task(task_id)
-        return f"Task #{task_id} completed" if result else f"Task #{task_id} not found"
+            pass
+        # Typo-tolerant fuzzy text match — ref word counts as matched if any
+        # task word is ≥0.8 SequenceMatcher ratio (handles "finish" vs "finsih").
+        from difflib import SequenceMatcher
+        ref_words = [w for w in ref.lower().split() if len(w) > 2]
+        if not ref_words:
+            return None
+        best, best_score = None, 0.0
+        for t in ops.get_pending_tasks():
+            task_words = [w for w in (t.get("text") or "").lower().split() if len(w) > 2]
+            if not task_words:
+                continue
+            matched = 0
+            for rw in ref_words:
+                for tw in task_words:
+                    if rw == tw or SequenceMatcher(None, rw, tw).ratio() >= 0.8:
+                        matched += 1
+                        break
+            score = matched / max(len(ref_words), len(task_words))
+            if score > best_score:
+                best_score = score
+                best = t
+        return best if best_score >= 0.5 else None
 
     def _handle_add_event(self, arg: str) -> str:
         """Create a local event from bracket command: YYYY-MM-DD | title."""

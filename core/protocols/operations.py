@@ -12,15 +12,83 @@ from core.protocols.base import Protocol
 from core.config import PROJECT_ROOT
 
 
+_LEADING_POLITENESS = [
+    r"^pike\s*[,:]?\s*",
+    r"^hey\s+pike\s*[,:]?\s*",
+    r"^hey\s*[,:]?\s*",
+    r"^please\s+",
+    r"^can\s+you\s+(?:please\s+)?",
+    r"^could\s+you\s+(?:please\s+)?",
+    r"^would\s+you\s+(?:please\s+)?",
+    r"^will\s+you\s+(?:please\s+)?",
+]
+_LEADING_FILLER = [
+    r"^to\s+",
+    r"^that\s+i\s+",
+    r"^that\s+",
+    r"^me\s+to\s+",
+    r"^i\s+want\s+to\s+",
+    r"^i\s+need\s+to\s+",
+    r"^i\s+have\s+to\s+",
+    r"^i\s+gotta\s+",
+]
+
+
+def clean_task_title(text):
+    """Strip politeness, filler, and stray punctuation from a task title."""
+    if not text:
+        return text
+    t = text.strip()
+    t = re.sub(r"^[\s,;:!?.\-]+", "", t)
+    changed = True
+    while changed:
+        changed = False
+        for p in _LEADING_POLITENESS:
+            new_t = re.sub(p, "", t, flags=re.IGNORECASE)
+            if new_t != t:
+                t = new_t.strip()
+                changed = True
+    for p in _LEADING_FILLER:
+        new_t = re.sub(p, "", t, flags=re.IGNORECASE)
+        if new_t != t:
+            t = new_t.strip()
+            break
+    t = re.sub(r"\s+(please|thanks?|thank\s+you)\s*[.!?]*$", "", t, flags=re.IGNORECASE)
+    t = t.rstrip(".,!?;:")
+    if t:
+        t = t[0].upper() + t[1:]
+    return t.strip()
+
+
 class OperationsProtocol(Protocol):
     """Digital assistant — tasks, scheduling, email, files."""
 
-    # Patterns that suggest task-related intent
+    # Patterns that suggest task-related intent. Order matters: more specific
+    # patterns first so "make a new task to X" wins over a generic verb match.
     TASK_PATTERNS = [
         r"remind\s+me\s+to\s+(.+)",
-        r"add\s+(?:a\s+)?task\s*[:\-]?\s*(.+)",
+        r"(?:make|create|add)\s+(?:a\s+)?(?:new\s+)?task\s*[:\-,]?\s*(?:to\s+)?(.+)",
+        r"new\s+task\s*[:\-]\s*(.+)",
         r"i\s+need\s+to\s+(.+?)(?:\s+by\s+|\s+before\s+|$)",
         r"don'?t\s+let\s+me\s+forget\s+(?:to\s+)?(.+)",
+    ]
+
+    # Patterns for "I finished this" / "mark X done" — fires NLP completion path
+    # so the 8B model can't fumble COMPLETE_TASK vs REMOVE_TASK bracket selection.
+    TASK_COMPLETE_PATTERNS = [
+        r"mark\s+(?:the\s+)?(?:task\s+)?(.+?)\s+(?:as\s+)?(?:done|finished|complete|completed)\b",
+        r"^(?:task\s+)?(.+?)\s+is\s+(?:done|finished|complete|completed)\.?\s*$",
+        r"i\s*(?:'m|m| am)?\s*(?:just\s+)?(?:finished|completed|done\s+with)\s+(?:the\s+)?(?:task\s+)?(.+)",
+        r"^completed\s+(?:the\s+)?(?:task\s+)?(.+)",
+        r"^(?:complete|finish|knock\s+out)\s+(?:the\s+)?(?:task\s+)?(.+)",
+        r"^check\s+off\s+(?:the\s+)?(?:task\s+)?(.+)",
+    ]
+
+    # Patterns for "delete/remove/cancel X" — fires NLP removal path.
+    TASK_REMOVE_PATTERNS = [
+        r"(?:delete|remove|cancel|scrap|trash|kill)\s+(?:the\s+)?(?:task\s+)?(.+?)(?:\s+task)?\.?\s*$",
+        r"get\s+rid\s+of\s+(?:the\s+)?(?:task\s+)?(.+)",
+        r"throw\s+out\s+(?:the\s+)?(?:task\s+)?(.+)",
     ]
 
     # Patterns that suggest calendar event creation
@@ -80,6 +148,8 @@ class OperationsProtocol(Protocol):
             task.setdefault("subtasks", [])
             task.setdefault("starred", False)
             task.setdefault("activity_type", "general")
+            task.setdefault("notes", "")
+            task.setdefault("attachments", [])
 
     def _save_tasks(self):
         """Persist tasks to disk."""
@@ -358,18 +428,56 @@ class OperationsProtocol(Protocol):
                 pass
 
         # NLP task detection — auto-create tasks from conversation
+        task_created = False
         if not event_created:
             for pattern in self.TASK_PATTERNS:
                 match = re.search(pattern, lower, re.IGNORECASE)
                 if match:
-                    task_text = match.group(1).strip().rstrip(".!,")
+                    task_text = clean_task_title(match.group(1))
                     if len(task_text) > 3:
                         task = self.add_task(task_text)
-                        injection_parts.append(
-                            f"[System: A task was auto-detected and saved: "
-                            f"'#{task['id']}: {task['text']}'. "
-                            f"Acknowledge this naturally in your response.]"
-                        )
+                        if task is not None:
+                            task_created = True
+                            injection_parts.append(
+                                f"[System: A task was auto-detected and saved: "
+                                f"'#{task['id']}: {task['text']}'. "
+                                f"Acknowledge this naturally in your response.]"
+                            )
+                    break
+
+        # NLP completion detection — bypasses Pike's bracket selection (which
+        # the 8B model often confuses with REMOVE_TASK). If the user clearly
+        # says "mark X done" or "X is finished", just do it server-side.
+        if not event_created and not task_created:
+            for pattern in self.TASK_COMPLETE_PATTERNS:
+                match = re.search(pattern, lower, re.IGNORECASE)
+                if match:
+                    ref = (match.group(1) or "").strip()
+                    resolved = self._resolve_pending_task_by_text(ref)
+                    if resolved:
+                        if self.complete_task(resolved["id"]):
+                            injection_parts.append(
+                                f"[System: Task #{resolved['id']} '{resolved['text']}' "
+                                f"was MARKED COMPLETE (struck through, kept in history). "
+                                f"Briefly acknowledge in your response. Do NOT emit any "
+                                f"task bracket command — the action is already done.]"
+                            )
+                    break
+
+            # NLP removal detection
+            for pattern in self.TASK_REMOVE_PATTERNS:
+                match = re.search(pattern, lower, re.IGNORECASE)
+                if match:
+                    ref = (match.group(1) or "").strip()
+                    resolved = self._resolve_pending_task_by_text(ref)
+                    if resolved:
+                        if self.remove_task(resolved["id"]):
+                            injection_parts.append(
+                                f"[System: Task #{resolved['id']} '{resolved['text']}' "
+                                f"was DELETED (gone entirely from the list). "
+                                f"Briefly acknowledge in your response. Do NOT emit any "
+                                f"task bracket command — the action is already done.]"
+                            )
                     break
 
         # Always inject pending tasks — even when a new task was just created
@@ -425,17 +533,58 @@ class OperationsProtocol(Protocol):
 
     def add_task(self, text, priority="normal", due=None, category="general",
                  activity_type="general"):
-        """Add a task to the list."""
+        """Add a task to the list. Silently dedupes against a recent similar task.
+
+        Two-tier dedup:
+        - Exact match (normalized) within 60s → return existing
+        - Fuzzy match (≥70% word overlap) within 30s → return existing
+        The fuzzy tier exists because Pike often emits an [ADD_TASK:] bracket
+        with a cleaned title for the same user request the NLP path already
+        captured with a typo-preserved title.
+        """
+        text = clean_task_title(text)
+        if not text or len(text) < 2:
+            return None
+        now_ts = datetime.now()
+        norm = text.strip().lower()
+        norm_words = {w for w in norm.split() if len(w) > 2}  # ignore tiny words like "to", "a"
+        for existing in reversed(self._tasks[-10:]):
+            if existing.get("completed"):
+                continue
+            existing_text = (existing.get("text") or "").strip().lower()
+            try:
+                created_dt = datetime.fromisoformat(existing.get("created", ""))
+                age_sec = (now_ts - created_dt).total_seconds()
+            except (ValueError, TypeError):
+                continue
+            if age_sec >= 60:
+                continue
+            # Tier 1 — exact match within 60s
+            if existing_text == norm:
+                return existing
+            # Tier 2 — fuzzy match within 30s
+            if age_sec < 30:
+                existing_words = {w for w in existing_text.split() if len(w) > 2}
+                if norm_words and existing_words:
+                    overlap = len(norm_words & existing_words)
+                    larger = max(len(norm_words), len(existing_words))
+                    if larger and overlap / larger >= 0.7:
+                        # Backfill due date if the new attempt has one and the existing one doesn't
+                        if due and not existing.get("due"):
+                            existing["due"] = due
+                            self._save_tasks()
+                        return existing
         task = {
             "id": len(self._tasks) + 1,
             "text": text,
             "priority": priority,
             "category": category,
             "due": due,
-            "created": datetime.now().isoformat(),
+            "created": now_ts.isoformat(),
             "completed": False,
             "completed_at": None,
             "subtasks": [],
+            "notes": "",
             "starred": False,
             "activity_type": activity_type,
         }
@@ -453,6 +602,47 @@ class OperationsProtocol(Protocol):
                 return task
         return None
 
+    def uncomplete_task(self, task_id):
+        """Revert a completed task back to pending (clears completed_at)."""
+        for task in self._tasks:
+            if task["id"] == task_id and task.get("completed"):
+                task["completed"] = False
+                task["completed_at"] = None
+                self._save_tasks()
+                return task
+        return None
+
+    def _resolve_pending_task_by_text(self, text: str):
+        """Typo-tolerant fuzzy match of text against pending task titles.
+
+        Counts a ref word as "matched" if any task word is ≥0.8 SequenceMatcher
+        ratio (catches typos like 'finish' vs 'finsih'). Final score is matched
+        count divided by max(len(ref_words), len(task_words)); threshold 0.5.
+        Returns the best task or None.
+        """
+        if not text:
+            return None
+        from difflib import SequenceMatcher
+        ref_words = [w for w in text.lower().split() if len(w) > 2]
+        if not ref_words:
+            return None
+        best, best_score = None, 0.0
+        for task in self.get_pending_tasks():
+            task_words = [w for w in (task.get("text") or "").lower().split() if len(w) > 2]
+            if not task_words:
+                continue
+            matched = 0
+            for rw in ref_words:
+                for tw in task_words:
+                    if rw == tw or SequenceMatcher(None, rw, tw).ratio() >= 0.8:
+                        matched += 1
+                        break
+            score = matched / max(len(ref_words), len(task_words))
+            if score > best_score:
+                best_score = score
+                best = task
+        return best if best_score >= 0.5 else None
+
     def remove_task(self, task_id):
         """Remove a task from the list."""
         before = len(self._tasks)
@@ -464,7 +654,7 @@ class OperationsProtocol(Protocol):
 
     def update_task(self, task_id, **updates):
         """Update allowed fields on a task."""
-        allowed = {"text", "priority", "due", "activity_type", "starred"}
+        allowed = {"text", "priority", "due", "activity_type", "starred", "notes"}
         for task in self._tasks:
             if task["id"] == task_id:
                 for k, v in updates.items():
@@ -514,6 +704,37 @@ class OperationsProtocol(Protocol):
                 self._save_tasks()
                 return task
         return None
+
+    def add_attachment(self, task_id, filename: str):
+        """Record an attachment filename on a task. The actual file lives on disk
+        at {user_data_dir}/task_attachments/{task_id}/{filename} — this method
+        only tracks the filename in the task record."""
+        for task in self._tasks:
+            if task["id"] == task_id:
+                atts = task.setdefault("attachments", [])
+                if filename not in atts:
+                    atts.append(filename)
+                    self._save_tasks()
+                return task
+        return None
+
+    def remove_attachment(self, task_id, filename: str):
+        """Remove an attachment filename from a task record."""
+        for task in self._tasks:
+            if task["id"] == task_id:
+                atts = task.get("attachments", [])
+                if filename in atts:
+                    atts.remove(filename)
+                    self._save_tasks()
+                    return task
+        return None
+
+    def list_attachments(self, task_id):
+        """Return the list of attachment filenames for a task."""
+        for task in self._tasks:
+            if task["id"] == task_id:
+                return list(task.get("attachments", []))
+        return []
 
     def get_pending_tasks(self):
         """Get all incomplete tasks."""

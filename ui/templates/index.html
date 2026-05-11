@@ -1006,9 +1006,11 @@
         .panel-body {
             flex: 1;
             overflow-y: auto;
+            overflow-x: hidden;
             padding: 16px;
             scrollbar-width: thin;
             scrollbar-color: var(--lcars-grey-1) transparent;
+            min-width: 0;
         }
 
         /* ========== TASK PANEL ========== */
@@ -1033,6 +1035,26 @@
 
         .task-add-row input:focus {
             border-color: var(--lcars-blue-1);
+        }
+
+        /* Date inputs — dark theme + visible picker icon. Applies wherever
+           <input type="date"> appears (task add/edit forms, calendar create, etc.) */
+        input[type="date"], input[type="datetime-local"], input[type="time"] {
+            color-scheme: dark;
+            cursor: pointer;
+        }
+        input[type="date"]::-webkit-calendar-picker-indicator,
+        input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+        input[type="time"]::-webkit-calendar-picker-indicator {
+            filter: invert(0.85) sepia(0.4) saturate(2) hue-rotate(170deg);
+            opacity: 0.85;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        input[type="date"]::-webkit-calendar-picker-indicator:hover,
+        input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover,
+        input[type="time"]::-webkit-calendar-picker-indicator:hover {
+            opacity: 1;
         }
 
         .task-add-row select {
@@ -1084,6 +1106,295 @@
         .task-item .task-text {
             flex: 1;
             font-size: 13px;
+        }
+
+        .task-item.completed .task-text {
+            text-decoration: line-through;
+            color: var(--lcars-text-dim);
+            opacity: 0.65;
+        }
+        .task-item.completed .task-priority {
+            opacity: 0.4;
+        }
+
+        /* Inline completion checkbox — the primary toggle for marking a task
+           done/undone (the DONE/UNDO action button is kept as a secondary path). */
+        .task-item .task-check {
+            flex-shrink: 0;
+            width: 18px;
+            height: 18px;
+            margin: 0 4px 0 0;
+            accent-color: var(--lcars-blue-1);
+            cursor: pointer;
+        }
+
+        /* ---- Task notes (markdown-rendered) ---- */
+        .task-notes-edit-wrap {
+            margin-top: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .task-notes-label {
+            font-size: 10px;
+            color: var(--lcars-text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .task-notes-toolbar {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+            margin-bottom: 2px;
+        }
+        .notes-tool-btn {
+            background: var(--lcars-grey-1);
+            color: var(--lcars-text);
+            border: none;
+            border-radius: 3px;
+            padding: 4px 9px;
+            font-family: var(--font-display);
+            font-size: 10px;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: background 0.12s ease;
+        }
+        .notes-tool-btn:hover {
+            background: var(--lcars-blue-1);
+            color: #000;
+        }
+        .notes-table-grid-popup {
+            position: fixed;
+            background: var(--lcars-surface);
+            border: 1px solid var(--lcars-blue-1);
+            border-radius: 6px;
+            padding: 10px;
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+            z-index: 100000;
+            color-scheme: dark;
+        }
+        .notes-table-grid-label {
+            font-family: var(--font-display);
+            font-size: 11px;
+            color: var(--lcars-ice);
+            text-align: center;
+            margin-bottom: 6px;
+            letter-spacing: 1px;
+        }
+        .notes-table-grid {
+            display: grid;
+            grid-template-columns: repeat(8, 18px);
+            grid-template-rows: repeat(6, 18px);
+            gap: 2px;
+        }
+        .notes-table-grid-cell {
+            background: var(--lcars-bg);
+            border: 1px solid var(--lcars-grey-1);
+            border-radius: 2px;
+            cursor: pointer;
+            transition: background 0.08s ease, border-color 0.08s ease;
+        }
+        .notes-table-grid-cell:hover,
+        .notes-table-grid-cell.hover {
+            background: var(--lcars-blue-1);
+            border-color: var(--lcars-blue-3);
+        }
+        .notes-table-grid-hint {
+            font-size: 9px;
+            color: var(--lcars-text-dim);
+            text-align: center;
+            margin-top: 6px;
+            letter-spacing: 0.5px;
+        }
+
+        /* ---- Task image attachments ---- */
+        .task-attachments {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 6px;
+        }
+        .task-attach-thumb {
+            position: relative;
+            width: 72px;
+            height: 72px;
+            border: 1px solid var(--lcars-grey-1);
+            border-radius: 4px;
+            background: var(--lcars-bg);
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .task-attach-thumb .attach-thumb-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            cursor: zoom-in;
+            display: block;
+        }
+        .task-attach-thumb .attach-thumb-loading {
+            font-size: 11px;
+            color: var(--lcars-text-dim);
+        }
+        .task-attach-thumb .attach-thumb-del {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 18px;
+            height: 18px;
+            padding: 0;
+            background: rgba(0, 0, 0, 0.65);
+            color: #fff;
+            border: 1px solid var(--lcars-grey-1);
+            border-radius: 50%;
+            font-size: 14px;
+            line-height: 16px;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.12s ease, background 0.12s ease;
+        }
+        .task-attach-thumb:hover .attach-thumb-del { opacity: 1; }
+        .task-attach-thumb .attach-thumb-del:hover {
+            background: var(--lcars-error);
+        }
+        .task-item.completed .task-attach-thumb { opacity: 0.55; }
+
+        .attach-lightbox-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 100001;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 32px;
+        }
+        .attach-lightbox-inner {
+            position: relative;
+            max-width: 92vw;
+            max-height: 92vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .attach-lightbox-img {
+            max-width: 92vw;
+            max-height: 85vh;
+            object-fit: contain;
+            border: 1px solid var(--lcars-blue-1);
+            border-radius: 6px;
+            background: #000;
+        }
+        .attach-lightbox-caption {
+            margin-top: 8px;
+            color: var(--lcars-text-dim);
+            font-family: var(--font-display);
+            font-size: 11px;
+            letter-spacing: 1px;
+        }
+        .attach-lightbox-close {
+            position: absolute;
+            top: -14px;
+            right: -14px;
+            width: 30px;
+            height: 30px;
+            background: var(--lcars-error);
+            color: #fff;
+            border: 2px solid var(--lcars-bg);
+            border-radius: 50%;
+            font-size: 18px;
+            line-height: 26px;
+            padding: 0;
+            cursor: pointer;
+            z-index: 1;
+        }
+        .task-notes-textarea {
+            width: 100%;
+            min-height: 100px;
+            background: var(--lcars-bg);
+            color: var(--lcars-text);
+            border: 1px solid var(--lcars-grey-1);
+            border-radius: 4px;
+            padding: 8px;
+            font-family: var(--font-mono, monospace);
+            font-size: 12px;
+            line-height: 1.4;
+            resize: vertical;
+            outline: none;
+        }
+        .task-notes-textarea:focus {
+            border-color: var(--lcars-blue-1);
+        }
+        .task-notes-preview {
+            margin-top: 6px;
+            padding: 8px 10px;
+            background: rgba(102, 153, 204, 0.05);
+            border-left: 2px solid var(--lcars-blue-1);
+            border-radius: 0 4px 4px 0;
+            font-size: 12px;
+            line-height: 1.5;
+            color: var(--lcars-text);
+            overflow-x: auto;
+        }
+        .task-notes-preview p { margin: 0 0 6px 0; }
+        .task-notes-preview p:last-child { margin-bottom: 0; }
+        .task-notes-preview ul, .task-notes-preview ol {
+            margin: 4px 0 6px 0;
+            padding-left: 22px;
+        }
+        .task-notes-preview li { margin: 2px 0; }
+        .task-notes-preview code {
+            background: var(--lcars-bg);
+            color: var(--lcars-ice);
+            padding: 1px 4px;
+            border-radius: 2px;
+            font-family: var(--font-mono, monospace);
+            font-size: 11px;
+        }
+        .task-notes-preview pre {
+            background: var(--lcars-bg);
+            border: 1px solid var(--lcars-grey-1);
+            border-radius: 3px;
+            padding: 6px 8px;
+            overflow-x: auto;
+            margin: 4px 0;
+        }
+        .task-notes-preview pre code { padding: 0; background: transparent; }
+        .task-notes-preview a {
+            color: var(--lcars-blue-3);
+            text-decoration: underline;
+        }
+        .task-notes-preview table {
+            border-collapse: collapse;
+            margin: 6px 0;
+            font-size: 11px;
+        }
+        .task-notes-preview th, .task-notes-preview td {
+            border: 1px solid var(--lcars-grey-1);
+            padding: 3px 8px;
+            text-align: left;
+        }
+        .task-notes-preview th {
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--lcars-text-dim);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 10px;
+        }
+        .task-notes-preview h1, .task-notes-preview h2, .task-notes-preview h3 {
+            font-size: 13px;
+            margin: 6px 0 4px 0;
+            color: var(--lcars-ice);
+        }
+        .task-notes-preview hr {
+            border: none;
+            border-top: 1px dashed var(--lcars-grey-1);
+            margin: 6px 0;
+        }
+        .task-item.completed .task-notes-preview {
+            opacity: 0.5;
         }
 
         .task-item .task-actions {
@@ -1743,6 +2054,9 @@
             font-size: 12px;
             color: var(--lcars-text);
             flex: 1;
+            min-width: 0;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
 
         .setting-label .setting-desc {
@@ -1754,6 +2068,15 @@
         .setting-control {
             flex-shrink: 0;
             margin-left: 12px;
+            max-width: 60%;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+        .setting-control select {
+            max-width: 100%;
         }
 
         .setting-control input[type="number"] {
@@ -2765,7 +3088,14 @@
             margin-bottom: 6px;
             border-radius: 0 4px 4px 0;
             font-size: 12px;
+            cursor: pointer;
+            transition: background 0.12s ease, transform 0.08s ease;
         }
+        .briefing-card:hover {
+            background: var(--lcars-surface-hover, rgba(255,255,255,0.06));
+            transform: translateX(2px);
+        }
+        .briefing-card:active { transform: translateX(0); }
         .briefing-card.overdue { border-left-color: var(--lcars-error); }
         .briefing-card.high-pri { border-left-color: var(--lcars-warning); }
         .briefing-card.event { border-left-color: var(--lcars-purple-1); }
@@ -2775,6 +3105,68 @@
             color: var(--lcars-text-dim);
             font-size: 11px;
             margin-top: 2px;
+        }
+        .briefing-card .card-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+        .briefing-card .card-header .card-title {
+            flex: 1;
+            min-width: 0;
+        }
+        .briefing-card .card-open-tm {
+            flex-shrink: 0;
+            width: 22px;
+            height: 22px;
+            padding: 0;
+            border: 1px solid var(--lcars-grey-2);
+            background: transparent;
+            color: var(--lcars-text-dim);
+            border-radius: 3px;
+            font-size: 13px;
+            line-height: 1;
+            cursor: pointer;
+            transition: all 0.12s ease;
+        }
+        .briefing-card .card-open-tm:hover {
+            background: var(--lcars-blue-1);
+            color: var(--lcars-bg);
+            border-color: var(--lcars-blue-1);
+        }
+        .briefing-card .card-expanded {
+            display: none;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px dashed var(--lcars-grey-1);
+            font-size: 11px;
+        }
+        .briefing-card.expanded .card-expanded {
+            display: block;
+        }
+        .briefing-card .card-expanded .field-label {
+            color: var(--lcars-text-dim);
+            text-transform: uppercase;
+            font-size: 9px;
+            letter-spacing: 1px;
+            margin-top: 6px;
+        }
+        .briefing-card .card-expanded .field-label:first-child {
+            margin-top: 0;
+        }
+        .briefing-card .card-expanded .field-value {
+            color: var(--lcars-text);
+            margin-top: 2px;
+        }
+        .briefing-card .card-expanded .field-notes {
+            white-space: pre-wrap;
+            color: var(--lcars-text);
+            margin-top: 2px;
+            font-size: 12px;
+        }
+        .briefing-card .card-expanded .empty {
+            font-style: italic;
+            color: var(--lcars-text-dim);
         }
         .briefing-all-clear {
             text-align: center;
@@ -2807,6 +3199,46 @@
             color: var(--lcars-text-dim);
             text-transform: uppercase;
             letter-spacing: 1px;
+        }
+        .briefing-narrative {
+            position: relative;
+            background: rgba(153, 102, 204, 0.08);
+            border-left: 3px solid var(--lcars-purple-1);
+            padding: 14px 38px 14px 14px;
+            margin: 0 0 16px 0;
+            border-radius: 4px;
+            font-size: 14px;
+            line-height: 1.5;
+            color: var(--lcars-text);
+            min-height: 24px;
+        }
+        .briefing-narrative-loading {
+            color: var(--lcars-text-dim);
+            font-style: italic;
+            font-size: 13px;
+        }
+        .briefing-narrative-text {
+            white-space: pre-wrap;
+        }
+        .briefing-narrative-refresh {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 24px;
+            height: 24px;
+            border: 1px solid var(--lcars-purple-1);
+            background: transparent;
+            color: var(--lcars-purple-1);
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 14px;
+            line-height: 22px;
+            padding: 0;
+            text-align: center;
+        }
+        .briefing-narrative-refresh:hover {
+            background: var(--lcars-purple-1);
+            color: var(--lcars-bg);
         }
 
         @media (max-width: 767px) {
@@ -5712,6 +6144,19 @@
     </div>
 </div>
 
+<!-- Generic Input Modal (replaces window.prompt() which Electron doesn't implement) -->
+<div class="pin-modal-overlay" id="inputModalOverlay">
+    <div class="pin-modal" style="min-width:320px">
+        <h3 id="inputModalTitle">EDIT</h3>
+        <input type="text" id="inputModalField" style="width:100%;padding:8px;font-size:14px;background:var(--lcars-grey-1);color:var(--lcars-text);border:1px solid var(--lcars-text-dim);border-radius:2px;font-family:inherit"
+               onkeydown="if(event.key==='Enter')inputModalConfirm();if(event.key==='Escape')inputModalCancel()">
+        <div class="pin-modal-actions">
+            <button class="vault-btn" onclick="inputModalConfirm()">SAVE</button>
+            <button class="vault-btn" style="background:var(--lcars-grey-1);color:var(--lcars-text)" onclick="inputModalCancel()">CANCEL</button>
+        </div>
+    </div>
+</div>
+
 <!-- Scan line overlay -->
 <div class="lcars-scan-line" id="scanLine"></div>
 
@@ -5739,6 +6184,7 @@
         <div class="lcars-panel-elbow"></div>
         <div class="lcars-panel-header">
             <span>Daily Briefing</span>
+            <button class="panel-close-btn" onclick="loadBriefing()" aria-label="Refresh briefing" title="Refresh" style="right:34px;font-size:14px">&#x21bb;</button>
             <button class="panel-close-btn" onclick="closeBriefingPanel()" aria-label="Close">&times;</button>
         </div>
         <div class="lcars-panel-endcap"></div>
@@ -5783,7 +6229,7 @@
                 <option value="high">High</option>
                 <option value="low">Low</option>
             </select>
-            <input type="date" id="taskDueDate" aria-label="Due date" style="width:120px;">
+            <input type="date" id="taskDueDate" aria-label="Due date" style="width:140px;" onclick="if(this.showPicker)this.showPicker()" onfocus="if(this.showPicker)this.showPicker()">
             <button onclick="addTask()">ADD</button>
         </div>
         <div id="taskList"></div>
@@ -6646,6 +7092,8 @@ function resetPanelLayout() {
     localStorage.removeItem('aegis_panel_custom_colors');
     localStorage.removeItem('aegis_panel_opacity');
     localStorage.removeItem('aegis_ticker_prefs');
+    localStorage.removeItem('aegis_popped_widgets');
+    localStorage.removeItem('aegis_widget_dock_state');
     // Reset ticker to defaults
     var ticker = document.getElementById('lcarsTicker');
     if (ticker) {
@@ -7841,6 +8289,12 @@ async function sendMessage(retryText) {
             });
         }
         lastFailedMessage = null;
+
+        // Refresh affected UI — Pike may have created/changed tasks, events,
+        // moods, or contacts either via bracket commands or silent NLP detection.
+        // We can't know for sure from the response, so refresh broadly but only
+        // touch panels/widgets that are actually visible.
+        _refreshAfterChat();
     } catch (e) {
         removeTyping(typing);
         lastFailedMessage = text;
@@ -8317,12 +8771,14 @@ async function loadTasks() {
 function renderTasks(tasks) {
     const container = document.getElementById('taskList');
     if (tasks.length === 0) {
-        container.innerHTML = '<div class="task-empty">No pending tasks</div>';
+        container.innerHTML = '<div class="task-empty">No tasks</div>';
         return;
     }
 
-    // Sort: starred first, then by id
+    // Sort: pending starred → pending unstarred → completed (struck-through, at bottom)
     var sorted = tasks.slice().sort(function(a, b) {
+        if (!a.completed && b.completed) return -1;
+        if (a.completed && !b.completed) return 1;
         if (a.starred && !b.starred) return -1;
         if (!a.starred && b.starred) return 1;
         return a.id - b.id;
@@ -8372,8 +8828,21 @@ function renderTasks(tasks) {
                         '<option value="high"' + (t.priority === 'high' ? ' selected' : '') + '>High</option>' +
                         '<option value="low"' + (t.priority === 'low' ? ' selected' : '') + '>Low</option>' +
                     '</select>' +
-                    '<input type="date" id="editDue_' + t.id + '" value="' + escapeHtml((t.due || '').substring(0, 10)) + '">' +
+                    '<input type="date" id="editDue_' + t.id + '" value="' + escapeHtml((t.due || '').substring(0, 10)) + '" onclick="if(this.showPicker)this.showPicker()" onfocus="if(this.showPicker)this.showPicker()">' +
                     '<input type="text" id="editAct_' + t.id + '" value="' + escapeHtml(t.activity_type || 'general') + '" placeholder="Activity type" style="width:80px">' +
+                '</div>' +
+                '<div class="task-notes-edit-wrap">' +
+                    '<label class="task-notes-label" for="editNotes_' + t.id + '">Notes (markdown supported — bullets, numbered lists, tables, links)</label>' +
+                    '<div class="task-notes-toolbar">' +
+                        '<button type="button" class="notes-tool-btn" onclick="notesInsertList(' + t.id + ', \'bullet\')" title="Insert bullet list">&#x2022; List</button>' +
+                        '<button type="button" class="notes-tool-btn" onclick="notesInsertList(' + t.id + ', \'numbered\')" title="Insert numbered list">1. Numbered</button>' +
+                        '<button type="button" class="notes-tool-btn" onclick="notesShowTableGrid(this, ' + t.id + ')" title="Insert table">&#x229E; Table</button>' +
+                        '<button type="button" class="notes-tool-btn" onclick="notesWrapSelection(' + t.id + ', \'**\', \'**\')" title="Bold"><b>B</b></button>' +
+                        '<button type="button" class="notes-tool-btn" onclick="notesWrapSelection(' + t.id + ', \'*\', \'*\')" title="Italic"><i>I</i></button>' +
+                        '<button type="button" class="notes-tool-btn" onclick="document.getElementById(\'editAttachFile_' + t.id + '\').click()" title="Attach image">&#x1F4CE; Attach</button>' +
+                        '<input type="file" id="editAttachFile_' + t.id + '" accept="image/*" style="display:none" onchange="uploadTaskAttachment(' + t.id + ', this)">' +
+                    '</div>' +
+                    '<textarea id="editNotes_' + t.id + '" class="task-notes-textarea" rows="6" placeholder="Notes — use the toolbar above to insert lists or tables.">' + escapeHtml(t.notes || '') + '</textarea>' +
                 '</div>' +
                 '<div class="task-edit-actions">' +
                     '<button class="cancel-btn" onclick="cancelEditTask()">CANCEL</button>' +
@@ -8382,21 +8851,60 @@ function renderTasks(tasks) {
             '</div>';
         }
 
-        return '<div class="task-item">' +
+        // Notes preview — shown when NOT editing and notes are non-empty
+        var notesPreview = '';
+        if (_editingTaskId !== t.id && t.notes && t.notes.trim()) {
+            var notesId = 'taskNotes_' + t.id;
+            var rendered = (typeof marked !== 'undefined') ? marked.parse(t.notes) : escapeHtml(t.notes);
+            notesPreview = '<div class="task-notes-preview" id="' + notesId + '">' + rendered + '</div>';
+        }
+
+        // Attachments grid — thumbnails loaded async (auth-fetched as blobs)
+        var attachmentsHtml = '';
+        var atts = t.attachments || [];
+        if (atts.length > 0 || _editingTaskId === t.id) {
+            attachmentsHtml = '<div class="task-attachments" data-task-id="' + t.id + '">';
+            for (var ai = 0; ai < atts.length; ai++) {
+                var fname = atts[ai];
+                attachmentsHtml += '<div class="task-attach-thumb" data-task-id="' + t.id + '" data-filename="' + escapeHtml(fname) + '">' +
+                    '<div class="attach-thumb-loading">…</div>' +
+                    '<button type="button" class="attach-thumb-del" title="Remove attachment" ' +
+                        'onclick="deleteTaskAttachment(event, ' + t.id + ', \'' + escapeHtml(fname).replace(/'/g, "\\'") + '\')">&times;</button>' +
+                '</div>';
+            }
+            attachmentsHtml += '</div>';
+        }
+
+        var doneClassRoot = t.completed ? ' completed' : '';
+        var doneBtnLabel = t.completed ? 'UNDO' : 'DONE';
+        var doneBtnAction = t.completed
+            ? 'uncompleteTask(' + t.id + ')'
+            : 'completeTask(' + t.id + ')';
+        var checkedAttr = t.completed ? ' checked' : '';
+        return '<div class="task-item' + doneClassRoot + '">' +
+            '<input type="checkbox" class="task-check"' + checkedAttr +
+                ' onclick="_toggleTaskComplete(' + t.id + ', this.checked)"' +
+                ' title="' + (t.completed ? 'Mark as not done' : 'Mark as done') + '">' +
             '<span class="' + starClass + '" onclick="toggleStar(' + t.id + ')">' + starChar + '</span>' +
             '<div class="task-priority ' + escapeHtml(pClass) + '"></div>' +
-            '<div style="flex:1">' +
+            '<div style="flex:1;min-width:0">' +
                 '<div class="task-text">' + escapeHtml(t.text || '') + subCount + '</div>' +
                 metaRow +
+                notesPreview +
+                attachmentsHtml +
                 subHtml +
             '</div>' +
             '<div class="task-actions">' +
                 '<button onclick="editTask(' + t.id + ')" aria-label="Edit task">EDIT</button>' +
-                '<button class="done-btn" onclick="completeTask(' + t.id + ')" aria-label="Complete task">DONE</button>' +
+                '<button class="done-btn" onclick="' + doneBtnAction + '" aria-label="' + doneBtnLabel + ' task">' + doneBtnLabel + '</button>' +
                 '<button onclick="removeTask(' + t.id + ')" aria-label="Remove task">X</button>' +
             '</div>' +
         '</div>' + editForm;
     }).join('');
+
+    // After render, lazy-load thumbnails into the .task-attach-thumb cells.
+    // Browsers can't put auth headers on <img src>, so we authFetch blobs.
+    _loadTaskThumbnails(container);
 }
 
 function updateTaskCount(tasks) {
@@ -8452,6 +8960,49 @@ async function addTask() {
     } catch (e) {}
 }
 
+function _refreshBriefingIfOpen() {
+    // Call after any task/event mutation so the briefing panel reflects the change
+    // without forcing the user to close and re-open it.
+    var panel = document.getElementById('briefingPanel');
+    if (panel && panel.classList.contains('open') && typeof loadBriefing === 'function') {
+        loadBriefing();
+    }
+}
+
+function _isPanelOpen(id) {
+    var el = document.getElementById(id);
+    return !!(el && el.classList.contains('open'));
+}
+
+function _refreshAfterChat() {
+    // Called after every successful chat response so the rest of the UI catches
+    // up to any task/event/mood/contact Pike may have created or changed.
+    // Only refreshes visible panels/widgets to avoid wasted fetches.
+    if (typeof _refreshBriefingIfOpen === 'function') _refreshBriefingIfOpen();
+    if (_isPanelOpen('taskPanel') && typeof loadTasks === 'function') loadTasks();
+    if (_isPanelOpen('calendarPanel') && typeof calRender === 'function') {
+        // Reload calendar data then re-render
+        if (typeof loadCalendar === 'function') loadCalendar();
+        else calRender();
+    }
+    if (_isPanelOpen('moodPanel') && typeof loadMoods === 'function') loadMoods();
+    if (_isPanelOpen('contactPanel') && typeof loadContacts === 'function') loadContacts();
+    // Sidebar widgets — only re-render the ones that are visible (display !== none)
+    ['widget-tasks', 'widget-calendar', 'widget-mood', 'widget-habits'].forEach(function(wid) {
+        var w = document.getElementById(wid);
+        if (!w || w.style.display === 'none') return;
+        var fn = window['render' + wid.replace(/^widget-/, '').replace(/^\w/, function(c) { return 'Widget' + c.toUpperCase(); })];
+        // The above is a bit clever — explicit mapping is safer:
+        var renderer = {
+            'widget-tasks': renderWidgetTasks,
+            'widget-calendar': typeof renderWidgetCalendar === 'function' ? renderWidgetCalendar : null,
+            'widget-mood': typeof renderWidgetMood === 'function' ? renderWidgetMood : null,
+            'widget-habits': typeof renderWidgetHabits === 'function' ? renderWidgetHabits : null,
+        }[wid];
+        if (typeof renderer === 'function') renderer();
+    });
+}
+
 async function completeTask(id) {
     try {
         await authFetch(API + '/tasks', {
@@ -8460,6 +9011,27 @@ async function completeTask(id) {
             body: JSON.stringify({action: 'done', task_id: id}),
         });
         loadTasks();
+        _refreshBriefingIfOpen();
+    } catch (e) {}
+}
+
+function _toggleTaskComplete(id, isNowChecked) {
+    // Drives the inline checkbox at the start of every task row. Routes to
+    // completeTask or uncompleteTask based on the new checked state.
+    if (isNowChecked) completeTask(id);
+    else uncompleteTask(id);
+}
+
+async function uncompleteTask(id) {
+    // Mark a completed task back to pending so the strike-through is removed.
+    try {
+        await authFetch(API + '/tasks', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({action: 'uncomplete', task_id: id}),
+        });
+        loadTasks();
+        _refreshBriefingIfOpen();
     } catch (e) {}
 }
 
@@ -8471,6 +9043,7 @@ async function removeTask(id) {
             body: JSON.stringify({action: 'remove', task_id: id}),
         });
         loadTasks();
+        _refreshBriefingIfOpen();
     } catch (e) {}
 }
 
@@ -8482,20 +9055,23 @@ async function toggleStar(id) {
             body: JSON.stringify({task_id: id}),
         });
         loadTasks();
+        _refreshBriefingIfOpen();
     } catch (e) {}
 }
 
 async function addSubtask(taskId) {
-    var text = prompt('Subtask:');
-    if (!text || !text.trim()) return;
-    try {
-        await authFetch(API + '/tasks/subtask', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({task_id: taskId, action: 'add', text: text.trim()}),
-        });
-        loadTasks();
-    } catch (e) {}
+    showInputModal('Add subtask', '', async function(text) {
+        if (!text || !text.trim()) return;
+        try {
+            await authFetch(API + '/tasks/subtask', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({task_id: taskId, action: 'add', text: text.trim()}),
+            });
+            loadTasks();
+            _refreshBriefingIfOpen();
+        } catch (e) {}
+    });
 }
 
 async function completeSubtask(taskId, idx) {
@@ -8506,6 +9082,7 @@ async function completeSubtask(taskId, idx) {
             body: JSON.stringify({task_id: taskId, action: 'complete', index: idx}),
         });
         loadTasks();
+        _refreshBriefingIfOpen();
     } catch (e) {}
 }
 
@@ -8517,6 +9094,7 @@ async function removeSubtask(taskId, idx) {
             body: JSON.stringify({task_id: taskId, action: 'remove', index: idx}),
         });
         loadTasks();
+        _refreshBriefingIfOpen();
     } catch (e) {}
 }
 
@@ -8530,11 +9108,263 @@ function cancelEditTask() {
     loadTasks();
 }
 
+// ---- Task image attachments (upload / load / delete / lightbox) ----
+
+// Cache: blob URLs we've minted, keyed "taskId|filename". Revoked on next render.
+var _attachmentBlobUrls = {};
+
+function _revokeAttachmentBlobUrls() {
+    for (var k in _attachmentBlobUrls) {
+        try { URL.revokeObjectURL(_attachmentBlobUrls[k]); } catch (e) {}
+    }
+    _attachmentBlobUrls = {};
+}
+
+async function _loadTaskThumbnails(container) {
+    if (!container) return;
+    _revokeAttachmentBlobUrls();
+    var thumbs = container.querySelectorAll('.task-attach-thumb[data-filename]');
+    for (var i = 0; i < thumbs.length; i++) {
+        var el = thumbs[i];
+        var tid = el.getAttribute('data-task-id');
+        var fname = el.getAttribute('data-filename');
+        if (!tid || !fname) continue;
+        (async function(el, tid, fname) {
+            try {
+                var res = await authFetch(API + '/tasks/' + encodeURIComponent(tid) +
+                    '/attachments/' + encodeURIComponent(fname));
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                var blob = await res.blob();
+                var url = URL.createObjectURL(blob);
+                _attachmentBlobUrls[tid + '|' + fname] = url;
+                var img = document.createElement('img');
+                img.src = url;
+                img.alt = fname;
+                img.className = 'attach-thumb-img';
+                img.onclick = function() { openAttachmentLightbox(url, fname); };
+                var loading = el.querySelector('.attach-thumb-loading');
+                if (loading) loading.remove();
+                el.insertBefore(img, el.firstChild);
+            } catch (e) {
+                var loading = el.querySelector('.attach-thumb-loading');
+                if (loading) loading.textContent = '✕';
+            }
+        })(el, tid, fname);
+    }
+}
+
+async function uploadTaskAttachment(taskId, inputEl) {
+    var file = inputEl.files && inputEl.files[0];
+    if (!file) return;
+    var fd = new FormData();
+    fd.append('file', file);
+    try {
+        var res = await authFetch(API + '/tasks/' + encodeURIComponent(taskId) +
+            '/attachments', { method: 'POST', body: fd });
+        var data = await res.json().catch(function() { return {}; });
+        if (!res.ok || data.success === false) {
+            showToast(data.detail || ('Upload failed (' + res.status + ')'), 'warn');
+        } else {
+            showToast('Attached: ' + (data.filename || file.name), 'success');
+            loadTasks();
+        }
+    } catch (e) {
+        showToast('Upload failed: ' + e.message, 'warn');
+    } finally {
+        inputEl.value = '';  // allow re-selecting same file
+    }
+}
+
+async function deleteTaskAttachment(ev, taskId, filename) {
+    if (ev) { ev.stopPropagation(); ev.preventDefault(); }
+    try {
+        var res = await authFetch(API + '/tasks/' + encodeURIComponent(taskId) +
+            '/attachments/' + encodeURIComponent(filename), { method: 'DELETE' });
+        if (!res.ok) {
+            showToast('Delete failed (' + res.status + ')', 'warn');
+        } else {
+            loadTasks();
+        }
+    } catch (e) {
+        showToast('Delete failed: ' + e.message, 'warn');
+    }
+}
+
+function openAttachmentLightbox(blobUrl, filename) {
+    var existing = document.getElementById('attachLightbox');
+    if (existing) existing.remove();
+    var overlay = document.createElement('div');
+    overlay.id = 'attachLightbox';
+    overlay.className = 'attach-lightbox-overlay';
+    overlay.onclick = function(e) {
+        if (e.target === overlay) overlay.remove();
+    };
+    var inner = document.createElement('div');
+    inner.className = 'attach-lightbox-inner';
+    var img = document.createElement('img');
+    img.src = blobUrl;
+    img.alt = filename;
+    img.className = 'attach-lightbox-img';
+    var caption = document.createElement('div');
+    caption.className = 'attach-lightbox-caption';
+    caption.textContent = filename;
+    var close = document.createElement('button');
+    close.className = 'attach-lightbox-close';
+    close.textContent = '×';
+    close.onclick = function() { overlay.remove(); };
+    inner.appendChild(close);
+    inner.appendChild(img);
+    inner.appendChild(caption);
+    overlay.appendChild(inner);
+    document.body.appendChild(overlay);
+    // Esc to close
+    var onKey = function(e) {
+        if (e.key === 'Escape') {
+            overlay.remove();
+            document.removeEventListener('keydown', onKey);
+        }
+    };
+    document.addEventListener('keydown', onKey);
+}
+
+// ---- Notes toolbar helpers (markdown insertion at cursor in the edit textarea) ----
+
+function _notesTextarea(taskId) {
+    return document.getElementById('editNotes_' + taskId);
+}
+
+function _insertAtCursor(ta, text) {
+    if (!ta) return;
+    var start = ta.selectionStart, end = ta.selectionEnd;
+    var before = ta.value.substring(0, start);
+    var after = ta.value.substring(end);
+    // Add a leading newline if we're not at start of line, to keep markdown blocks clean
+    var prefix = (start > 0 && before.charAt(before.length - 1) !== '\n') ? '\n' : '';
+    ta.value = before + prefix + text + after;
+    var caret = start + prefix.length + text.length;
+    ta.selectionStart = ta.selectionEnd = caret;
+    ta.focus();
+}
+
+function notesInsertList(taskId, kind) {
+    var ta = _notesTextarea(taskId);
+    if (!ta) return;
+    var lines = (kind === 'numbered')
+        ? '1. step 1\n2. step 2\n3. step 3\n'
+        : '- item 1\n- item 2\n- item 3\n';
+    _insertAtCursor(ta, lines);
+}
+
+function notesWrapSelection(taskId, before, after) {
+    var ta = _notesTextarea(taskId);
+    if (!ta) return;
+    var s = ta.selectionStart, e = ta.selectionEnd;
+    var sel = ta.value.substring(s, e) || 'text';
+    var wrapped = before + sel + after;
+    ta.value = ta.value.substring(0, s) + wrapped + ta.value.substring(e);
+    ta.selectionStart = s + before.length;
+    ta.selectionEnd = s + before.length + sel.length;
+    ta.focus();
+}
+
+function notesShowTableGrid(btn, taskId) {
+    // Remove any existing popup
+    var existing = document.getElementById('notesTableGridPopup');
+    if (existing) { existing.remove(); return; }
+
+    var popup = document.createElement('div');
+    popup.id = 'notesTableGridPopup';
+    popup.className = 'notes-table-grid-popup';
+
+    var label = document.createElement('div');
+    label.className = 'notes-table-grid-label';
+    label.textContent = '0 × 0';
+    popup.appendChild(label);
+
+    var grid = document.createElement('div');
+    grid.className = 'notes-table-grid';
+    var MAX_R = 6, MAX_C = 8;
+    var cells = [];
+
+    function highlight(hr, hc) {
+        label.textContent = hr + ' × ' + hc;
+        for (var i = 0; i < cells.length; i++) {
+            var x = cells[i];
+            var xr = parseInt(x.dataset.r, 10);
+            var xc = parseInt(x.dataset.c, 10);
+            if (xr <= hr && xc <= hc) x.classList.add('hover');
+            else x.classList.remove('hover');
+        }
+    }
+
+    for (var r = 1; r <= MAX_R; r++) {
+        for (var c = 1; c <= MAX_C; c++) {
+            var cell = document.createElement('div');
+            cell.className = 'notes-table-grid-cell';
+            cell.dataset.r = r;
+            cell.dataset.c = c;
+            cell.onmouseover = function() {
+                highlight(parseInt(this.dataset.r, 10), parseInt(this.dataset.c, 10));
+            };
+            cell.onclick = function() {
+                var hr = parseInt(this.dataset.r, 10);
+                var hc = parseInt(this.dataset.c, 10);
+                _insertTableMarkdown(taskId, hr, hc);
+                popup.remove();
+            };
+            grid.appendChild(cell);
+            cells.push(cell);
+        }
+    }
+    popup.appendChild(grid);
+
+    var hint = document.createElement('div');
+    hint.className = 'notes-table-grid-hint';
+    hint.textContent = 'Hover then click to insert';
+    popup.appendChild(hint);
+
+    // Position below the button
+    var rect = btn.getBoundingClientRect();
+    popup.style.left = Math.round(rect.left) + 'px';
+    popup.style.top = Math.round(rect.bottom + 4) + 'px';
+    document.body.appendChild(popup);
+
+    // Close on outside click (deferred so the opening click doesn't immediately close it)
+    setTimeout(function() {
+        function _close(e) {
+            if (!popup.contains(e.target) && e.target !== btn) {
+                popup.remove();
+                document.removeEventListener('mousedown', _close);
+            }
+        }
+        document.addEventListener('mousedown', _close);
+    }, 0);
+}
+
+function _insertTableMarkdown(taskId, rows, cols) {
+    var ta = _notesTextarea(taskId);
+    if (!ta) return;
+    var headers = [];
+    for (var c = 0; c < cols; c++) headers.push('col ' + (c + 1));
+    var sep = [];
+    for (var c = 0; c < cols; c++) sep.push('---');
+    var lines = [];
+    lines.push('| ' + headers.join(' | ') + ' |');
+    lines.push('| ' + sep.join(' | ') + ' |');
+    for (var r = 0; r < rows; r++) {
+        var row = [];
+        for (var c = 0; c < cols; c++) row.push('   ');
+        lines.push('| ' + row.join(' | ') + ' |');
+    }
+    _insertAtCursor(ta, lines.join('\n') + '\n');
+}
+
 async function saveTask(id) {
     var text = document.getElementById('editText_' + id);
     var pri = document.getElementById('editPri_' + id);
     var due = document.getElementById('editDue_' + id);
     var act = document.getElementById('editAct_' + id);
+    var notes = document.getElementById('editNotes_' + id);
     if (!text) return;
 
     var body = {task_id: id};
@@ -8542,6 +9372,7 @@ async function saveTask(id) {
     body.priority = pri ? pri.value : 'normal';
     body.due = due ? due.value : '';
     body.activity_type = act ? act.value.trim() : 'general';
+    if (notes) body.notes = notes.value;
 
     try {
         await authFetch(API + '/tasks/update', {
@@ -8552,6 +9383,7 @@ async function saveTask(id) {
         _editingTaskId = null;
         showToast('Task updated');
         loadTasks();
+        _refreshBriefingIfOpen();
     } catch (e) {}
 }
 
@@ -9600,6 +10432,25 @@ function renderSettings(settings) {
     '</div></div>';
     html += '</div>';
 
+    // Startup Panels — pick which panels auto-open when the app launches
+    var startupPrefs = getStartupPanels();
+    html += '<div class="settings-section">';
+    html += '<div class="settings-section-title">Startup Panels</div>';
+    html += '<div style="font-size:11px;color:var(--lcars-text-dim);margin-bottom:8px;padding:0 4px">Panels checked here auto-open when Aegis launches.</div>';
+    for (var spIdx = 0; spIdx < STARTUP_PANEL_REGISTRY.length; spIdx++) {
+        var sp = STARTUP_PANEL_REGISTRY[spIdx];
+        var spOn = !!startupPrefs[sp.key];
+        var spId = 'setting-startup-' + sp.key;
+        html += '<div class="setting-row">';
+        html += '<div class="setting-label">' + escapeHtml(sp.label) + '</div>';
+        html += '<div class="setting-control">';
+        html += '<label class="proto-toggle"><input type="checkbox" id="' + spId + '"' + (spOn ? ' checked' : '') +
+                ' onchange="setStartupPanel(\'' + sp.key + '\', this.checked)"><span class="toggle-slider"></span></label>';
+        html += '</div>';
+        html += '</div>';
+    }
+    html += '</div>';
+
     // Interface section
     html += '<div class="settings-section">';
     html += '<div class="settings-section-title">Interface</div>';
@@ -10291,13 +11142,19 @@ async function loadLogsSubtab(sub) {
                     html += '<div class="plog-date-separator"></div>';
                     html += '<div class="plog-date-entries">';
                     showLogs.forEach(function(l) {
-                        html += '<div class="plog-card" onclick="plogView(\'' + escapeHtml(l.id) + '\')">';
+                        var titleText = l.title || l.preview || '(no text)';
+                        var editedBadge = l.title_edited_at ? ' <span style="font-size:9px;color:var(--lcars-text-dim);margin-left:6px;font-style:italic">edited ' + escapeHtml(l.title_edited_at.substring(0, 10)) + '</span>' : '';
+                        html += '<div class="plog-card">';
                         html += '<div class="plog-card-header">';
                         html += '<span class="plog-card-date">' + escapeHtml(l.created.substring(11, 16)) + '</span>';
                         if (l.has_audio) html += '<span class="plog-audio-badge">AUDIO</span>';
                         if (l.has_video) html += '<span class="plog-audio-badge" style="background:var(--lcars-purple-1)">VIDEO</span>';
+                        html += '<button onclick="event.stopPropagation(); plogEditTitle(\'' + escapeHtml(l.id) + '\', ' + JSON.stringify(l.title || '').replace(/"/g, '&quot;') + ')" style="margin-left:auto;font-size:9px;padding:2px 6px;background:transparent;color:var(--lcars-text-dim);border:1px solid var(--lcars-text-dim);border-radius:2px;cursor:pointer">EDIT</button>';
                         html += '</div>';
-                        html += '<div class="plog-card-preview">' + escapeHtml(l.preview || '(no text)') + '</div>';
+                        html += '<div class="plog-card-title" onclick="plogView(\'' + escapeHtml(l.id) + '\')" style="font-weight:600;font-size:13px;color:var(--lcars-text);margin:4px 0 2px 0;cursor:pointer">' + escapeHtml(titleText) + editedBadge + '</div>';
+                        if (l.preview && l.preview !== titleText) {
+                            html += '<div class="plog-card-preview" onclick="plogView(\'' + escapeHtml(l.id) + '\')">' + escapeHtml(l.preview) + '</div>';
+                        }
                         html += '</div>';
                     });
                     html += '</div></div>';
@@ -10464,6 +11321,12 @@ async function plogView(logId) {
             return;
         }
         let html = '<div style="margin-bottom:8px"><button class="vault-btn" onclick="loadLogsSubtab(\'personal\')">BACK</button></div>';
+        var titleText = data.title || (data.text || '').split('\n')[0].substring(0, 80) || ('Log ' + data.id);
+        var editedBadge = data.title_edited_at ? ' <span style="font-size:10px;color:var(--lcars-text-dim);font-style:italic;margin-left:8px">(edited ' + escapeHtml(data.title_edited_at.substring(0, 10)) + ')</span>' : '';
+        html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">';
+        html += '<div style="font-size:16px;font-weight:600;color:var(--lcars-text);flex:1">' + escapeHtml(titleText) + editedBadge + '</div>';
+        html += '<button onclick="plogEditTitle(\'' + escapeHtml(data.id) + '\', ' + JSON.stringify(data.title || '').replace(/"/g, '&quot;') + ')" style="font-size:10px;padding:3px 8px;background:transparent;color:var(--lcars-text-dim);border:1px solid var(--lcars-text-dim);border-radius:2px;cursor:pointer">EDIT TITLE</button>';
+        html += '</div>';
         html += '<div class="plog-card-date" style="margin-bottom:8px">' + escapeHtml(data.created.substring(0, 16).replace('T', ' ')) + '</div>';
         if (data.text) {
             html += '<div style="white-space:pre-wrap;font-size:13px;line-height:1.6;color:var(--lcars-text);margin-bottom:12px">' + escapeHtml(data.text) + '</div>';
@@ -10532,6 +11395,53 @@ async function plogDelete(logId) {
         await authFetch(API + '/personal-logs/' + encodeURIComponent(logId), {method: 'DELETE'});
         loadLogsSubtab('personal');
     } catch (e) {}
+}
+
+// Generic input modal (Electron doesn't implement window.prompt)
+var _inputModalCallback = null;
+function showInputModal(title, currentValue, callback) {
+    _inputModalCallback = callback;
+    document.getElementById('inputModalTitle').textContent = title || 'EDIT';
+    var f = document.getElementById('inputModalField');
+    f.value = currentValue || '';
+    document.getElementById('inputModalOverlay').classList.add('open');
+    setTimeout(function() { f.focus(); f.select(); }, 100);
+}
+function inputModalCancel() {
+    document.getElementById('inputModalOverlay').classList.remove('open');
+    _inputModalCallback = null;
+}
+function inputModalConfirm() {
+    var v = document.getElementById('inputModalField').value;
+    document.getElementById('inputModalOverlay').classList.remove('open');
+    var cb = _inputModalCallback;
+    _inputModalCallback = null;
+    if (cb) cb(v);
+}
+
+async function plogEditTitle(logId, currentTitle) {
+    showInputModal('Edit log title', currentTitle || '', async function(newTitle) {
+        if (newTitle === null) return;
+        newTitle = (newTitle || '').trim();
+        if (!newTitle) return;
+        try {
+            var res = await authFetch(API + '/personal-logs/' + encodeURIComponent(logId), {
+                method: 'PATCH',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({title: newTitle}),
+            });
+            var result = await res.json();
+            if (result.success) {
+                // If a back-to-list button is visible, we're in detail view; otherwise list view
+                var inDetail = document.querySelector('button[onclick*="loadLogsSubtab"]') !== null;
+                if (inDetail) {
+                    plogView(logId);
+                } else {
+                    loadLogsSubtab('personal');
+                }
+            }
+        } catch (e) {}
+    });
 }
 
 // --- PIN Modal ---
@@ -11020,8 +11930,105 @@ async function loadBriefing() {
         var res = await authFetch(API + '/briefing');
         var data = await res.json();
         renderBriefing(data);
+        // Kick off narrative load in parallel — it depends on LLM so it's slower
+        loadBriefingNarrative();
     } catch (e) {
         container.innerHTML = '<div class="notification-empty">Could not load briefing</div>';
+    }
+}
+
+async function loadBriefingNarrative() {
+    var slot = document.getElementById('briefingNarrative');
+    if (!slot) return;
+    slot.innerHTML = '<div class="briefing-narrative-loading">Composing briefing...</div>';
+    try {
+        var res = await authFetch(API + '/briefing/narrative?unit=' + encodeURIComponent(_weatherUnit()));
+        var data = await res.json();
+        if (data && data.narrative) {
+            slot.innerHTML =
+                '<div class="briefing-narrative-text">' + escapeHtml(data.narrative) + '</div>' +
+                '<button class="briefing-narrative-refresh" onclick="loadBriefingNarrative()" title="Regenerate">↻</button>';
+        } else {
+            slot.style.display = 'none';
+        }
+    } catch (e) {
+        slot.style.display = 'none';
+    }
+}
+
+function briefingOpenTask(id) {
+    // Open the Task Manager panel for this task, but LEAVE the briefing panel open.
+    // Called by the per-card "open in task manager" button.
+    if (id === undefined || id === null || id === '' || id === 'null') {
+        showToast('Task has no id — open Tasks panel manually', 'warn');
+        return;
+    }
+    _editingTaskId = id;
+    openTaskPanel();
+}
+
+function briefingToggleCard(cardEl) {
+    // Expand/collapse a task card inline inside the briefing panel.
+    if (!cardEl) return;
+    cardEl.classList.toggle('expanded');
+}
+
+function _briefingTaskCard(t, klass) {
+    // Build one task card. Click toggles in-place expansion; the corner ↗ button
+    // opens the Task Manager without closing the briefing panel.
+    var rawId = (t && t.id !== undefined && t.id !== null) ? String(t.id) : '';
+    var idAttr = rawId ? ' data-task-id="' + escapeHtml(rawId) + '"' : '';
+    var classes = 'briefing-card' + (klass ? ' ' + klass : '');
+    var html = '<div class="' + classes + '"' + idAttr + ' onclick="briefingToggleCard(this)">';
+    html += '<div class="card-header">';
+    html += '<div class="card-title">' + escapeHtml(t.text || '') + '</div>';
+    if (rawId) {
+        html += '<button class="card-open-tm" type="button" '
+            + 'onclick="event.stopPropagation(); briefingOpenTask(this.parentNode.parentNode.getAttribute(\'data-task-id\'))" '
+            + 'title="Open in Task Manager">&#8599;</button>';
+    }
+    html += '</div>';
+    if (t.due) {
+        html += '<div class="card-detail">Due: ' + escapeHtml(String(t.due).substring(0, 10)) + '</div>';
+    }
+    // Expanded panel — hidden until card is clicked. Phase B1 will render notes as markdown.
+    html += '<div class="card-expanded">';
+    html += '<div class="field-label">Priority</div>';
+    html += '<div class="field-value">' + escapeHtml(t.priority || 'normal') + '</div>';
+    if (t.due) {
+        html += '<div class="field-label">Due</div>';
+        html += '<div class="field-value">' + escapeHtml(String(t.due)) + '</div>';
+    }
+    if (t.activity_type && t.activity_type !== 'general') {
+        html += '<div class="field-label">Type</div>';
+        html += '<div class="field-value">' + escapeHtml(t.activity_type) + '</div>';
+    }
+    html += '<div class="field-label">Notes</div>';
+    if (t.notes) {
+        // Render notes as markdown (bullets, numbered lists, tables all supported)
+        var renderedNotes = (typeof marked !== 'undefined') ? marked.parse(t.notes) : escapeHtml(t.notes);
+        html += '<div class="field-notes task-notes-preview">' + renderedNotes + '</div>';
+    } else {
+        html += '<div class="field-notes empty">No notes yet. Click ↗ to open the task and add some.</div>';
+    }
+    html += '</div>';  // .card-expanded
+    html += '</div>';  // .briefing-card
+    return html;
+}
+
+function briefingOpenEvent(dateStr) {
+    closeBriefingPanel();
+    openCalendarPanel();
+    if (dateStr && dateStr.length >= 10) {
+        try {
+            var iso = dateStr.substring(0, 10);
+            var d = new Date(iso + 'T00:00:00');
+            if (!isNaN(d.getTime())) {
+                calCurrentDate = d;
+                _calSelectedDay = iso;
+                if (typeof calRender === 'function') calRender();
+            }
+        } catch (e) {}
     }
 }
 
@@ -11033,52 +12040,49 @@ function renderBriefing(data) {
     var dateStr = dateObj.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
     var html = '<div class="briefing-date">' + escapeHtml(dateStr) + '</div>';
+    html += '<div class="briefing-narrative" id="briefingNarrative"></div>';
 
     var hasContent = false;
 
-    // Overdue tasks
-    if (data.overdue_tasks && data.overdue_tasks.length) {
+    // Track which task IDs we've already rendered so a task that's overdue + high-pri
+    // doesn't get a card in every matching section.
+    var _seenTaskIds = {};
+    function _renderTaskSection(list, klass, sectionTitleHtml) {
+        if (!list || !list.length) return;
+        var cards = '';
+        var count = 0;
+        for (var i = 0; i < list.length; i++) {
+            var t = list[i];
+            var key = (t && t.id !== undefined && t.id !== null) ? String(t.id) : null;
+            if (key && _seenTaskIds[key]) continue;
+            if (key) _seenTaskIds[key] = true;
+            cards += _briefingTaskCard(t, klass);
+            count++;
+        }
+        if (!count) return;
         hasContent = true;
         html += '<div class="briefing-section">';
-        html += '<div class="briefing-section-title overdue">Overdue (' + data.overdue_tasks.length + ')</div>';
-        for (var i = 0; i < data.overdue_tasks.length; i++) {
-            var t = data.overdue_tasks[i];
-            html += '<div class="briefing-card overdue">';
-            html += '<div class="card-title">' + escapeHtml(t.text || '') + '</div>';
-            if (t.due) html += '<div class="card-detail">Due: ' + escapeHtml(t.due.substring(0, 10)) + '</div>';
-            html += '</div>';
-        }
+        html += sectionTitleHtml.replace('{count}', count);
+        html += cards;
         html += '</div>';
     }
 
-    // Due today
-    if (data.due_today && data.due_today.length) {
-        hasContent = true;
-        html += '<div class="briefing-section">';
-        html += '<div class="briefing-section-title due-today">Due Today (' + data.due_today.length + ')</div>';
-        for (var i = 0; i < data.due_today.length; i++) {
-            var t = data.due_today[i];
-            html += '<div class="briefing-card high-pri">';
-            html += '<div class="card-title">' + escapeHtml(t.text || '') + '</div>';
-            html += '</div>';
-        }
-        html += '</div>';
-    }
-
-    // High priority tasks
-    if (data.high_priority_tasks && data.high_priority_tasks.length) {
-        hasContent = true;
-        html += '<div class="briefing-section">';
-        html += '<div class="briefing-section-title high-pri">High Priority (' + data.high_priority_tasks.length + ')</div>';
-        for (var i = 0; i < data.high_priority_tasks.length; i++) {
-            var t = data.high_priority_tasks[i];
-            html += '<div class="briefing-card high-pri">';
-            html += '<div class="card-title">' + escapeHtml(t.text || '') + '</div>';
-            if (t.due) html += '<div class="card-detail">Due: ' + escapeHtml(t.due.substring(0, 10)) + '</div>';
-            html += '</div>';
-        }
-        html += '</div>';
-    }
+    _renderTaskSection(
+        data.overdue_tasks, 'overdue',
+        '<div class="briefing-section-title overdue">Overdue ({count})</div>'
+    );
+    _renderTaskSection(
+        data.due_today, 'high-pri',
+        '<div class="briefing-section-title due-today">Due Today ({count})</div>'
+    );
+    _renderTaskSection(
+        data.high_priority_tasks, 'high-pri',
+        '<div class="briefing-section-title high-pri">High Priority ({count})</div>'
+    );
+    _renderTaskSection(
+        data.other_pending, '',
+        '<div class="briefing-section-title">Pending Tasks ({count})</div>'
+    );
 
     // Events today
     if (data.events_today && data.events_today.length) {
@@ -11087,7 +12091,8 @@ function renderBriefing(data) {
         html += '<div class="briefing-section-title events">Today\'s Events (' + data.events_today.length + ')</div>';
         for (var i = 0; i < data.events_today.length; i++) {
             var ev = data.events_today[i];
-            html += '<div class="briefing-card event">';
+            var evDate = ev.date || data.date;
+            html += '<div class="briefing-card event" onclick="briefingOpenEvent(\'' + escapeHtml(evDate) + '\')" title="Open in Calendar">';
             html += '<div class="card-title">' + escapeHtml(ev.title || '') + '</div>';
             var detail = ev.time_start || 'All day';
             if (ev.source === 'google') detail += ' (Google)';
@@ -11104,9 +12109,10 @@ function renderBriefing(data) {
         html += '<div class="briefing-section-title upcoming">Upcoming (' + data.events_upcoming.length + ')</div>';
         for (var i = 0; i < data.events_upcoming.length; i++) {
             var ev = data.events_upcoming[i];
-            html += '<div class="briefing-card upcoming">';
+            var evDate = ev.date || '';
+            html += '<div class="briefing-card upcoming" onclick="briefingOpenEvent(\'' + escapeHtml(evDate) + '\')" title="Open in Calendar">';
             html += '<div class="card-title">' + escapeHtml(ev.title || '') + '</div>';
-            var detail = ev.date || '';
+            var detail = evDate;
             if (ev.time_start) detail += ' ' + ev.time_start;
             if (ev.source === 'google') detail += ' (Google)';
             html += '<div class="card-detail">' + escapeHtml(detail) + '</div>';
@@ -11181,12 +12187,58 @@ function renderBriefing(data) {
     container.innerHTML = html;
 }
 
-function maybeShowBriefing() {
-    if (sessionStorage.getItem('aegis_briefing_shown')) return;
-    setTimeout(function() {
-        openBriefingPanel();
-    }, 800);
+// Startup panels — which floating panels should auto-open when the app launches.
+// User-configurable from Settings > Startup Panels.
+var STARTUP_PANEL_REGISTRY = [
+    { key: 'briefing', label: 'Daily Briefing',  open: 'openBriefingPanel' },
+    { key: 'tasks',    label: 'Task Manager',    open: 'openTaskPanel' },
+    { key: 'calendar', label: 'Calendar',        open: 'openCalendarPanel' },
+    { key: 'weather',  label: 'Weather',         open: 'openWeatherPanel' },
+    { key: 'news',     label: 'News',            open: 'openNewsPanel' },
+    { key: 'mood',     label: 'Mood',            open: 'openMoodPanel' },
+    { key: 'habits',   label: 'Habits',          open: 'openHabitPanel' },
+    { key: 'timer',    label: 'Timer',           open: 'openTimerPanel' },
+    { key: 'alarms',   label: 'Alarms',          open: 'openAlarmPanel' },
+    { key: 'pinned',   label: 'Pinned Messages', open: 'openPinnedPanel' },
+    { key: 'sysperf',  label: 'System Performance', open: 'openSysperfPanel' },
+    { key: 'crew',     label: 'Crew',            open: 'openCrewPanel' },
+];
+
+function getStartupPanels() {
+    // Returns object like {briefing: true, weather: false, ...}.
+    // Defaults: only briefing on.
+    try {
+        var raw = localStorage.getItem('aegis_startup_panels');
+        if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return { briefing: true };
 }
+
+function setStartupPanel(key, on) {
+    var prefs = getStartupPanels();
+    prefs[key] = !!on;
+    localStorage.setItem('aegis_startup_panels', JSON.stringify(prefs));
+}
+
+function _applyStartupPanels() {
+    // Called once after auth on app launch. Opens each configured panel
+    // staggered so they cascade rather than overlap.
+    var prefs = getStartupPanels();
+    var delay = 400;
+    for (var i = 0; i < STARTUP_PANEL_REGISTRY.length; i++) {
+        var entry = STARTUP_PANEL_REGISTRY[i];
+        if (!prefs[entry.key]) continue;
+        var fn = window[entry.open];
+        if (typeof fn !== 'function') continue;
+        (function(f, d) {
+            setTimeout(function() { try { f(); } catch (e) { console.error(e); } }, d);
+        })(fn, delay);
+        delay += 150;
+    }
+}
+
+// Back-compat alias — old code may still call this.
+function maybeShowBriefing() { _applyStartupPanels(); }
 
 // ========== TOAST NOTIFICATIONS ==========
 
@@ -11810,7 +12862,20 @@ function restorePoppedWidgets_widgets() {
     try {
         var ids = JSON.parse(saved);
         if (!Array.isArray(ids)) return;
+        // Filter by Startup Panels prefs — if a widget's key is in the registry
+        // and the user has it unchecked, don't restore the popout and drop it
+        // from the saved list so it stays docked across future launches.
+        var startupPrefs = (typeof getStartupPanels === 'function') ? getStartupPanels() : {};
+        var registered = (typeof STARTUP_PANEL_REGISTRY !== 'undefined')
+            ? STARTUP_PANEL_REGISTRY.map(function(e) { return e.key; })
+            : [];
+        var kept = [];
         ids.forEach(function(widgetId) {
+            var key = widgetId.replace(/^widget-/, '');
+            if (registered.indexOf(key) !== -1 && !startupPrefs[key]) {
+                return; // user opted this out via Startup Panels — drop from popped list
+            }
+            kept.push(widgetId);
             var widget = document.getElementById(widgetId);
             if (widget && !document.getElementById('poppedWidget-' + widgetId)) {
                 var ws = getWorkspaceBounds();
@@ -11819,6 +12884,9 @@ function restorePoppedWidgets_widgets() {
                 popOutWidget(widgetId, cx, cy);
             }
         });
+        if (kept.length !== ids.length) {
+            localStorage.setItem('aegis_popped_widgets', JSON.stringify(kept));
+        }
     } catch(e) {}
 }
 
@@ -12172,7 +13240,12 @@ function initChatCollapse() {
 
 async function renderWidgetTasks() {
     try {
-        var res = await authFetch(API + '/tasks');
+        // /api/tasks is POST with action verbs — GET returns nothing useful
+        var res = await authFetch(API + '/tasks', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({action: 'list'}),
+        });
         var data = await res.json();
         var tasks = (data.tasks || []).filter(function(t) { return !t.completed; });
         var badge = document.getElementById('widgetTasksBadge');
@@ -12697,10 +13770,12 @@ function buildTickerContent() {
         items.push('TIME: ' + h + ':' + m);
     }
 
-    // Weather
+    // Weather — respect the user's C/F preference (default F)
     if (_isTickerItemEnabled('weather') && _tickerData.weather) {
         var w = _tickerData.weather;
-        var temp = (w.temperature != null) ? w.temperature + '' : '--';
+        var temp = (w.temperature != null)
+            ? _weatherConvert(w.temperature) + '°' + _weatherUnit()
+            : '--';
         var cond = (w.condition || '').toUpperCase();
         items.push('WEATHER: ' + temp + (cond ? ' ' + cond : ''));
     }
@@ -13325,7 +14400,7 @@ function renderPopped_gpu(container) {
         html += '<div class="pw-bar"><div class="pw-bar-fill" style="width:' + vramPct + '%;background:var(--lcars-pink-1)"></div></div>';
         html += '<div class="pw-stat-row"><span>Utilization</span><span class="pw-stat-val">' + utilPct + '%</span></div>';
         html += '<div class="pw-bar"><div class="pw-bar-fill" style="width:' + utilPct + '%;background:var(--lcars-magenta)"></div></div>';
-        if (data.temperature != null) html += '<div class="pw-stat-row"><span>Temperature</span><span class="pw-stat-val">' + data.temperature + '&deg;C</span></div>';
+        if (data.temperature != null) html += '<div class="pw-stat-row"><span>Temperature</span><span class="pw-stat-val">' + _weatherConvert(data.temperature) + '&deg;' + _weatherUnit() + '</span></div>';
         if (data.power_draw != null) html += '<div class="pw-stat-row"><span>Power</span><span class="pw-stat-val">' + data.power_draw + ' W</span></div>';
         if (data.fan_speed != null) html += '<div class="pw-stat-row"><span>Fan</span><span class="pw-stat-val">' + data.fan_speed + '%</span></div>';
         container.innerHTML = html;
@@ -13993,10 +15068,10 @@ async function loadWelcomeCards() {
             el.textContent = count;
         }
 
-        // Weather from briefing
+        // Weather from briefing — respect user's C/F preference (default F)
         var wEl = document.getElementById('wcWeather');
         if (wEl && data.weather && data.weather.temperature != null) {
-            wEl.textContent = Math.round(data.weather.temperature) + 'F';
+            wEl.textContent = _weatherConvert(data.weather.temperature) + '°' + _weatherUnit();
         }
     } catch (e) {}
 }
