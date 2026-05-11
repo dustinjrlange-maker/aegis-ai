@@ -34,3 +34,10 @@ autonomous-logs/
 # Environment
 .env
 *.env
+
+# Electron runtime
+electron/node_modules/
+
+# Runtime logs
+server_log.txt
+*.log
