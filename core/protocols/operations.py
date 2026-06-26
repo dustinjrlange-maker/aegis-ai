@@ -535,14 +535,50 @@ class OperationsProtocol(Protocol):
 
     # --- Task Management ---
 
+    def _get_speller(self):
+        """Lazy-init pyspellchecker with the configured proper-noun whitelist.
+
+        The whitelist combines:
+        - operations.spellcheck_whitelist from core_config.json
+        - All name tokens from crew_files (if the manager is available)
+        Words on the whitelist are taught to the SpellChecker as "correct" so
+        they never get flagged as misspellings.
+        """
+        if getattr(self, "_speller", None) is not None:
+            return self._speller, self._spellcheck_whitelist
+        try:
+            from spellchecker import SpellChecker
+        except ImportError:
+            self._speller = False  # mark "tried and failed" so we don't retry
+            self._spellcheck_whitelist = set()
+            return None, None
+        spell = SpellChecker(language="en", distance=2)
+        whitelist = set()
+        ops_cfg = CONFIG.get("operations", {}) if isinstance(CONFIG, dict) else {}
+        for w in ops_cfg.get("spellcheck_whitelist", []):
+            if w:
+                whitelist.add(w.lower())
+        try:
+            from core.memory.crew_files import CrewFilesManager
+            mgr = CrewFilesManager(self.TASK_FILE.parent)
+            for crew in mgr.list_profiles():
+                for part in (crew.get("name") or "").split():
+                    if len(part) > 2:
+                        whitelist.add(part.lower())
+        except Exception:
+            pass
+        if whitelist:
+            spell.word_frequency.load_words(whitelist)
+        self._speller = spell
+        self._spellcheck_whitelist = whitelist
+        return spell, whitelist
+
     def _spellcheck_title(self, text: str) -> str:
-        """Send a task title through Pike's LLM to fix typos. Preserves
-        names/brands/acronyms via prompt instruction. Returns the original
-        text on any failure (timeout, off-script reply, length mismatch).
+        """Per-word dictionary spellcheck. Preserves proper nouns via whitelist,
+        preserves original capitalization, never adds or removes words.
 
         Gated by config flag `operations.spellcheck_titles`. Skipped for very
-        short titles since there's not much room for typos and not much value
-        in the LLM round-trip.
+        short titles since there's not much room for typos.
         """
         ops_cfg = CONFIG.get("operations", {}) if isinstance(CONFIG, dict) else {}
         if not ops_cfg.get("spellcheck_titles", True):
@@ -550,79 +586,60 @@ class OperationsProtocol(Protocol):
         if not text or len(text.strip()) < 4:
             return text
 
-        try:
-            import ollama  # local import — avoids hard dep at module load
-        except ImportError:
+        spell, whitelist = self._get_speller()
+        if spell is None or spell is False:
             return text
 
-        timeout = float(ops_cfg.get("spellcheck_timeout_seconds", 5))
-        model = (CONFIG.get("model") or {}).get("chat") if isinstance(CONFIG, dict) else None
-        if not model:
+        out = []
+        changed = False
+        for raw_word in text.split():
+            # Peel trailing punctuation; preserve to reattach.
+            m = re.match(r"^(.*?)([.,!?:;)\]]*)$", raw_word)
+            core, trail = m.group(1), m.group(2)
+            # Peel possessive "'s" (case-insensitive) for the check.
+            pm = re.match(r"^(.+?)('s)$", core, re.IGNORECASE)
+            check_part, suffix = (pm.group(1), pm.group(2)) if pm else (core, "")
+            lower = check_part.lower()
+
+            # Skip rules: too short, has digit, all-caps acronym, whitelisted,
+            # or already a known word.
+            if (len(lower) <= 2
+                    or any(c.isdigit() for c in lower)
+                    or (check_part.isupper() and len(check_part) <= 4)
+                    or lower in whitelist
+                    or not check_part.isalpha()
+                    or lower in spell):
+                out.append(raw_word)
+                continue
+
+            correction = spell.correction(lower)
+            if not correction or correction == lower:
+                out.append(raw_word)
+                continue
+            # Insertion-typos (missing letter) are far more common than
+            # extra-letter typos. If the top correction is SHORTER than the
+            # original, prefer a same-length-or-longer candidate. Catches
+            # "Mke → Make" instead of "Mke → Me" (both edit-distance 1; "Me"
+            # wins on frequency but is the wrong direction).
+            if len(correction) < len(lower):
+                candidates = spell.candidates(lower) or set()
+                longer = [c for c in candidates if len(c) >= len(lower)]
+                if longer:
+                    correction = max(longer, key=lambda c: spell[c])
+
+            # Preserve original capitalization style.
+            if check_part.isupper():
+                correction = correction.upper()
+            elif check_part[0].isupper():
+                correction = correction[0].upper() + correction[1:]
+            out.append(correction + suffix + trail)
+            changed = True
+
+        if not changed:
             return text
-
-        prompt = (
-            "Fix only the spelling errors in this short task title. Rules:\n"
-            "- Do not add or remove words.\n"
-            "- Preserve names, brand names, and acronyms unchanged "
-            "(e.g. Milo, Krunch, RB, FFL, MCP).\n"
-            "- Preserve the original word order and capitalization style.\n"
-            "- If the title has no spelling errors, return it unchanged.\n"
-            "- Return ONLY the corrected title. No quotes, no explanation, no markdown.\n\n"
-            f"Title: {text}\n"
-            "Corrected:"
-        )
-
-        try:
-            response = ollama.chat(
-                model=model,
-                messages=[{"role": "user", "content": prompt}],
-                options={"temperature": 0.0, "num_predict": 60},
-                stream=False,
-                keep_alive="5m",
-            )
-            raw = (response.get("message", {}) or {}).get("content", "") or ""
-        except Exception as e:
-            logger.debug("Spellcheck LLM call failed: %s", e)
-            return text
-
-        # Strip qwen <think> tags if present
-        raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL | re.IGNORECASE)
-        # First non-empty line only
-        for line in raw.splitlines():
-            cleaned = line.strip()
-            if cleaned:
-                raw = cleaned
-                break
-        else:
-            return text
-
-        # Strip surrounding quotes / leading prose
-        raw = raw.strip().strip('"').strip("'").strip()
-        # Some models like to prefix with "Corrected: " or "Title: ". Strip.
-        raw = re.sub(r"^(corrected|title|fixed|answer)\s*:\s*", "", raw, flags=re.IGNORECASE)
-        raw = raw.strip().strip('"').strip("'").strip()
-
-        if not raw:
-            return text
-
-        # Sanity: output length should be within 0.5x–2x of input
-        orig_len = len(text)
-        if not (orig_len * 0.5 <= len(raw) <= orig_len * 2 + 8):
-            logger.debug("Spellcheck output length out of bounds (%d → %d), keeping original",
-                         orig_len, len(raw))
-            return text
-
-        # Sanity: word count must match — the 8B model sometimes drops or adds
-        # words even with explicit instruction not to. Spellcheck is supposed to
-        # fix typos in-place, not rewrite the title.
-        if len(raw.split()) != len(text.split()):
-            logger.debug("Spellcheck word count changed (%d → %d), keeping original",
-                         len(text.split()), len(raw.split()))
-            return text
-
-        if raw != text:
-            logger.info("Spellcheck: %r → %r", text, raw)
-        return raw
+        result = " ".join(out)
+        logger.info("Spellcheck: %r → %r", text, result)
+        return result
 
     def add_task(self, text, priority="normal", due=None, category="general",
                  activity_type="general"):

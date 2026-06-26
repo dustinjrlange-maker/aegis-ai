@@ -81,6 +81,12 @@
 
     "operations": {
         "spellcheck_titles": true,
-        "spellcheck_timeout_seconds": 5
+        "spellcheck_whitelist": [
+            "aegis", "pike", "switch", "krunch", "tyler", "milo",
+            "rb", "ffl", "mcp", "reel", "ballistics", "obsidian",
+            "dustin", "lange", "cennymail",
+            "ollama", "qwen", "lcars",
+            "krunchy", "puppychat", "bluray", "fursuit", "fursuits"
+        ]
     }
 }
