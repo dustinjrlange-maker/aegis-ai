@@ -444,7 +444,8 @@ class OperationsProtocol(Protocol):
                             injection_parts.append(
                                 f"[System: A task was auto-detected and saved: "
                                 f"'#{task['id']}: {task['text']}'. "
-                                f"Acknowledge this naturally in your response.]"
+                                f"Briefly acknowledge in your response. "
+                                f"Do NOT emit [ADD_TASK:] — the task is already saved.]"
                             )
                     break
 
@@ -611,6 +612,14 @@ class OperationsProtocol(Protocol):
                          orig_len, len(raw))
             return text
 
+        # Sanity: word count must match — the 8B model sometimes drops or adds
+        # words even with explicit instruction not to. Spellcheck is supposed to
+        # fix typos in-place, not rewrite the title.
+        if len(raw.split()) != len(text.split()):
+            logger.debug("Spellcheck word count changed (%d → %d), keeping original",
+                         len(text.split()), len(raw.split()))
+            return text
+
         if raw != text:
             logger.info("Spellcheck: %r → %r", text, raw)
         return raw
@@ -632,7 +641,8 @@ class OperationsProtocol(Protocol):
         text = self._spellcheck_title(text)
         now_ts = datetime.now()
         norm = text.strip().lower()
-        norm_words = {w for w in norm.split() if len(w) > 2}  # ignore tiny words like "to", "a"
+        norm_words = [w for w in norm.split() if len(w) > 2]  # ignore tiny words like "to", "a"
+        from difflib import SequenceMatcher
         for existing in reversed(self._tasks[-10:]):
             if existing.get("completed"):
                 continue
@@ -647,18 +657,36 @@ class OperationsProtocol(Protocol):
             # Tier 1 — exact match within 60s
             if existing_text == norm:
                 return existing
-            # Tier 2 — fuzzy match within 30s
-            if age_sec < 30:
-                existing_words = {w for w in existing_text.split() if len(w) > 2}
-                if norm_words and existing_words:
-                    overlap = len(norm_words & existing_words)
-                    larger = max(len(norm_words), len(existing_words))
-                    if larger and overlap / larger >= 0.7:
-                        # Backfill due date if the new attempt has one and the existing one doesn't
-                        if due and not existing.get("due"):
-                            existing["due"] = due
-                            self._save_tasks()
-                        return existing
+            # Tier 2 — typo-tolerant fuzzy match within 60s. A word counts as
+            # matched if any existing word == or has SequenceMatcher ratio ≥ 0.8.
+            # Catches "finsih" vs "finish" — the spellcheck LLM is non-deterministic
+            # at 8B even at temp 0, so two creations within 60s can diverge.
+            existing_words = [w for w in existing_text.split() if len(w) > 2]
+            if norm_words and existing_words:
+                def _fuzzy_match_count(a, b):
+                    n = 0
+                    for aw in a:
+                        for bw in b:
+                            if aw == bw or SequenceMatcher(None, aw, bw).ratio() >= 0.8:
+                                n += 1
+                                break
+                    return n
+                matched = _fuzzy_match_count(norm_words, existing_words)
+                larger = max(len(norm_words), len(existing_words))
+                smaller = min(len(norm_words), len(existing_words))
+                # Standard fuzzy: ≥70% of the larger set matched
+                fuzzy_hit = larger and matched / larger >= 0.7
+                # Containment: the smaller side is fully matched in the larger,
+                # AND has at least 2 significant words. Catches Pike emitting
+                # "Milo paws" as a nominalized bracket title for the NLP-captured
+                # "Finsih the milo paws" — same intent, shorter phrasing.
+                contain_hit = smaller >= 2 and matched >= smaller
+                if fuzzy_hit or contain_hit:
+                    # Backfill due date if the new attempt has one and the existing one doesn't
+                    if due and not existing.get("due"):
+                        existing["due"] = due
+                        self._save_tasks()
+                    return existing
         task = {
             "id": len(self._tasks) + 1,
             "text": text,
