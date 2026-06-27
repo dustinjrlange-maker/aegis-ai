@@ -558,7 +558,9 @@ class OperationsProtocol(Protocol):
                         time_info = f" at {parsed_time}" if parsed_time else ""
                         injection_parts.append(
                             f"[System: Event created: '{event['title']}' on {parsed_date}{time_info}. "
-                            f"Acknowledge this naturally in your response.]"
+                            f"Briefly acknowledge in your response. "
+                            f"Do NOT emit [SCHEDULE_EVENT:] OR [ADD_TASK:] — "
+                            f"the event is already saved. Do not duplicate it as a task.]"
                         )
                         event_created = True
                     break
@@ -600,7 +602,9 @@ class OperationsProtocol(Protocol):
                                 f"[System: A task was auto-detected and saved: "
                                 f"'#{task['id']}: {task['text']}'. "
                                 f"Briefly acknowledge in your response. "
-                                f"Do NOT emit [ADD_TASK:] — the task is already saved.]"
+                                f"Do NOT emit [ADD_TASK:] OR [SCHEDULE_EVENT:] — "
+                                f"the task is already saved and the user said 'task', "
+                                f"not 'event'. Do not duplicate it as a calendar event.]"
                             )
                     break
 

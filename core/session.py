@@ -282,7 +282,13 @@ class UserSession:
         return best if best_score >= 0.5 else None
 
     def _handle_add_event(self, arg: str) -> str:
-        """Create a local event from bracket command: YYYY-MM-DD | title."""
+        """Create a local event from bracket command: YYYY-MM-DD | title.
+
+        Dedupes against tasks created in the same turn: if Pike just emitted
+        an [ADD_TASK:] for the same intent, the [ADD_EVENT:] is suppressed.
+        The 8B model tends to interpret "have brunch today" as both
+        task-worthy AND event-worthy and emit both brackets.
+        """
         parts = arg.split("|", 1)
         if len(parts) != 2:
             return "Invalid format. Use: YYYY-MM-DD | title"
@@ -290,6 +296,31 @@ class UserSession:
         title = parts[1].strip()
         if not title:
             return "Event title is empty"
+
+        # Per-turn dedup vs. just-created task
+        ops = self.protocol_registry.get("operations")
+        if ops:
+            from datetime import timedelta
+            cutoff = datetime.now() - timedelta(seconds=5)
+            title_words = {w.lower() for w in title.split() if len(w) > 2}
+            for task in reversed(getattr(ops, "_tasks", [])[-5:]):
+                try:
+                    created_dt = datetime.fromisoformat(task.get("created", ""))
+                except (ValueError, TypeError):
+                    continue
+                if created_dt < cutoff:
+                    break
+                task_words = {w.lower() for w in (task.get("text") or "").split() if len(w) > 2}
+                if not title_words or not task_words:
+                    continue
+                overlap = len(title_words & task_words)
+                smaller = min(len(title_words), len(task_words))
+                if smaller and overlap / smaller >= 0.7:
+                    logger.info(
+                        "Event skipped — duplicate of recent task '%s'", task["text"]
+                    )
+                    return f"Event skipped — already created as task '{task['text']}'"
+
         event = self.event_manager.add_event(title=title, date=date_str)
         return f"Event '{event['title']}' created on {event['date']}"
 

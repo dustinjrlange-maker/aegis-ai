@@ -9449,10 +9449,35 @@ async function addTask() {
 function _refreshBriefingIfOpen() {
     // Call after any task/event mutation so the briefing panel reflects the change
     // without forcing the user to close and re-open it.
+    //
+    // Refreshes the STRUCTURED data only. The narrative (LLM-generated prose)
+    // is intentionally NOT regenerated here — every regeneration is a 30-60s
+    // LLM call on the local 8B model, and the prose is descriptive enough that
+    // slight staleness after a task add doesn't hurt. User hits the ↻ button
+    // on the narrative when they want a fresh one.
     var panel = document.getElementById('briefingPanel');
-    if (panel && panel.classList.contains('open') && typeof loadBriefing === 'function') {
+    if (!panel || !panel.classList.contains('open')) return;
+    if (typeof _refreshBriefingFactsOnly === 'function') {
+        _refreshBriefingFactsOnly();
+    } else if (typeof loadBriefing === 'function') {
         loadBriefing();
     }
+}
+
+async function _refreshBriefingFactsOnly() {
+    // Pull fresh structured briefing data and re-render the buckets without
+    // touching the LLM narrative slot.
+    try {
+        var res = await authFetch(API + '/briefing');
+        var data = await res.json();
+        renderBriefing(data);
+        // renderBriefing recreates the narrative slot — re-attach the existing
+        // text so it doesn't flash blank.
+        var slot = document.getElementById('briefingNarrative');
+        if (slot && window._lastBriefingNarrativeHtml) {
+            slot.innerHTML = window._lastBriefingNarrativeHtml;
+        }
+    } catch (e) {}
 }
 
 function _isPanelOpen(id) {
@@ -12437,6 +12462,8 @@ async function loadBriefingNarrative() {
             slot.innerHTML =
                 '<div class="briefing-narrative-text">' + escapeHtml(data.narrative) + '</div>' +
                 '<button class="briefing-narrative-refresh" onclick="loadBriefingNarrative()" title="Regenerate">↻</button>';
+            // Cache so _refreshBriefingFactsOnly can restore it after a re-render.
+            window._lastBriefingNarrativeHtml = slot.innerHTML;
         } else {
             slot.style.display = 'none';
         }
