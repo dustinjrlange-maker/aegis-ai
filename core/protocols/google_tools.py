@@ -218,6 +218,26 @@ def gmail_unread_count(creds):
         return 0
 
 
+def gmail_mark_read(creds, message_id):
+    """Mark an inbox message as read (removes the UNREAD label).
+
+    Returns {ok: True} on success, {ok: False, error: ...} on failure.
+    """
+    service = _get_gmail_service(creds)
+    if not service:
+        return {"ok": False, "error": "Gmail service unavailable"}
+    try:
+        service.users().messages().modify(
+            userId="me",
+            id=message_id,
+            body={"removeLabelIds": ["UNREAD"]},
+        ).execute()
+        return {"ok": True}
+    except Exception as e:
+        logger.warning("Could not mark message read: %s", e)
+        return {"ok": False, "error": str(e)}
+
+
 def gmail_list_messages(creds, max_results=10):
     """List recent inbox messages.
 

@@ -339,3 +339,11 @@ def discard_draft(session, draft_id: str) -> dict:
     if not creds:
         return {"success": False, "error": "Email not authorized"}
     return gt.gmail_delete_draft(creds, draft_id)
+
+
+def mark_read(session, message_id: str) -> dict:
+    """Mark an inbox message as read."""
+    creds = _creds_from_session(session)
+    if not creds:
+        return {"error": "not_authorized"}
+    return gt.gmail_mark_read(creds, message_id)

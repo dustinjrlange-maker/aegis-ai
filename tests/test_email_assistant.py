@@ -129,3 +129,22 @@ def test_draft_new_omits_cc_bcc_when_not_provided():
     # cc/bcc may be passed as None or absent — both are fine
     assert not kwargs.get("cc")
     assert not kwargs.get("bcc")
+
+
+def test_mark_read_calls_gmail_modify():
+    """mark_read should call gmail_mark_read with the message id."""
+    from core import email_assistant as ea
+    session = _mock_session()
+    with patch.object(ea, "_creds_from_session", return_value=object()), \
+         patch.object(ea.gt, "gmail_mark_read", return_value={"ok": True}) as mock_mark:
+        result = ea.mark_read(session, "msg_abc")
+    assert result == {"ok": True}
+    assert mock_mark.call_args.args[1] == "msg_abc"
+
+
+def test_mark_read_returns_error_when_not_authorized():
+    from core import email_assistant as ea
+    session = _mock_session()
+    with patch.object(ea, "_creds_from_session", return_value=None):
+        result = ea.mark_read(session, "msg_abc")
+    assert result.get("error") == "not_authorized"

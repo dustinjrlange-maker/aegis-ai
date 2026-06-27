@@ -1149,6 +1149,14 @@ async def email_discard_draft(draft_id: str, user_id: str = Depends(require_user
     return discard_draft(session, draft_id)
 
 
+@app.post("/api/email/mark-read/{message_id}")
+async def email_mark_read(message_id: str, user_id: str = Depends(require_user)):
+    """Mark an inbox message as read."""
+    from core.email_assistant import mark_read
+    session = session_manager.get_or_create(user_id)
+    return mark_read(session, message_id)
+
+
 @app.get("/api/notifications")
 async def get_notifications(user_id: str = Depends(require_user)):
     """Get all notifications, lazily generating from tasks/events."""
