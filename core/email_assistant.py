@@ -14,6 +14,7 @@ narration of the inbox state).
 from __future__ import annotations
 
 import logging
+import time as _time
 
 import ollama
 
@@ -21,6 +22,11 @@ from core.config import CONFIG
 from core.protocols import google_tools as gt
 
 logger = logging.getLogger(__name__)
+
+
+# Per-user narrative cache: {user_id: (timestamp_epoch_s, narrative_str)}
+_narrative_cache: dict[str, tuple[float, str]] = {}
+_NARRATIVE_TTL_S: float = 600.0  # 10 minutes
 
 
 # ---------------------------------------------------------------------------
@@ -65,7 +71,7 @@ def _format_messages_for_llm(messages: list[dict]) -> str:
 # ---------------------------------------------------------------------------
 
 
-def get_inbox_digest(session, max_messages: int = 10) -> dict:
+def get_inbox_digest(session, max_messages: int = 10, fresh: bool = False) -> dict:
     """Pike-voiced summary of recent inbox.
 
     Returns: {narrative, unread_count, messages, error?}
@@ -98,6 +104,20 @@ def get_inbox_digest(session, max_messages: int = 10) -> dict:
             "messages": [],
         }
 
+    # Narrative cache (per-user, TTL-gated). Always re-fetch the message list
+    # since it's cheap; the LLM call is what we want to avoid.
+    user_id = getattr(session, "user_id", "default")
+    cached = _narrative_cache.get(user_id)
+    if cached and not fresh:
+        ts, narrative = cached
+        if _time.time() - ts < _NARRATIVE_TTL_S:
+            return {
+                "narrative": narrative,
+                "unread_count": unread_count,
+                "messages": messages,
+                "cached_age_s": int(_time.time() - ts),
+            }
+
     facts_text = _format_messages_for_llm(messages)
     user_prompt = (
         f"Summarize the user's recent inbox in 3-5 sentences. "
@@ -116,6 +136,8 @@ def get_inbox_digest(session, max_messages: int = 10) -> dict:
             {"role": "user", "content": user_prompt},
         ])
         narrative = session.clean_reply(raw).strip()
+        # Cache the successful narrative.
+        _narrative_cache[user_id] = (_time.time(), narrative)
     except Exception as e:
         logger.exception("Inbox digest LLM call failed")
         narrative = f"[Briefing failed — {e}]"

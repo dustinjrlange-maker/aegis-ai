@@ -1067,11 +1067,12 @@ async def get_briefing_narrative(
 
 
 @app.get("/api/email/inbox-digest")
-async def email_inbox_digest(max_messages: int = 10, user_id: str = Depends(require_user)):
+async def email_inbox_digest(fresh: int = 0, max_messages: int = 10,
+                              user_id: str = Depends(require_user)):
     """Pike-voiced summary of the user's recent inbox."""
     from core.email_assistant import get_inbox_digest
     session = session_manager.get_or_create(user_id)
-    return get_inbox_digest(session, max_messages=max_messages)
+    return get_inbox_digest(session, max_messages=max_messages, fresh=bool(fresh))
 
 
 @app.get("/api/email/drafts")
