@@ -41,3 +41,6 @@ electron/node_modules/
 # Runtime logs
 server_log.txt
 *.log
+
+# Brainstorming companion mockups (per-session, ephemeral)
+.superpowers/
