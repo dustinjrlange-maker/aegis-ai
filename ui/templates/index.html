@@ -6230,7 +6230,7 @@
                 <option value="low">Low</option>
             </select>
             <input type="date" id="taskDueDate" aria-label="Due date" style="width:140px;" onclick="if(this.showPicker)this.showPicker()" onfocus="if(this.showPicker)this.showPicker()">
-            <input type="time" id="taskDueTime" aria-label="Due time (optional)" style="width:100px;" onclick="if(this.showPicker)this.showPicker()">
+            <input type="time" id="taskDueTime" aria-label="Due time (optional)" style="width:100px;" onclick="if(this.showPicker)this.showPicker()" onfocus="if(this.showPicker)this.showPicker()">
             <button onclick="addTask()">ADD</button>
         </div>
         <div id="taskList"></div>
@@ -8831,7 +8831,7 @@ function renderTasks(tasks) {
                         '<option value="low"' + (t.priority === 'low' ? ' selected' : '') + '>Low</option>' +
                     '</select>' +
                     '<input type="date" id="editDue_' + t.id + '" value="' + escapeHtml((t.due || '').substring(0, 10)) + '" onclick="if(this.showPicker)this.showPicker()" onfocus="if(this.showPicker)this.showPicker()">' +
-                    '<input type="time" id="editDueTime_' + t.id + '" value="' + escapeHtml(t.due_time || '') + '" aria-label="Due time (optional)" style="width:100px" onclick="if(this.showPicker)this.showPicker()">' +
+                    '<input type="time" id="editDueTime_' + t.id + '" value="' + escapeHtml(t.due_time || '') + '" aria-label="Due time (optional)" style="width:100px" onclick="if(this.showPicker)this.showPicker()" onfocus="if(this.showPicker)this.showPicker()">' +
                     '<input type="text" id="editAct_' + t.id + '" value="' + escapeHtml(t.activity_type || 'general') + '" placeholder="Activity type" style="width:80px">' +
                 '</div>' +
                 '<div class="task-notes-edit-wrap">' +
