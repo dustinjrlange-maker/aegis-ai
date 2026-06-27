@@ -342,8 +342,12 @@ def discard_draft(session, draft_id: str) -> dict:
 
 
 def mark_read(session, message_id: str) -> dict:
-    """Mark an inbox message as read."""
+    """Mark an inbox message as read.
+
+    Always returns the {ok, error?} shape — the frontend can branch on
+    `result.ok` and surface `result.error` when present.
+    """
     creds = _creds_from_session(session)
     if not creds:
-        return {"error": "not_authorized"}
+        return {"ok": False, "error": "not_authorized"}
     return gt.gmail_mark_read(creds, message_id)

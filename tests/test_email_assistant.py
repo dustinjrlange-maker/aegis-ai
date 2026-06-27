@@ -1,5 +1,5 @@
 import time
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
@@ -139,7 +139,7 @@ def test_mark_read_calls_gmail_modify():
          patch.object(ea.gt, "gmail_mark_read", return_value={"ok": True}) as mock_mark:
         result = ea.mark_read(session, "msg_abc")
     assert result == {"ok": True}
-    assert mock_mark.call_args.args[1] == "msg_abc"
+    mock_mark.assert_called_once_with(ANY, "msg_abc")
 
 
 def test_mark_read_returns_error_when_not_authorized():
@@ -147,4 +147,5 @@ def test_mark_read_returns_error_when_not_authorized():
     session = _mock_session()
     with patch.object(ea, "_creds_from_session", return_value=None):
         result = ea.mark_read(session, "msg_abc")
-    assert result.get("error") == "not_authorized"
+    # Normalized {ok, error?} shape — frontend can branch on result.ok
+    assert result == {"ok": False, "error": "not_authorized"}
