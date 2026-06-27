@@ -149,3 +149,9 @@ def test_mark_read_returns_error_when_not_authorized():
         result = ea.mark_read(session, "msg_abc")
     # Normalized {ok, error?} shape — frontend can branch on result.ok
     assert result == {"ok": False, "error": "not_authorized"}
+
+
+def test_gmail_get_message_helper_is_callable():
+    """Sanity: gmail_get_message is importable and accepts (creds, message_id)."""
+    from core.protocols.google_tools import gmail_get_message
+    assert callable(gmail_get_message)

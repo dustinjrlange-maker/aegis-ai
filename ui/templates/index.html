@@ -13152,6 +13152,206 @@ function _mailOnPanelOpen() {
     _mailSwitchTab('inbox');
 }
 
+// ========== MAIL INBOX TAB ==========
+
+var _mailInbox = { narrative: '', messages: [], cachedAgeS: 0 };
+
+async function loadInboxDigest(fresh) {
+    var section = document.getElementById('mailInboxSection');
+    if (!section) return;
+    if (fresh) section.innerHTML =
+        '<div class="mail-narrative-loading">Pike is reading your inbox…</div>';
+    try {
+        var url = API + '/email/inbox-digest' + (fresh ? '?fresh=1' : '');
+        var res = await authFetch(url);
+        var data = await res.json();
+        if (data && data.error === 'not_authorized') {
+            _mailRenderAuthCTA(section);
+            return;
+        }
+        _mailInbox = {
+            narrative: data.narrative || '',
+            messages: data.messages || [],
+            cachedAgeS: data.cached_age_s || 0,
+        };
+        _mailInboxLoaded = true;
+        _mailRenderInbox();
+    } catch (e) {
+        section.innerHTML =
+            '<div class="mail-empty">Couldn\'t load inbox. ' +
+            '<button class="pill-btn" onclick="loadInboxDigest(true)">↻ Retry</button></div>';
+    }
+}
+
+function _mailRenderInbox() {
+    var section = document.getElementById('mailInboxSection');
+    if (!section) return;
+    var ageLabel = _mailInbox.cachedAgeS > 0
+        ? 'Cached ' + _mailFormatAge(_mailInbox.cachedAgeS) + ' ago'
+        : 'Just generated';
+    var html = '';
+    if (_mailInbox.narrative) {
+        html += '<div class="mail-narrative">' +
+                '<div class="mail-narrative-text">' +
+                    '<strong>Pike:</strong> ' + escapeHtml(_mailInbox.narrative) +
+                '</div>' +
+                '<div class="mail-narrative-footer">' +
+                    '<span>' + ageLabel + '</span>' +
+                    '<button class="mail-narrative-refresh" onclick="loadInboxDigest(true)" title="Refresh">↻ Refresh</button>' +
+                '</div>' +
+                '</div>';
+    }
+    html += '<div id="mailMessageList">';
+    if (!_mailInbox.messages.length) {
+        html += '<div class="mail-empty">No messages.</div>';
+    } else {
+        _mailInbox.messages.forEach(function(m) {
+            html += _mailRenderMessageRow(m);
+        });
+    }
+    html += '</div>';
+    section.innerHTML = html;
+}
+
+function _mailRenderMessageRow(m) {
+    var isUnread = m.unread === true || (m.labelIds || []).indexOf('UNREAD') >= 0;
+    // Backend may or may not surface unread; the snippet-list endpoint always
+    // returns recent INBOX items, so treat unread as a hint only.
+    return '<div class="mail-row" data-message-id="' + escapeHtml(m.id) + '" ' +
+           'data-unread="' + (isUnread ? 'true' : 'false') + '" ' +
+           'onclick="_mailToggleMessage(this)">' +
+           '<div class="mail-row-dot"></div>' +
+           '<div class="mail-row-meta">' +
+               '<div class="mail-row-from">' + escapeHtml(m.sender || m.from || '?') + '</div>' +
+               '<div class="mail-row-subj">' + escapeHtml(m.subject || '(no subject)') + '</div>' +
+           '</div>' +
+           '<div class="mail-row-age">' + escapeHtml(_mailFormatRowAge(m.date)) + '</div>' +
+           '</div>';
+}
+
+function _mailFormatRowAge(dateStr) {
+    if (!dateStr) return '';
+    var d;
+    try { d = new Date(dateStr); } catch (e) { return ''; }
+    if (isNaN(d.getTime())) return '';
+    var diffS = (Date.now() - d.getTime()) / 1000;
+    if (diffS < 60) return Math.floor(diffS) + 's';
+    if (diffS < 3600) return Math.floor(diffS / 60) + 'm';
+    if (diffS < 86400) return Math.floor(diffS / 3600) + 'h';
+    if (diffS < 604800) return Math.floor(diffS / 86400) + 'd';
+    return d.toLocaleDateString();
+}
+
+function _mailFormatAge(seconds) {
+    if (seconds < 60) return seconds + 's';
+    if (seconds < 3600) return Math.floor(seconds / 60) + 'm';
+    return Math.floor(seconds / 3600) + 'h';
+}
+
+async function _mailToggleMessage(rowEl) {
+    var messageId = rowEl.dataset.messageId;
+    var alreadyExpanded = rowEl.classList.contains('expanded');
+    // Collapse all rows + remove any detail panels
+    document.querySelectorAll('#mailInboxSection .mail-row').forEach(function(r) {
+        r.classList.remove('expanded');
+    });
+    document.querySelectorAll('#mailInboxSection .mail-row-detail').forEach(function(d) {
+        d.remove();
+    });
+    if (alreadyExpanded) return; // toggled closed
+
+    rowEl.classList.add('expanded');
+    // Insert placeholder
+    var ph = document.createElement('div');
+    ph.className = 'mail-row-detail';
+    ph.innerHTML = '<div class="mail-narrative-loading">Loading…</div>';
+    rowEl.parentNode.insertBefore(ph, rowEl.nextSibling);
+    // Fetch full message
+    try {
+        var res = await authFetch(API + '/email/messages/' + encodeURIComponent(messageId));
+        var data = await res.json();
+        ph.innerHTML = _mailRenderMessageDetail(messageId, data);
+    } catch (e) {
+        ph.innerHTML = '<div class="mail-empty">Couldn\'t load message.</div>';
+    }
+    // Mark read in the background
+    if (rowEl.dataset.unread === 'true') {
+        _mailMarkRead(messageId).then(function() {
+            rowEl.dataset.unread = 'false';
+        });
+    }
+}
+
+function _mailRenderMessageDetail(messageId, data) {
+    var bodyHtml;
+    if (typeof DOMPurify !== 'undefined' && data.body) {
+        bodyHtml = DOMPurify.sanitize(data.body);
+    } else {
+        bodyHtml = '<pre style="white-space:pre-wrap;font-family:inherit">' +
+                   escapeHtml(data.body || '') + '</pre>';
+    }
+    return '<div class="mail-detail-meta">' +
+                escapeHtml(data.date || '') + ' · from ' + escapeHtml(data.from || '') +
+           '</div>' +
+           '<div class="mail-detail-body">' + bodyHtml + '</div>' +
+           '<div class="mail-action-bar" data-message-id="' + escapeHtml(messageId) + '">' +
+               '<button class="pill-btn-primary" onclick="_mailStartReply(\'' +
+                   _mailEscapeAttr(messageId) + '\')">Draft Reply</button>' +
+               '<button class="pill-btn" onclick="_mailOpenInGmail(\'' +
+                   _mailEscapeAttr(messageId) + '\')">Open in Gmail</button>' +
+           '</div>';
+}
+
+function _mailEscapeAttr(s) {
+    return String(s || '').replace(/'/g, "\\'");
+}
+
+async function _mailMarkRead(messageId) {
+    try {
+        await authFetch(API + '/email/mark-read/' + encodeURIComponent(messageId), {
+            method: 'POST',
+        });
+    } catch (e) {}
+}
+
+function _mailOpenInGmail(messageId) {
+    var url = 'https://mail.google.com/mail/u/0/#inbox/' + encodeURIComponent(messageId);
+    if (window.electronAPI && typeof window.electronAPI.openExternal === 'function') {
+        window.electronAPI.openExternal(url);
+    } else {
+        window.open(url, '_blank');
+    }
+}
+
+function _mailRenderAuthCTA(section) {
+    section.innerHTML =
+        '<div class="mail-auth-cta">' +
+            '<h3>Mail needs Google access</h3>' +
+            '<p>Pike can\'t reach your inbox until you authorize Google in settings.</p>' +
+            '<button class="pill-btn-primary" onclick="_mailStartAuth()">Authorize Google ▸</button>' +
+        '</div>';
+}
+
+function _mailStartAuth() {
+    var url = '/api/google/oauth/start';
+    if (window.electronAPI && typeof window.electronAPI.openExternal === 'function') {
+        window.electronAPI.openExternal(url);
+    } else {
+        window.open(url, '_blank');
+    }
+    // Poll for auth-complete
+    var poll = setInterval(async function() {
+        try {
+            var res = await authFetch(API + '/google/status');
+            var data = await res.json();
+            if (data && data.connected) {
+                clearInterval(poll);
+                loadInboxDigest(true);
+            }
+        } catch (e) {}
+    }, 3000);
+}
+
 // ========== TOAST NOTIFICATIONS ==========
 
 function showToast(message, type, durationMs) {

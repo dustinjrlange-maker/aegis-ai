@@ -1157,6 +1157,21 @@ async def email_mark_read(message_id: str, user_id: str = Depends(require_user))
     return mark_read(session, message_id)
 
 
+@app.get("/api/email/messages/{message_id}")
+async def email_get_message(message_id: str, user_id: str = Depends(require_user)):
+    """Get a single inbox message's full body."""
+    from core.email_assistant import _creds_from_session
+    from core.protocols import google_tools as gt
+    session = session_manager.get_or_create(user_id)
+    creds = _creds_from_session(session)
+    if not creds:
+        return {"error": "not_authorized"}
+    msg = gt.gmail_get_message(creds, message_id)
+    if msg is None:
+        return {"error": "not_found"}
+    return msg
+
+
 @app.get("/api/notifications")
 async def get_notifications(user_id: str = Depends(require_user)):
     """Get all notifications, lazily generating from tasks/events."""
