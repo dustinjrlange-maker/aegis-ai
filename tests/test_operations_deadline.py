@@ -125,3 +125,63 @@ def test_session_handler_parses_time_suffix():
     pending = [t for t in ops._tasks if "Pay hydro" in t["text"]]
     assert len(pending) == 1
     assert pending[0]["due_time"] == "17:00"
+
+
+# --- task_due_datetime / is_overdue helper tests ---
+
+def test_task_due_datetime_with_date_and_time():
+    from datetime import datetime
+    dt = OperationsProtocol.task_due_datetime({"due": "2026-06-27", "due_time": "12:30"})
+    assert dt == datetime(2026, 6, 27, 12, 30)
+
+
+def test_task_due_datetime_defaults_to_end_of_day():
+    from datetime import datetime
+    dt = OperationsProtocol.task_due_datetime({"due": "2026-06-27", "due_time": None})
+    assert dt == datetime(2026, 6, 27, 23, 59)
+
+
+def test_task_due_datetime_no_due_returns_none():
+    assert OperationsProtocol.task_due_datetime({"due": None}) is None
+    assert OperationsProtocol.task_due_datetime({}) is None
+    assert OperationsProtocol.task_due_datetime(None) is None
+
+
+def test_task_due_datetime_malformed_returns_none():
+    assert OperationsProtocol.task_due_datetime({"due": "not-a-date"}) is None
+    assert OperationsProtocol.task_due_datetime({"due": "2026-06-27", "due_time": "25:99"}) is None
+
+
+def test_is_overdue_past_deadline():
+    from datetime import datetime
+    now = datetime(2026, 6, 27, 13, 0)
+    task = {"due": "2026-06-27", "due_time": "12:30", "completed": False}
+    assert OperationsProtocol.is_overdue(task, now=now) is True
+
+
+def test_is_overdue_future_deadline():
+    from datetime import datetime
+    now = datetime(2026, 6, 27, 12, 0)
+    task = {"due": "2026-06-27", "due_time": "12:30", "completed": False}
+    assert OperationsProtocol.is_overdue(task, now=now) is False
+
+
+def test_is_overdue_today_no_time_not_overdue_before_midnight():
+    """A task due today with no time defaults to 23:59 — not overdue at noon."""
+    from datetime import datetime
+    now = datetime(2026, 6, 27, 12, 0)
+    task = {"due": "2026-06-27", "due_time": None, "completed": False}
+    assert OperationsProtocol.is_overdue(task, now=now) is False
+
+
+def test_is_overdue_completed_task_not_overdue():
+    """Completed tasks never count as overdue, even if deadline passed."""
+    from datetime import datetime
+    now = datetime(2026, 6, 27, 13, 0)
+    task = {"due": "2026-06-27", "due_time": "12:30", "completed": True}
+    assert OperationsProtocol.is_overdue(task, now=now) is False
+
+
+def test_is_overdue_no_deadline_not_overdue():
+    task = {"due": None, "due_time": None, "completed": False}
+    assert OperationsProtocol.is_overdue(task) is False

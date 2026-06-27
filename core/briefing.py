@@ -64,18 +64,12 @@ def collect_briefing_facts(session, period: str | None = None) -> dict:
             all_pending.append(task)
             if task.get("priority") == "high":
                 high_pri.append(task)
-            due = task.get("due")
-            if due:
-                try:
-                    due_date_str = (due or "")[:10]
-                    due_time_str = task.get("due_time") or "23:59"
-                    due_dt = datetime.strptime(f"{due_date_str} {due_time_str}", "%Y-%m-%d %H:%M")
-                    if due_dt < now:
-                        overdue.append(task)
-                    elif due_date_str == today_str:
-                        due_today.append(task)
-                except (ValueError, TypeError):
-                    pass
+            due_dt = ops.task_due_datetime(task)
+            if due_dt is not None:
+                if due_dt < now:
+                    overdue.append(task)
+                elif due_dt.strftime("%Y-%m-%d") == today_str:
+                    due_today.append(task)
 
     # Local events
     events_today = session.event_manager.list_events(today_str, today_str)

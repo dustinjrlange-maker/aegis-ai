@@ -1026,27 +1026,50 @@ class OperationsProtocol(Protocol):
         """Get all incomplete tasks."""
         return [t for t in self._tasks if not t["completed"]]
 
-    def get_overdue_tasks(self):
-        """Get tasks past their due date+time.
+    @staticmethod
+    def task_due_datetime(task):
+        """Return a task's full deadline as a local datetime, or None.
 
-        Tasks without `due_time` default to end-of-day (23:59) so that a task
-        due today doesn't get flagged overdue at 12:01 AM. Tasks with `due_time`
-        get compared against the precise local datetime.
+        Combines ``due`` (YYYY-MM-DD) and ``due_time`` (HH:MM). Tasks without
+        ``due_time`` default to 23:59 so day-only deadlines don't get flagged
+        overdue at 12:01 AM. Returns None when ``due`` is missing or the
+        stored value can't be parsed.
+
+        This is the canonical helper for any "is this task past its deadline"
+        check anywhere in the codebase — UI bucketing, notifications,
+        briefing facts, all call this. Don't reimplement.
         """
+        if not task:
+            return None
+        due = task.get("due")
+        if not due:
+            return None
+        try:
+            due_date_str = (due or "")[:10]
+            due_time_str = task.get("due_time") or "23:59"
+            return datetime.strptime(f"{due_date_str} {due_time_str}", "%Y-%m-%d %H:%M")
+        except (ValueError, TypeError):
+            return None
+
+    @classmethod
+    def is_overdue(cls, task, now=None):
+        """True if the task has a parseable deadline that's already passed.
+
+        Completed tasks are never considered overdue (even if the deadline
+        is past). Pass an explicit ``now`` to test against a specific time,
+        otherwise defaults to ``datetime.now()``.
+        """
+        if not task or task.get("completed"):
+            return False
+        dt = cls.task_due_datetime(task)
+        if dt is None:
+            return False
+        return dt < (now or datetime.now())
+
+    def get_overdue_tasks(self):
+        """Get pending tasks whose deadline is past."""
         now = datetime.now()
-        overdue = []
-        for t in self._tasks:
-            if t.get("completed") or not t.get("due"):
-                continue
-            due_str = (t.get("due") or "")[:10]
-            time_str = t.get("due_time") or "23:59"
-            try:
-                dt = datetime.strptime(f"{due_str} {time_str}", "%Y-%m-%d %H:%M")
-            except (ValueError, TypeError):
-                continue
-            if dt < now:
-                overdue.append(t)
-        return overdue
+        return [t for t in self._tasks if self.is_overdue(t, now=now)]
 
     def format_task_list(self, tasks=None):
         """Format tasks as a readable list."""

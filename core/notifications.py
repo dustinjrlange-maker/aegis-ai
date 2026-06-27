@@ -104,14 +104,8 @@ class NotificationService:
             now = datetime.now()
             tomorrow = now + timedelta(hours=24)
             for task in ops_protocol.get_pending_tasks():
-                due = task.get("due")
-                if not due:
-                    continue
-                try:
-                    due_date_str = (due or "")[:10]
-                    due_time_str = task.get("due_time") or "23:59"
-                    due_dt = datetime.strptime(f"{due_date_str} {due_time_str}", "%Y-%m-%d %H:%M")
-                except (ValueError, TypeError):
+                due_dt = ops_protocol.task_due_datetime(task)
+                if due_dt is None:
                     continue
                 task_id = str(task.get("id", ""))
                 if due_dt < now:
