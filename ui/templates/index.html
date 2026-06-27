@@ -9075,6 +9075,52 @@ function _renderTaskDeadlineText(t, settings) {
          + _formatCountdown(remSec) + '</span>';
 }
 
+/** Updates countdown text on all visible cards. CSS handles bar width.
+ *  Called from the two interval ticks. */
+function _tickDeadlineText(includeSlow) {
+    var now = Date.now();
+    var oneHourMs = 3600 * 1000;
+    var nodes = document.querySelectorAll('.task-deadline-text[data-deadline-ms]');
+    nodes.forEach(function(n) {
+        var dl = parseInt(n.getAttribute('data-deadline-ms'), 10);
+        if (isNaN(dl)) return;
+        var remMs = dl - now;
+        // Fast tick (1Hz) updates only sub-hour cards. Slow tick (30s) updates all.
+        if (!includeSlow && remMs > oneHourMs) return;
+        var remSec = Math.floor(remMs / 1000);
+        if (remSec < 0) {
+            n.textContent = '';
+            n.style.display = 'none';
+            return;
+        }
+        n.textContent = _formatCountdown(remSec);
+        n.style.display = '';
+    });
+}
+
+var _deadlineFastInterval = null;
+var _deadlineSlowInterval = null;
+function _startDeadlineTicks() {
+    if (_deadlineFastInterval) clearInterval(_deadlineFastInterval);
+    if (_deadlineSlowInterval) clearInterval(_deadlineSlowInterval);
+    _deadlineFastInterval = setInterval(function() {
+        _tickDeadlineText(false);
+        if (typeof _tickNextDeadlineBar === 'function') _tickNextDeadlineBar();
+    }, 1000);
+    _deadlineSlowInterval = setInterval(function() {
+        _tickDeadlineText(true);
+    }, 30000);
+}
+
+// visibilitychange — recompute everything after the tab/window wakes up
+document.addEventListener('visibilitychange', function() {
+    if (!document.hidden) {
+        if (typeof loadTasks === 'function') loadTasks();
+        if (typeof _refreshBriefingIfOpen === 'function') _refreshBriefingIfOpen();
+        if (typeof renderNextDeadlineBar === 'function') renderNextDeadlineBar();
+    }
+});
+
 /** Kick off the CSS transitions once the layers are in the DOM. Without this
  *  the browser may render width at the initial value indefinitely. Called
  *  from a requestAnimationFrame so the initial width has been painted. */
@@ -12024,6 +12070,7 @@ async function init() {
     setInterval(checkEventReminders, 30000);
     setInterval(loadWeather, 300000); // refresh weather every 5 min
     setInterval(function() { if (_currentLayout !== 'focus') renderWidgetSysperf(); }, 5000); // refresh sysperf widget every 5s
+    _startDeadlineTicks(); // 1Hz + 30s ticks for task deadline countdown text + bar
 
     // Init drag on all panels + floating chat window
     document.querySelectorAll('.lcars-panel').forEach(function(panel) {
