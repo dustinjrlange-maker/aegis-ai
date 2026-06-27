@@ -242,6 +242,8 @@ def draft_new(session, to: str, intent: str, subject_hint: str | None = None,
         to: Recipient email address.
         intent: What the email should say (natural language).
         subject_hint: Optional subject line; if omitted, the LLM proposes one.
+        cc: Optional CC recipient(s), comma-separated string. Falsy → omitted.
+        bcc: Optional BCC recipient(s), comma-separated string. Falsy → omitted.
 
     Returns: {success, draft_id, body, subject, to, error?}
     """
