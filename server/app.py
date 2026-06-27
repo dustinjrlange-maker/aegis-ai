@@ -1149,6 +1149,58 @@ async def email_discard_draft(draft_id: str, user_id: str = Depends(require_user
     return discard_draft(session, draft_id)
 
 
+@app.patch("/api/email/drafts/{draft_id}")
+async def email_update_draft(draft_id: str, body: dict,
+                              user_id: str = Depends(require_user)):
+    """Update a draft's subject/body in-place.
+
+    Gmail's draft API doesn't support partial updates — the canonical move is
+    to re-create the draft with the new MIME content. We honor the incoming
+    draft_id by passing it as the existing draft to overwrite.
+    """
+    from core.email_assistant import _creds_from_session
+    from core.protocols import google_tools as gt
+    session = session_manager.get_or_create(user_id)
+    creds = _creds_from_session(session)
+    if not creds:
+        return {"ok": False, "error": "not_authorized"}
+    subject = body.get("subject", "")
+    body_text = body.get("body", "")
+    # Pull the existing draft to recover To/CC/BCC headers
+    service = gt._get_gmail_service(creds) if hasattr(gt, "_get_gmail_service") else None
+    if not service:
+        return {"ok": False, "error": "Gmail service unavailable"}
+    try:
+        existing = service.users().drafts().get(userId="me", id=draft_id, format="metadata",
+                                                 metadataHeaders=["To","Cc","Bcc"]).execute()
+        headers = {h["name"]: h["value"] for h in
+                   existing.get("message", {}).get("payload", {}).get("headers", [])}
+        to = headers.get("To", "")
+        cc = headers.get("Cc", "")
+        bcc = headers.get("Bcc", "")
+    except Exception:
+        to, cc, bcc = "", "", ""
+    # Build new MIME and overwrite the draft in place
+    try:
+        raw, thread_id = gt._build_mime_message(
+            to=to, subject=subject, body=body_text,
+            reply_to_id=None, service=service,
+            cc=cc or None, bcc=bcc or None,
+        )
+        draft_body = {"message": {"raw": raw}}
+        if thread_id:
+            draft_body["message"]["threadId"] = thread_id
+        result = service.users().drafts().update(
+            userId="me", id=draft_id, body=draft_body
+        ).execute()
+        return {
+            "ok": True,
+            "draft_id": result.get("id", draft_id),
+        }
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
 @app.post("/api/email/mark-read/{message_id}")
 async def email_mark_read(message_id: str, user_id: str = Depends(require_user)):
     """Mark an inbox message as read."""

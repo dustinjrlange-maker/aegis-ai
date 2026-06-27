@@ -13358,6 +13358,163 @@ function _mailOpenInGmail(messageId) {
     }
 }
 
+function _mailStartReply(messageId) {
+    var bar = document.querySelector(
+        '#mailInboxSection .mail-action-bar[data-message-id="' + messageId + '"]'
+    );
+    if (!bar) return;
+    bar.innerHTML =
+        '<div class="mail-intent-row">' +
+            '<input type="text" class="mail-intent-input" id="mailIntentInput_' + messageId + '" ' +
+                'placeholder="What\'s the gist? (optional)" autofocus>' +
+            '<button class="pill-btn-primary" onclick="_mailDraftReply(\'' +
+                _mailEscapeAttr(messageId) + '\', true)">Draft With Intent</button>' +
+            '<button class="pill-btn-secondary" onclick="_mailDraftReply(\'' +
+                _mailEscapeAttr(messageId) + '\', false)">skip and draft now</button>' +
+        '</div>';
+    var input = document.getElementById('mailIntentInput_' + messageId);
+    if (input) {
+        input.focus();
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') _mailDraftReply(messageId, true);
+        });
+    }
+}
+
+async function _mailDraftReply(messageId, useIntent) {
+    var bar = document.querySelector(
+        '#mailInboxSection .mail-action-bar[data-message-id="' + messageId + '"]'
+    );
+    if (!bar) return;
+    var intent = '';
+    if (useIntent) {
+        var input = document.getElementById('mailIntentInput_' + messageId);
+        intent = input ? input.value.trim() : '';
+    }
+    bar.innerHTML = '<div class="mail-narrative-loading">Pike is composing draft…</div>';
+    try {
+        var res = await authFetch(API + '/email/draft-reply', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({message_id: messageId, intent: intent}),
+        });
+        var draft = await res.json();
+        if (!draft || draft.success === false) {
+            bar.innerHTML = '<div class="mail-empty">Couldn\'t draft. ' +
+                '<button class="pill-btn" onclick="_mailStartReply(\'' +
+                    _mailEscapeAttr(messageId) + '\')">Retry</button></div>';
+            return;
+        }
+        // Remember intent + message_id on the draft so we can regenerate later
+        draft._origin = {kind: 'reply', message_id: messageId, intent: intent};
+        bar.outerHTML = _mailRenderDraftEditor(draft);
+    } catch (e) {
+        bar.innerHTML = '<div class="mail-empty">Network error.</div>';
+    }
+}
+
+function _mailRenderDraftEditor(draft) {
+    var draftId = draft.draft_id || draft.id || '';
+    var subject = draft.subject || '';
+    var body = draft.body || '';
+    var to = draft.to || '';
+    // Stash the draft origin so regenerate works
+    window._mailDrafts = window._mailDrafts || {};
+    window._mailDrafts[draftId] = draft;
+    return '<div class="mail-draft-editor" data-draft-id="' + escapeHtml(draftId) + '">' +
+        '<div class="mail-draft-meta">' +
+            '<span>To: ' + escapeHtml(to) + '</span>' +
+            '<button class="mail-regen-icon" onclick="_mailRegenerateDraft(\'' +
+                _mailEscapeAttr(draftId) + '\')" title="Regenerate">↺</button>' +
+        '</div>' +
+        '<input type="text" class="mail-draft-subject" id="mailDraftSubject_' + draftId + '" ' +
+            'value="' + escapeHtml(subject) + '" placeholder="Subject">' +
+        '<textarea class="mail-draft-body" id="mailDraftBody_' + draftId + '">' +
+            escapeHtml(body) + '</textarea>' +
+        '<div class="mail-action-bar">' +
+            '<button class="pill-btn" onclick="_mailSaveDraft(\'' +
+                _mailEscapeAttr(draftId) + '\')">Save Draft</button>' +
+            '<button class="pill-btn-send" id="mailSendBtn_' + draftId +
+                '" onclick="_mailStartSend(\'' + _mailEscapeAttr(draftId) +
+                '\', this)">Send</button>' +
+            '<button class="pill-btn-danger" onclick="_mailDiscardDraft(\'' +
+                _mailEscapeAttr(draftId) + '\')">Discard</button>' +
+        '</div>' +
+    '</div>';
+}
+
+async function _mailSaveDraft(draftId) {
+    var subjEl = document.getElementById('mailDraftSubject_' + draftId);
+    var bodyEl = document.getElementById('mailDraftBody_' + draftId);
+    if (!subjEl || !bodyEl) return;
+    try {
+        await authFetch(API + '/email/drafts/' + encodeURIComponent(draftId), {
+            method: 'PATCH',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({subject: subjEl.value, body: bodyEl.value}),
+        });
+        showToast('Draft saved');
+        if (_mailActiveTab === 'drafts') loadMailDrafts();
+    } catch (e) {
+        showToast('Save failed', 'error');
+    }
+}
+
+async function _mailDiscardDraft(draftId) {
+    try {
+        await authFetch(API + '/email/drafts/' + encodeURIComponent(draftId), {
+            method: 'DELETE',
+        });
+        showToast('Discarded');
+        // Collapse the row this draft was inside (if INBOX)
+        var editor = document.querySelector(
+            '#mailInboxSection .mail-draft-editor[data-draft-id="' + draftId + '"]'
+        );
+        if (editor) {
+            var detail = editor.closest('.mail-row-detail');
+            var row = detail ? detail.previousElementSibling : null;
+            if (row && row.classList.contains('mail-row')) row.classList.remove('expanded');
+            if (detail) detail.remove();
+        }
+        if (_mailActiveTab === 'drafts') loadMailDrafts();
+    } catch (e) {
+        showToast('Discard failed', 'error');
+    }
+}
+
+async function _mailRegenerateDraft(draftId) {
+    var origin = (window._mailDrafts || {})[draftId] && window._mailDrafts[draftId]._origin;
+    if (!origin) return;
+    var editor = document.querySelector(
+        '.mail-draft-editor[data-draft-id="' + draftId + '"]'
+    );
+    if (!editor) return;
+    var bodyEl = document.getElementById('mailDraftBody_' + draftId);
+    if (bodyEl) bodyEl.value = '⟳ Pike is rewriting…';
+    try {
+        var endpoint = (origin.kind === 'reply') ? '/email/draft-reply' : '/email/draft';
+        var payload = (origin.kind === 'reply')
+            ? {message_id: origin.message_id, intent: origin.intent}
+            : {to: origin.to, intent: origin.intent, subject: origin.subject_hint,
+               cc: origin.cc, bcc: origin.bcc};
+        var res = await authFetch(API + endpoint, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload),
+        });
+        var newDraft = await res.json();
+        if (newDraft && newDraft.body) {
+            if (bodyEl) bodyEl.value = newDraft.body;
+            var subjEl = document.getElementById('mailDraftSubject_' + draftId);
+            if (subjEl && newDraft.subject) subjEl.value = newDraft.subject;
+        } else {
+            if (bodyEl) bodyEl.value = '(regenerate failed)';
+        }
+    } catch (e) {
+        if (bodyEl) bodyEl.value = '(regenerate failed — network error)';
+    }
+}
+
 function _mailRenderAuthCTA(section) {
     section.innerHTML =
         '<div class="mail-auth-cta">' +
