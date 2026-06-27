@@ -5600,6 +5600,279 @@
         }
         .sysperf-proc-val { color: var(--lcars-amber); }
 
+        /* ========== MAIL PANEL ========== */
+        #mailPanel { width: 540px; min-height: 420px; }
+        #mailPanel .panel-body { display: flex; flex-direction: column; padding: 0; }
+
+        /* Tabs */
+        .mail-tabs {
+            display: flex;
+            gap: 2px;
+            padding: 6px 10px 0;
+            border-bottom: 1px solid rgba(85,153,255,0.18);
+        }
+        .mail-tab {
+            background: rgba(85,153,255,0.08);
+            color: var(--lcars-text-dim);
+            border: none;
+            padding: 6px 14px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            border-radius: 3px 3px 0 0;
+            border-bottom: 2px solid transparent;
+            transition: background 0.15s, color 0.15s;
+        }
+        .mail-tab:hover { background: rgba(85,153,255,0.16); color: var(--lcars-text); }
+        .mail-tab.active {
+            background: rgba(93,217,217,0.18);
+            color: var(--lcars-text);
+            border-bottom-color: var(--lcars-cyan, #5dd9d9);
+        }
+
+        .mail-tab-body { flex: 1; overflow-y: auto; padding: 8px 0; }
+        .mail-empty {
+            text-align: center;
+            color: var(--lcars-text-dim);
+            padding: 32px;
+            font-size: 12px;
+        }
+
+        /* Narrative strip */
+        .mail-narrative {
+            margin: 8px;
+            padding: 10px 14px;
+            background: rgba(85,153,255,0.06);
+            border-left: 3px solid var(--lcars-blue-1, #5599ff);
+            font-size: 12px;
+            line-height: 1.5;
+            color: var(--lcars-text);
+            border-radius: 2px;
+        }
+        .mail-narrative-text { margin-bottom: 4px; }
+        .mail-narrative-footer {
+            color: var(--lcars-text-dim);
+            font-size: 10px;
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+        .mail-narrative-refresh {
+            background: none; border: none; color: var(--lcars-cyan, #5dd9d9);
+            cursor: pointer; font-size: 11px; padding: 0 2px;
+        }
+        .mail-narrative-loading {
+            margin: 8px; padding: 14px;
+            color: var(--lcars-text-dim);
+            font-size: 12px;
+            text-align: center;
+        }
+
+        /* Message + draft rows */
+        .mail-row {
+            display: grid;
+            grid-template-columns: 18px 1fr 70px;
+            gap: 10px;
+            align-items: center;
+            padding: 8px 12px;
+            border-bottom: 1px solid rgba(85,153,255,0.08);
+            cursor: pointer;
+            transition: background 0.12s;
+        }
+        .mail-row:hover { background: rgba(85,153,255,0.06); }
+        .mail-row[data-unread="true"] { background: rgba(85,153,255,0.04); }
+        .mail-row.expanded {
+            background: rgba(93,217,217,0.10);
+            border-left: 3px solid var(--lcars-cyan, #5dd9d9);
+        }
+        .mail-row-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--lcars-cyan, #5dd9d9);
+        }
+        .mail-row[data-unread="false"] .mail-row-dot {
+            background: transparent; border: 1px solid rgba(255,255,255,0.2);
+        }
+        .mail-row-icon { color: var(--lcars-cyan, #5dd9d9); font-size: 12px; text-align: center; }
+        .mail-row-meta { min-width: 0; }
+        .mail-row-from { font-weight: bold; color: var(--lcars-text); font-size: 12px;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .mail-row-subj { color: var(--lcars-text-dim); font-size: 11px;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .mail-row-age { color: var(--lcars-text-dim); font-size: 10px; text-align: right; }
+
+        /* Expanded detail */
+        .mail-row-detail {
+            background: rgba(85,153,255,0.04);
+            padding: 12px 16px;
+            border-bottom: 1px solid rgba(85,153,255,0.08);
+        }
+        .mail-detail-meta {
+            color: var(--lcars-text-dim);
+            font-size: 10px;
+            margin-bottom: 8px;
+            letter-spacing: 0.05em;
+        }
+        .mail-detail-body {
+            font-size: 12px;
+            color: var(--lcars-text);
+            line-height: 1.5;
+            margin-bottom: 12px;
+            max-height: 320px;
+            overflow-y: auto;
+            word-wrap: break-word;
+        }
+
+        /* Action bar */
+        .mail-action-bar {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .pill-btn, .pill-btn-primary, .pill-btn-secondary, .pill-btn-send, .pill-btn-danger {
+            background: rgba(85,153,255,0.18);
+            border: none;
+            color: var(--lcars-text);
+            padding: 5px 12px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 10px;
+            letter-spacing: 0.05em;
+            transition: background 0.12s;
+        }
+        .pill-btn:hover { background: rgba(85,153,255,0.30); }
+        .pill-btn-primary {
+            background: var(--lcars-blue-1, #5599ff);
+            color: #0a0e15;
+            font-weight: bold;
+        }
+        .pill-btn-primary:hover { background: #6aa9ff; }
+        .pill-btn-primary:disabled { background: rgba(85,153,255,0.20); color: var(--lcars-text-dim); cursor: not-allowed; }
+        .pill-btn-secondary { background: rgba(255,255,255,0.08); }
+        .pill-btn-secondary:hover { background: rgba(255,255,255,0.16); }
+        .pill-btn-send {
+            background: var(--lcars-blue-1, #5599ff);
+            color: #0a0e15;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        .pill-btn-send:hover { background: #6aa9ff; }
+        .pill-btn-send.confirming {
+            background: var(--lcars-amber, #ffc850);
+            animation: mail-send-pulse 1s ease-in-out infinite;
+        }
+        @keyframes mail-send-pulse {
+            0%, 100% { box-shadow: 0 0 0 0 transparent; }
+            50% { box-shadow: 0 0 0 4px rgba(255,200,80,0.4); }
+        }
+        .pill-btn-danger { background: rgba(255,85,102,0.20); color: #ff8aa0; }
+        .pill-btn-danger:hover { background: rgba(255,85,102,0.36); }
+
+        /* Intent input + draft editor */
+        .mail-intent-row {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            margin-top: 8px;
+        }
+        .mail-intent-input {
+            flex: 1;
+            background: rgba(0,0,0,0.30);
+            border: 1px solid rgba(85,153,255,0.30);
+            color: var(--lcars-text);
+            padding: 6px 10px;
+            border-radius: 3px;
+            font-family: inherit;
+            font-size: 11px;
+        }
+        .mail-draft-editor { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+        .mail-draft-meta {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            font-size: 11px;
+            color: var(--lcars-text-dim);
+        }
+        .mail-recipient-pill {
+            background: rgba(85,153,255,0.20);
+            padding: 2px 8px;
+            border-radius: 10px;
+            color: var(--lcars-text);
+            cursor: pointer;
+            font-size: 10px;
+        }
+        .mail-recipient-pill:hover { background: rgba(85,153,255,0.32); }
+        .mail-draft-subject, .mail-draft-body, .mail-field-to, .mail-field-cc,
+        .mail-field-bcc, .mail-field-subject, .mail-field-intent {
+            background: rgba(0,0,0,0.30);
+            border: 1px solid rgba(85,153,255,0.30);
+            color: var(--lcars-text);
+            padding: 7px 10px;
+            border-radius: 3px;
+            font-family: inherit;
+            font-size: 12px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .mail-draft-body { min-height: 160px; resize: vertical; line-height: 1.5; }
+        .mail-field-intent { min-height: 80px; resize: vertical; line-height: 1.4; }
+        .mail-regen-icon {
+            background: none; border: none; color: var(--lcars-cyan, #5dd9d9);
+            cursor: pointer; font-size: 14px; padding: 0 4px;
+        }
+
+        /* Compose form */
+        .mail-compose-form {
+            display: flex; flex-direction: column; gap: 10px;
+            padding: 12px 16px;
+        }
+        .mail-compose-form label {
+            display: flex; flex-direction: column; gap: 4px;
+            font-size: 11px; color: var(--lcars-text-dim);
+            letter-spacing: 0.05em;
+        }
+        .mail-compose-form.composing { opacity: 0.3; pointer-events: none; }
+        .mail-compose-spinner {
+            text-align: center;
+            color: var(--lcars-text-dim);
+            font-size: 12px;
+            padding: 24px;
+        }
+
+        /* Auth CTA */
+        .mail-auth-cta {
+            text-align: center;
+            padding: 48px 32px;
+            color: var(--lcars-text);
+        }
+        .mail-auth-cta h3 { font-size: 14px; margin-bottom: 8px; color: var(--lcars-text); }
+        .mail-auth-cta p { font-size: 12px; color: var(--lcars-text-dim); margin-bottom: 16px; }
+
+        /* Undo toast (extends existing toast styles if present) */
+        .mail-undo-toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(10,14,21,0.95);
+            border: 1px solid rgba(85,153,255,0.40);
+            color: var(--lcars-text);
+            padding: 10px 16px;
+            border-radius: 6px;
+            font-size: 12px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            z-index: 10000;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+        }
+        .mail-undo-link {
+            color: var(--lcars-cyan, #5dd9d9);
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
     </style>
 </head>
 <body>
@@ -5872,8 +6145,11 @@
                     <div class="data-row"><span class="label" style="font-size:10px;color:var(--lcars-text-dim)">No integrations configured</span></div>
                 </div>
                 <div class="sidebar-section">
+                    <div class="sidebar-section-title">Mail</div>
+                    <button class="sidebar-action-btn" onclick="openMailPanel()" aria-label="Toggle Mail">MAIL</button>
+                </div>
+                <div class="sidebar-section">
                     <div class="sidebar-section-title">Quick Actions</div>
-                    <button class="sidebar-action-btn disabled" style="opacity:0.5" aria-label="Email">EMAIL</button>
                     <button class="sidebar-action-btn disabled" style="opacity:0.5" aria-label="Telegram">TELEGRAM</button>
                 </div>
                 <div class="sidebar-section">
@@ -6456,6 +6732,50 @@
         <div class="pbot-seg" style="flex:1;background:var(--lcars-purple-1);border-radius:0 0 0 12px"></div>
         <div class="pbot-seg" style="flex:2;background:var(--lcars-lilac)"></div>
         <div class="pbot-seg" style="flex:1;background:var(--lcars-purple-3);border-radius:0 0 12px 0"></div>
+    </div>
+</div>
+
+<!-- Mail Panel -->
+<div class="panel-overlay" id="mailPanelOverlay" onclick="closeMailPanel()"></div>
+<div class="lcars-panel theme-ice" id="mailPanel" role="dialog" aria-label="Mail">
+    <div class="lcars-panel-frame-top">
+        <div class="lcars-panel-elbow"></div>
+        <div class="lcars-panel-header">
+            <span>Mail</span>
+            <button class="panel-close-btn" onclick="closeMailPanel()" aria-label="Close">&times;</button>
+        </div>
+        <div class="lcars-panel-endcap"></div>
+    </div>
+    <div class="lcars-panel-bar">
+        <div class="pbar-seg" style="flex:3;background:var(--lcars-ice)"></div>
+        <div class="pbar-seg animated" style="flex:2"></div>
+        <div class="pbar-seg" style="flex:1;background:var(--lcars-blue-1)"></div>
+    </div>
+    <div class="panel-body">
+        <div class="mail-tabs">
+            <button class="mail-tab active" data-tab="inbox"
+                    onclick="_mailSwitchTab('inbox')">INBOX</button>
+            <button class="mail-tab" data-tab="compose"
+                    onclick="_mailSwitchTab('compose')">COMPOSE</button>
+            <button class="mail-tab" data-tab="drafts"
+                    onclick="_mailSwitchTab('drafts')">DRAFTS</button>
+        </div>
+        <section class="mail-tab-body" data-tab="inbox" id="mailInboxSection">
+            <div class="mail-empty">Open INBOX to load.</div>
+        </section>
+        <section class="mail-tab-body" data-tab="compose" id="mailComposeSection"
+                 style="display:none">
+            <div class="mail-empty">Compose tab &mdash; wired in Task 7.</div>
+        </section>
+        <section class="mail-tab-body" data-tab="drafts" id="mailDraftsSection"
+                 style="display:none">
+            <div class="mail-empty">Drafts tab &mdash; wired in Task 8.</div>
+        </section>
+    </div>
+    <div class="lcars-panel-frame-bottom">
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-ice);border-radius:0 0 0 12px"></div>
+        <div class="pbot-seg" style="flex:2;background:var(--lcars-blue-1)"></div>
+        <div class="pbot-seg" style="flex:1;background:var(--lcars-blue-3);border-radius:0 0 12px 0"></div>
     </div>
 </div>
 
@@ -12774,6 +13094,60 @@ function _applyStartupPanels() {
 // Back-compat alias — old code may still call this.
 function maybeShowBriefing() { _applyStartupPanels(); }
 
+// ========== MAIL PANEL ==========
+
+var _mailActiveTab = 'inbox';
+var _mailInboxLoaded = false;
+var _mailDraftsLoaded = false;
+
+function openMailPanel() {
+    document.getElementById('mailPanelOverlay').classList.add('open');
+    var panel = document.getElementById('mailPanel');
+    panel.classList.add('open');
+    restorePanelPosition(panel);
+    _mailOnPanelOpen();
+}
+
+function closeMailPanel() {
+    document.getElementById('mailPanelOverlay').classList.remove('open');
+    document.getElementById('mailPanel').classList.remove('open');
+    popPanelStack('mailPanelOverlay');
+}
+
+function _mailSwitchTab(tabName) {
+    _mailActiveTab = tabName;
+    try { localStorage.setItem('aegis_mail_active_tab', tabName); } catch (e) {}
+    // Tabs
+    var tabs = document.querySelectorAll('#mailPanel .mail-tab');
+    tabs.forEach(function(t) {
+        t.classList.toggle('active', t.dataset.tab === tabName);
+    });
+    // Sections
+    var sections = document.querySelectorAll('#mailPanel .mail-tab-body');
+    sections.forEach(function(s) {
+        s.style.display = (s.dataset.tab === tabName) ? '' : 'none';
+    });
+    // Lazy-load
+    if (tabName === 'inbox' && !_mailInboxLoaded) {
+        if (typeof loadInboxDigest === 'function') loadInboxDigest();
+    }
+    if (tabName === 'drafts' && !_mailDraftsLoaded) {
+        if (typeof loadMailDrafts === 'function') loadMailDrafts();
+    }
+}
+
+// Restore last-active tab on panel open
+function _mailOnPanelOpen() {
+    try {
+        var saved = localStorage.getItem('aegis_mail_active_tab');
+        if (saved && ['inbox','compose','drafts'].indexOf(saved) >= 0) {
+            _mailSwitchTab(saved);
+            return;
+        }
+    } catch (e) {}
+    _mailSwitchTab('inbox');
+}
+
 // ========== TOAST NOTIFICATIONS ==========
 
 function showToast(message, type, durationMs) {
@@ -12814,6 +13188,7 @@ document.addEventListener('keydown', function(e) {
             'vaultPanelOverlay': closeVaultPanel,
             'taskPanelOverlay': closeTaskPanel,
             'calendarPanelOverlay': closeCalendarPanel,
+            'mailPanelOverlay': closeMailPanel,
             'historyPanelOverlay': closeHistoryPanel,
             'protoPanelOverlay': closeProtocolPanel,
             'gpuPanelOverlay': closeGpuPanel,
