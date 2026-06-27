@@ -581,6 +581,8 @@ async def update_task(req: TaskUpdateRequest, user_id: str = Depends(require_use
         updates["priority"] = req.priority
     if req.due is not None:
         updates["due"] = req.due
+    if req.due_time is not None:
+        updates["due_time"] = req.due_time
     if req.activity_type is not None:
         updates["activity_type"] = req.activity_type
     if req.starred is not None:

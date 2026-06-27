@@ -373,6 +373,123 @@ class OperationsProtocol(Protocol):
         date_str = cls._parse_natural_date(date_text) if date_text else None
         return (date_str, time_str)
 
+    @classmethod
+    def _extract_date_time(cls, text):
+        """Pull date/time language out of a task description, return cleaned title.
+
+        Designed to be called from the NLP task-creation path BEFORE
+        ``clean_task_title``. Recognizes verbose phrasings the conversational
+        flow tends to produce, in addition to the trailing forms that
+        ``_parse_natural_datetime`` already handles:
+
+        - "(and the )?(set (the )?)?time (for|to|at) HH(:MM)?(am|pm)"
+        - "(and the )?(set (the )?)?date (for|to|on) <date>"
+        - Trailing "at TIME" / "by TIME"
+        - Trailing lone "today" / "tomorrow" / weekday (also after "and"/"with"/"on")
+
+        Returns (cleaned_text, date_str_or_None, time_str_or_None).
+        Each component is stripped from the returned text when extracted.
+        """
+        if not text:
+            return (text, None, None)
+
+        work = text.strip()
+        due = None
+        due_time = None
+
+        # 1. Verbose time phrasing: "set the time for 12:30 pm"
+        time_verbose = re.compile(
+            r"(?:\s*(?:and|;|,)\s*)?"
+            r"(?:set\s+)?(?:the\s+)?"
+            r"time\s+(?:for|to|at)\s+"
+            r"(\d{1,2})(?::(\d{2}))?\s*"
+            r"(am|pm|a\.m\.|p\.m\.)?",
+            re.IGNORECASE,
+        )
+        tm = time_verbose.search(work)
+        if tm:
+            hour = int(tm.group(1))
+            minute = int(tm.group(2) or 0)
+            ampm = (tm.group(3) or "").lower().replace(".", "")
+            if ampm == "pm" and hour != 12:
+                hour += 12
+            elif ampm == "am" and hour == 12:
+                hour = 0
+            if 0 <= hour <= 23 and 0 <= minute <= 59:
+                due_time = f"{hour:02d}:{minute:02d}"
+                work = (work[:tm.start()] + " " + work[tm.end():]).strip()
+
+        # 2. Verbose date phrasing: "set the date for june 30th" / "the date for today"
+        # Match only KNOWN date forms so we don't overshoot.
+        date_verbose = re.compile(
+            r"(?:\s*(?:and|;|,)\s*)?"
+            r"(?:set\s+)?(?:the\s+)?"
+            r"date\s+(?:for|to|on)\s+"
+            r"("
+            r"today|tomorrow|yesterday|"
+            r"(?:next\s+)?(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)|"
+            r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|"
+            r"jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
+            r"\s+\d{1,2}(?:st|nd|rd|th)?|"
+            r"\d{1,2}/\d{1,2}(?:/\d{2,4})?|"
+            r"\d{4}-\d{2}-\d{2}"
+            r")",
+            re.IGNORECASE,
+        )
+        dm = date_verbose.search(work)
+        if dm:
+            parsed_d = cls._parse_natural_date(dm.group(1).strip())
+            if parsed_d:
+                due = parsed_d
+                work = (work[:dm.start()] + " " + work[dm.end():]).strip()
+
+        # 3+4. Loop trailing date + trailing time, peeling off the tail until
+        # nothing more matches. Handles chains like "by thursday at 5pm" — first
+        # iteration strips "at 5pm", second iteration strips "by thursday".
+        trail_date = re.compile(
+            r"\s+(?:and\s+|with\s+|on\s+|for\s+|by\s+)?"
+            r"(today|tomorrow|yesterday|"
+            r"(?:next\s+)?(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday))"
+            r"\s*\.?\s*$",
+            re.IGNORECASE,
+        )
+        trail_time = re.compile(
+            r"\s+(?:at|by)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)?\s*\.?\s*$",
+            re.IGNORECASE,
+        )
+        for _ in range(4):  # bounded iteration; at most date+time+date+time
+            progressed = False
+            td = trail_date.search(work)
+            if td:
+                if not due:
+                    parsed_d = cls._parse_natural_date(td.group(1))
+                    if parsed_d:
+                        due = parsed_d
+                work = work[:td.start()].rstrip()
+                progressed = True
+            if not due_time:
+                tm2 = trail_time.search(work)
+                if tm2:
+                    hour = int(tm2.group(1))
+                    minute = int(tm2.group(2) or 0)
+                    ampm = (tm2.group(3) or "").lower().replace(".", "")
+                    if ampm == "pm" and hour != 12:
+                        hour += 12
+                    elif ampm == "am" and hour == 12:
+                        hour = 0
+                    if 0 <= hour <= 23 and 0 <= minute <= 59:
+                        due_time = f"{hour:02d}:{minute:02d}"
+                        work = work[:tm2.start()].rstrip()
+                        progressed = True
+            if not progressed:
+                break
+
+        # Final cleanup — collapse spaces, strip stray "and" at end, drop stray punct
+        work = re.sub(r"\s+", " ", work).strip()
+        work = re.sub(r"\s+and\s*$", "", work, flags=re.IGNORECASE).strip()
+        work = work.rstrip(".,;:").strip()
+        return work, due, due_time
+
     @staticmethod
     def _parse_natural_time(text):
         """Parse natural time text into HH:MM string. Returns None on failure."""
@@ -471,9 +588,11 @@ class OperationsProtocol(Protocol):
             for pattern in self.TASK_PATTERNS:
                 match = re.search(pattern, lower, re.IGNORECASE)
                 if match:
-                    task_text = clean_task_title(match.group(1))
+                    captured = match.group(1)
+                    cleaned, due, due_time = self._extract_date_time(captured)
+                    task_text = clean_task_title(cleaned)
                     if len(task_text) > 3:
-                        task = self.add_task(task_text)
+                        task = self.add_task(task_text, due=due, due_time=due_time)
                         if task is not None:
                             task_created = True
                             injection_parts.append(
@@ -907,12 +1026,26 @@ class OperationsProtocol(Protocol):
         return [t for t in self._tasks if not t["completed"]]
 
     def get_overdue_tasks(self):
-        """Get tasks that are past their due date."""
-        now = datetime.now().isoformat()
-        return [
-            t for t in self._tasks
-            if not t["completed"] and t.get("due") and t["due"] < now
-        ]
+        """Get tasks past their due date+time.
+
+        Tasks without `due_time` default to end-of-day (23:59) so that a task
+        due today doesn't get flagged overdue at 12:01 AM. Tasks with `due_time`
+        get compared against the precise local datetime.
+        """
+        now = datetime.now()
+        overdue = []
+        for t in self._tasks:
+            if t.get("completed") or not t.get("due"):
+                continue
+            due_str = (t.get("due") or "")[:10]
+            time_str = t.get("due_time") or "23:59"
+            try:
+                dt = datetime.strptime(f"{due_str} {time_str}", "%Y-%m-%d %H:%M")
+            except (ValueError, TypeError):
+                continue
+            if dt < now:
+                overdue.append(t)
+        return overdue
 
     def format_task_list(self, tasks=None):
         """Format tasks as a readable list."""
