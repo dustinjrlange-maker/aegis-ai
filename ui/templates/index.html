@@ -1476,9 +1476,12 @@
             position: relative;
             z-index: 2;
         }
-        /* Ensure title and meta sit above the bg drain. */
-        .task-item > *,
-        .briefing-card > * {
+        /* Ensure title and meta sit above the bg drain. Excludes the two
+           deadline layers — without :not() they tie on specificity and the
+           later rule wins, promoting the bg drain (z:0) and bottom strip
+           (z:1) to z:2 over the title text. */
+        .task-item > *:not(.task-deadline-fill-bg):not(.task-deadline-fill-bar),
+        .briefing-card > *:not(.task-deadline-fill-bg):not(.task-deadline-fill-bar) {
             position: relative;
             z-index: 2;
         }
@@ -9021,12 +9024,14 @@ function _deadlineColor(remainingFraction, settings) {
     return 'hsl(' + hue + ', 70%, 55%)';
 }
 
-/** Returns HTML for the three deadline layers (bg drain, bottom strip, text chip)
- *  inside a task card. Empty string when no deadline / overdue / settings off.
- *  Returned snippet expects to live inside a position:relative parent. */
-function _renderTaskDeadlineLayer(t, settings) {
+/** Returns HTML for the two bar layers (bg drain + bottom strip) inside a task
+ *  card. Empty when no deadline / overdue / progress-bar disabled.
+ *  Snippet expects to live as a direct child of a position:relative parent
+ *  (.task-item or .briefing-card) at the BOTTOM of that parent. */
+function _renderTaskDeadlineBars(t, settings) {
     if (!t || !t.due) return '';
     var s = settings || getDeadlineSettings();
+    if (!s.showBar) return '';
     var dl = _computeTaskDeadline(t);
     var now = Date.now();
     if (dl === null || dl <= now) return ''; // overdue handled by existing CSS
@@ -9036,27 +9041,38 @@ function _renderTaskDeadlineLayer(t, settings) {
     var widthPct = (frac * 100).toFixed(2);
     var remSecForCss = Math.max(1, remSec); // avoid 0-duration transition
     var html = '';
-    if (s.showBar) {
-        // Background drain layer (low opacity)
-        html += '<div class="task-deadline-fill-bg" style="'
-              + 'width:' + widthPct + '%;'
-              + 'background:' + color + ';'
-              + 'transition: width ' + remSecForCss + 's linear, background-color ' + remSecForCss + 's linear;'
-              + '" data-target-width="0"></div>';
-        // Bottom strip
-        html += '<div class="task-deadline-fill-bar" style="'
-              + 'width:' + widthPct + '%;'
-              + 'background:' + color + ';'
-              + 'box-shadow: 0 0 8px ' + color + '66;'
-              + 'transition: width ' + remSecForCss + 's linear, background-color ' + remSecForCss + 's linear;'
-              + '" data-target-width="0"></div>';
-    }
-    if (s.showText) {
-        html += '<span class="task-deadline-text" data-deadline-ms="' + dl + '" '
-              + 'style="color:' + color + '">'
-              + _formatCountdown(remSec) + '</span>';
-    }
+    // Background drain layer (low opacity)
+    html += '<div class="task-deadline-fill-bg" style="'
+          + 'width:' + widthPct + '%;'
+          + 'background:' + color + ';'
+          + 'transition: width ' + remSecForCss + 's linear, background-color ' + remSecForCss + 's linear;'
+          + '" data-target-width="0"></div>';
+    // Bottom strip
+    html += '<div class="task-deadline-fill-bar" style="'
+          + 'width:' + widthPct + '%;'
+          + 'background:' + color + ';'
+          + 'box-shadow: 0 0 8px ' + color + '66;'
+          + 'transition: width ' + remSecForCss + 's linear, background-color ' + remSecForCss + 's linear;'
+          + '" data-target-width="0"></div>';
     return html;
+}
+
+/** Returns HTML for the countdown text chip. Empty when no deadline / overdue /
+ *  countdown-text disabled. Designed to live INSIDE the meta row next to the
+ *  due-date badge (per the deadline-design spec). */
+function _renderTaskDeadlineText(t, settings) {
+    if (!t || !t.due) return '';
+    var s = settings || getDeadlineSettings();
+    if (!s.showText) return '';
+    var dl = _computeTaskDeadline(t);
+    var now = Date.now();
+    if (dl === null || dl <= now) return '';
+    var frac = _computeRemainingFraction(t, now);
+    var remSec = _computeRemainingSeconds(t, now);
+    var color = _deadlineColor(frac, s);
+    return '<span class="task-deadline-text" data-deadline-ms="' + dl + '" '
+         + 'style="color:' + color + '">'
+         + _formatCountdown(remSec) + '</span>';
 }
 
 /** Kick off the CSS transitions once the layers are in the DOM. Without this
@@ -9091,6 +9107,10 @@ function renderTasks(tasks) {
         return b.id - a.id;
     });
 
+    // Hoist deadline settings once for the whole render — avoid re-reading
+    // localStorage per task card.
+    var dlSettings = getDeadlineSettings();
+
     container.innerHTML = sorted.map(function(t) {
         var pClass = (t.priority || 'normal').toLowerCase();
         var starClass = t.starred ? 'task-star starred' : 'task-star';
@@ -9098,8 +9118,9 @@ function renderTasks(tasks) {
         var dueBadge = t.due ? '<span class="task-due-badge">' + escapeHtml(t.due.substring(0, 10)) + '</span>' : '';
         var actBadge = (t.activity_type && t.activity_type !== 'general')
             ? '<span class="task-activity-badge">' + escapeHtml(t.activity_type) + '</span>' : '';
-        var metaRow = (dueBadge || actBadge)
-            ? '<div class="task-meta-row">' + actBadge + dueBadge + '</div>' : '';
+        var dlText = !t.completed ? _renderTaskDeadlineText(t, dlSettings) : '';
+        var metaRow = (dueBadge || actBadge || dlText)
+            ? '<div class="task-meta-row">' + actBadge + dueBadge + dlText + '</div>' : '';
 
         // Subtasks
         var subs = t.subtasks || [];
@@ -9189,7 +9210,7 @@ function renderTasks(tasks) {
             ? 'uncompleteTask(' + t.id + ')'
             : 'completeTask(' + t.id + ')';
         var checkedAttr = t.completed ? ' checked' : '';
-        var dlLayer = !t.completed ? _renderTaskDeadlineLayer(t) : '';
+        var dlBars = !t.completed ? _renderTaskDeadlineBars(t, dlSettings) : '';
         return '<div class="task-item' + doneClassRoot + '">' +
             '<input type="checkbox" class="task-check"' + checkedAttr +
                 ' onclick="_toggleTaskComplete(' + t.id + ', this.checked)"' +
@@ -9208,7 +9229,7 @@ function renderTasks(tasks) {
                 '<button class="done-btn" onclick="' + doneBtnAction + '" aria-label="' + doneBtnLabel + ' task">' + doneBtnLabel + '</button>' +
                 '<button onclick="removeTask(' + t.id + ')" aria-label="Remove task">X</button>' +
             '</div>' +
-            dlLayer +
+            dlBars +
         '</div>' + editForm;
     }).join('');
 
@@ -12298,6 +12319,11 @@ function _briefingTaskCard(t, klass) {
     var rawId = (t && t.id !== undefined && t.id !== null) ? String(t.id) : '';
     var idAttr = rawId ? ' data-task-id="' + escapeHtml(rawId) + '"' : '';
     var classes = 'briefing-card' + (klass ? ' ' + klass : '');
+    // Hoist deadline settings once per card — used by both the chip and bars
+    // below. Briefing renders few cards so the savings are small, but it keeps
+    // the helper API consistent with renderTasks.
+    var dlSettings = getDeadlineSettings();
+    var dlText = _renderTaskDeadlineText(t, dlSettings);
     var html = '<div class="' + classes + '"' + idAttr + ' onclick="briefingToggleCard(this)">';
     html += '<div class="card-header">';
     html += '<div class="card-title">' + escapeHtml(t.text || '') + '</div>';
@@ -12308,7 +12334,13 @@ function _briefingTaskCard(t, klass) {
     }
     html += '</div>';
     if (t.due) {
-        html += '<div class="card-detail">Due: ' + escapeHtml(String(t.due).substring(0, 10)) + '</div>';
+        // Countdown chip lives next to the due date on the same row — matches
+        // the design spec (chip on the meta row beside the due-date badge).
+        html += '<div class="card-detail">Due: ' + escapeHtml(String(t.due).substring(0, 10)) + dlText + '</div>';
+    } else if (dlText) {
+        // Defensive: chip without t.due shouldn't happen (helper returns ''
+        // when no due), but if it ever does, still render it on its own line.
+        html += '<div class="card-detail">' + dlText + '</div>';
     }
     // Expanded panel — hidden until card is clicked. Phase B1 will render notes as markdown.
     html += '<div class="card-expanded">';
@@ -12331,7 +12363,7 @@ function _briefingTaskCard(t, klass) {
         html += '<div class="field-notes empty">No notes yet. Click ↗ to open the task and add some.</div>';
     }
     html += '</div>';  // .card-expanded
-    html += _renderTaskDeadlineLayer(t);
+    html += _renderTaskDeadlineBars(t, dlSettings);
     html += '</div>';  // .briefing-card
     return html;
 }
