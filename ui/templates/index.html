@@ -13154,6 +13154,13 @@ function _mailSwitchTab(tabName) {
     if (tabName === 'drafts' && !_mailDraftsLoaded) {
         if (typeof loadMailDrafts === 'function') loadMailDrafts();
     }
+    if (tabName === 'compose') {
+        var composeContainer = document.getElementById('mailComposeContent');
+        if (composeContainer && !composeContainer.firstChild
+                && typeof _mailRenderComposeForm === 'function') {
+            _mailRenderComposeForm();
+        }
+    }
 }
 
 // Restore last-active tab on panel open
@@ -13350,6 +13357,12 @@ function _mailOnInboxClick(e) {
 // Marker-class dispatch — reads draft id from the closest .mail-draft-editor
 // and message id from the closest .mail-action-bar with data-message-id.
 function _mailOnPanelClick(e) {
+    var target = e.target.closest('.mail-act-new-compose');
+    if (target) {
+        e.stopPropagation();
+        if (typeof _mailRenderComposeForm === 'function') _mailRenderComposeForm();
+        return;
+    }
     var btn = e.target.closest('button');
     if (!btn) return;
     // Draft editor buttons (Save / Send / Discard / Regen)
@@ -13658,14 +13671,14 @@ async function _mailComposeSubmit() {
         wrap.innerHTML =
             '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
                 '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
-                    '<span class="mail-recipient-pill" onclick="_mailRenderComposeForm()">To: ' +
+                    '<span class="mail-recipient-pill mail-act-new-compose">To: ' +
                         escapeHtml(to) + '</span>' +
-                    (cc ? '<span class="mail-recipient-pill" onclick="_mailRenderComposeForm()">CC: ' +
+                    (cc ? '<span class="mail-recipient-pill mail-act-new-compose">CC: ' +
                         escapeHtml(cc) + '</span>' : '') +
-                    (bcc ? '<span class="mail-recipient-pill" onclick="_mailRenderComposeForm()">BCC: ' +
+                    (bcc ? '<span class="mail-recipient-pill mail-act-new-compose">BCC: ' +
                         escapeHtml(bcc) + '</span>' : '') +
                 '</div>' +
-                '<button class="pill-btn-secondary" onclick="_mailRenderComposeForm()">↻ New Draft</button>' +
+                '<button class="pill-btn-secondary mail-act-new-compose">↻ New Draft</button>' +
             '</div>' +
             _mailRenderDraftEditor(draft);
         container.appendChild(wrap);
@@ -13673,19 +13686,6 @@ async function _mailComposeSubmit() {
         spinner.textContent = 'Network error.';
     }
 }
-
-// Render the form once the COMPOSE tab is first shown
-(function _mailComposeInitHook() {
-    // Patch _mailSwitchTab to render the form when compose is activated
-    var origSwitch = _mailSwitchTab;
-    _mailSwitchTab = function(name) {
-        origSwitch(name);
-        if (name === 'compose') {
-            var container = document.getElementById('mailComposeContent');
-            if (container && !container.firstChild) _mailRenderComposeForm();
-        }
-    };
-})();
 
 function _mailRenderAuthCTA(section) {
     section.innerHTML =
