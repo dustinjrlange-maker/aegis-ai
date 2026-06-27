@@ -5729,7 +5729,11 @@
             gap: 6px;
             flex-wrap: wrap;
         }
-        .pill-btn, .pill-btn-primary, .pill-btn-secondary, .pill-btn-send, .pill-btn-danger {
+        #mailPanel .pill-btn,
+        #mailPanel .pill-btn-primary,
+        #mailPanel .pill-btn-secondary,
+        #mailPanel .pill-btn-send,
+        #mailPanel .pill-btn-danger {
             background: rgba(85,153,255,0.18);
             border: none;
             color: var(--lcars-text);
@@ -5741,24 +5745,24 @@
             letter-spacing: 0.05em;
             transition: background 0.12s;
         }
-        .pill-btn:hover { background: rgba(85,153,255,0.30); }
-        .pill-btn-primary {
+        #mailPanel .pill-btn:hover { background: rgba(85,153,255,0.30); }
+        #mailPanel .pill-btn-primary {
             background: var(--lcars-blue-1, #5599ff);
             color: #0a0e15;
             font-weight: bold;
         }
-        .pill-btn-primary:hover { background: #6aa9ff; }
-        .pill-btn-primary:disabled { background: rgba(85,153,255,0.20); color: var(--lcars-text-dim); cursor: not-allowed; }
-        .pill-btn-secondary { background: rgba(255,255,255,0.08); }
-        .pill-btn-secondary:hover { background: rgba(255,255,255,0.16); }
-        .pill-btn-send {
+        #mailPanel .pill-btn-primary:hover { background: #6aa9ff; }
+        #mailPanel .pill-btn-primary:disabled { background: rgba(85,153,255,0.20); color: var(--lcars-text-dim); cursor: not-allowed; }
+        #mailPanel .pill-btn-secondary { background: rgba(255,255,255,0.08); }
+        #mailPanel .pill-btn-secondary:hover { background: rgba(255,255,255,0.16); }
+        #mailPanel .pill-btn-send {
             background: var(--lcars-blue-1, #5599ff);
             color: #0a0e15;
             font-weight: bold;
             transition: background 0.2s;
         }
-        .pill-btn-send:hover { background: #6aa9ff; }
-        .pill-btn-send.confirming {
+        #mailPanel .pill-btn-send:hover { background: #6aa9ff; }
+        #mailPanel .pill-btn-send.confirming {
             background: var(--lcars-amber, #ffc850);
             animation: mail-send-pulse 1s ease-in-out infinite;
         }
@@ -5766,8 +5770,8 @@
             0%, 100% { box-shadow: 0 0 0 0 transparent; }
             50% { box-shadow: 0 0 0 4px rgba(255,200,80,0.4); }
         }
-        .pill-btn-danger { background: rgba(255,85,102,0.20); color: #ff8aa0; }
-        .pill-btn-danger:hover { background: rgba(255,85,102,0.36); }
+        #mailPanel .pill-btn-danger { background: rgba(255,85,102,0.20); color: #ff8aa0; }
+        #mailPanel .pill-btn-danger:hover { background: rgba(255,85,102,0.36); }
 
         /* Intent input + draft editor */
         .mail-intent-row {
