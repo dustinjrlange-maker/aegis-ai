@@ -363,14 +363,13 @@ class OperationsProtocol(Protocol):
                 hour += 12
             elif ampm == "am" and hour == 12:
                 hour = 0
-            elif not ampm:
-                # No am/pm — accept as 24h if hour > 12, else treat as 24h
-                pass
+            # no am/pm: hour already in 24h form, validated below
             if 0 <= hour <= 23 and 0 <= minute <= 59:
                 time_str = f"{hour:02d}:{minute:02d}"
                 date_text = text[: m.start()].strip()
             else:
                 time_str = None  # invalid time, ignore
+                date_text = text[: m.start()].strip()  # still drop the bad tail
         date_str = cls._parse_natural_date(date_text) if date_text else None
         return (date_str, time_str)
 

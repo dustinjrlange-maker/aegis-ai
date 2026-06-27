@@ -57,9 +57,6 @@ def test_due_time_migration_backfills_none_on_old_tasks():
     assert ops2._tasks[0]["due_time"] is None
 
 
-from core.protocols.operations import OperationsProtocol
-
-
 def test_parse_datetime_at_5pm():
     d, t = OperationsProtocol._parse_natural_datetime("thursday at 5pm")
     assert d is not None
@@ -108,7 +105,14 @@ def test_parse_datetime_only_time_returns_no_date():
     assert d is None
 
 
-def test_session_handler_parses_time_suffix(monkeypatch):
+def test_parse_datetime_malformed_time_preserves_date():
+    """When the time tail is garbage (e.g. '13pm'), the date should still parse."""
+    d, t = OperationsProtocol._parse_natural_datetime("thursday at 13pm")
+    assert d is not None  # date still parses to Thursday
+    assert t is None       # bad time correctly discarded
+
+
+def test_session_handler_parses_time_suffix():
     """The | time: HH:MM suffix in [ADD_TASK:...] gets routed to due_time."""
     from core.session import UserSession
     ops = _make_ops()
@@ -116,6 +120,7 @@ def test_session_handler_parses_time_suffix(monkeypatch):
     sm = UserSession.__new__(UserSession)
     sm.protocol_registry = {"operations": ops}
     result = sm._handle_add_task("Pay hydro | due: friday | time: 17:00")
+    assert result.startswith("Task #")  # confirmation string returned
     # Locate the created task
     pending = [t for t in ops._tasks if "Pay hydro" in t["text"]]
     assert len(pending) == 1
