@@ -1030,7 +1030,7 @@
             user-select: none;
             transition: background-color 0.2s;
         }
-        .next-deadline-bar:hover { background: rgba(85, 153, 255, 0.18); }
+        .next-deadline-bar:hover { background: color-mix(in srgb, var(--deadline-accent, #5599ff) 18%, transparent); }
         .next-deadline-label { color: var(--lcars-text-dim); font-weight: bold; }
         .next-deadline-arrow { color: currentColor; }
         .next-deadline-title { color: var(--lcars-text); font-weight: bold; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1040,7 +1040,7 @@
         /* Pulse the destination card when clicked */
         @keyframes deadline-pulse {
             0%, 100% { box-shadow: 0 0 0 0 transparent; }
-            50% { box-shadow: 0 0 0 3px rgba(85, 153, 255, 0.6); }
+            50% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--deadline-accent, #5599ff) 60%, transparent); }
         }
         .task-item.deadline-pulse { animation: deadline-pulse 0.6s ease-in-out 3; }
 
@@ -9180,6 +9180,7 @@ function renderNextDeadlineBar() {
     document.getElementById('nextDeadlineTitle').textContent = soonest.text || '';
     var color = _deadlineColor(_computeRemainingFraction(soonest, now), s);
     bar.style.color = color;
+    bar.style.setProperty('--deadline-accent', color);
     bar.style.display = '';
     _tickNextDeadlineBar(now);
 }
@@ -9204,6 +9205,8 @@ function _onClickNextDeadline() {
     if (_nextDeadlineTaskId === null) return;
     var card = document.querySelector('.task-item[data-task-id="' + _nextDeadlineTaskId + '"]');
     if (!card) return;
+    var bar = document.getElementById('nextDeadlineBar');
+    if (bar) card.style.setProperty('--deadline-accent', bar.style.color || '#5599ff');
     card.scrollIntoView({behavior: 'smooth', block: 'center'});
     card.classList.remove('deadline-pulse');
     void card.offsetWidth; // restart animation
