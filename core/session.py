@@ -198,6 +198,19 @@ class UserSession:
                             due_time = f"{hh:02d}:{mm:02d}"
             task_text = head
 
+        # Clean any date/time language out of the title (Pike often dumps
+        # verbose phrasing like "finish milo paws by thursday at 5pm" into
+        # the bracket title instead of using the | due: / | time: suffixes).
+        extractor = getattr(ops, "_extract_date_time", None)
+        if extractor:
+            cleaned, extracted_due, extracted_time = extractor(task_text)
+            if cleaned:
+                task_text = cleaned
+            if extracted_due and not due:
+                due = extracted_due
+            if extracted_time and not due_time:
+                due_time = extracted_time
+
         task = ops.add_task(task_text, due=due, due_time=due_time)
         if task is None:
             return "Task text was empty or duplicate"

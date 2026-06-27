@@ -72,6 +72,7 @@ class OperationsProtocol(Protocol):
         r"remind\s+me\s+to\s+(.+)",
         r"(?:make|create|add)\s+(?:a\s+)?(?:new\s+)?task\s*[:\-,]?\s*(?:to\s+)?(.+)",
         r"new\s+task\s*[:\-]\s*(.+)",
+        r"new\s+task\s+to\s+(.+)",
         r"i\s+need\s+to\s+(.+?)(?:\s+by\s+|\s+before\s+|$)",
         r"don'?t\s+let\s+me\s+forget\s+(?:to\s+)?(.+)",
     ]
