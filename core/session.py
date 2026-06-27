@@ -4,6 +4,7 @@ Manages per-user conversation sessions with isolated memory, protocols, and stat
 """
 
 import logging
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -166,23 +167,38 @@ class UserSession:
             return "Operations protocol not available"
 
         due = None
+        due_time = None
         if "|" in task_text:
-            head, tail = task_text.split("|", 1)
-            head = head.strip()
-            tail_lower = tail.strip().lower()
-            for prefix in ("due:", "deadline:", "by:"):
-                if tail_lower.startswith(prefix):
-                    due_text = tail.strip()[len(prefix):].strip()
-                    parser = getattr(ops, "_parse_natural_date", None)
-                    if parser:
-                        parsed = parser(due_text)
-                        due = parsed or due_text
-                    else:
-                        due = due_text
-                    task_text = head
-                    break
+            parts = [p.strip() for p in task_text.split("|")]
+            head = parts[0]
+            for segment in parts[1:]:
+                seg_lower = segment.lower()
+                matched = False
+                for prefix in ("due:", "deadline:", "by:"):
+                    if seg_lower.startswith(prefix):
+                        due_text = segment[len(prefix):].strip()
+                        parser = getattr(ops, "_parse_natural_datetime", None)
+                        if parser:
+                            parsed_d, parsed_t = parser(due_text)
+                            due = parsed_d or due_text
+                            if parsed_t:
+                                due_time = parsed_t
+                        else:
+                            due = due_text
+                        matched = True
+                        break
+                if matched:
+                    continue
+                if seg_lower.startswith("time:"):
+                    t_raw = segment[len("time:"):].strip()
+                    m = re.match(r"^(\d{1,2}):(\d{2})$", t_raw)
+                    if m:
+                        hh, mm = int(m.group(1)), int(m.group(2))
+                        if 0 <= hh <= 23 and 0 <= mm <= 59:
+                            due_time = f"{hh:02d}:{mm:02d}"
+            task_text = head
 
-        task = ops.add_task(task_text, due=due)
+        task = ops.add_task(task_text, due=due, due_time=due_time)
         if task is None:
             return "Task text was empty or duplicate"
         return f"Task #{task['id']} created"

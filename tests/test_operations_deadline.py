@@ -55,3 +55,68 @@ def test_due_time_migration_backfills_none_on_old_tasks():
     ops2 = OperationsProtocol(data_dir=ops._tmpdir.name)
     assert "due_time" in ops2._tasks[0]
     assert ops2._tasks[0]["due_time"] is None
+
+
+from core.protocols.operations import OperationsProtocol
+
+
+def test_parse_datetime_at_5pm():
+    d, t = OperationsProtocol._parse_natural_datetime("thursday at 5pm")
+    assert d is not None
+    assert t == "17:00"
+
+
+def test_parse_datetime_at_2_30pm():
+    d, t = OperationsProtocol._parse_natural_datetime("tomorrow at 2:30pm")
+    assert d is not None
+    assert t == "14:30"
+
+
+def test_parse_datetime_at_2_pm_spaced():
+    d, t = OperationsProtocol._parse_natural_datetime("tomorrow at 2 pm")
+    assert d is not None
+    assert t == "14:00"
+
+
+def test_parse_datetime_by_9am():
+    d, t = OperationsProtocol._parse_natural_datetime("friday by 9am")
+    assert d is not None
+    assert t == "09:00"
+
+
+def test_parse_datetime_midnight():
+    d, t = OperationsProtocol._parse_natural_datetime("today at 12am")
+    assert d is not None
+    assert t == "00:00"
+
+
+def test_parse_datetime_noon():
+    d, t = OperationsProtocol._parse_natural_datetime("today at 12pm")
+    assert d is not None
+    assert t == "12:00"
+
+
+def test_parse_datetime_no_time():
+    d, t = OperationsProtocol._parse_natural_datetime("thursday")
+    assert d is not None
+    assert t is None
+
+
+def test_parse_datetime_only_time_returns_no_date():
+    d, t = OperationsProtocol._parse_natural_datetime("at 5pm")
+    # Bare time without a date is ambiguous; spec says return (None, None)
+    assert d is None
+
+
+def test_session_handler_parses_time_suffix(monkeypatch):
+    """The | time: HH:MM suffix in [ADD_TASK:...] gets routed to due_time."""
+    from core.session import UserSession
+    ops = _make_ops()
+    # Minimal stub user session — bypass init since we only need the handler
+    sm = UserSession.__new__(UserSession)
+    sm.protocol_registry = {"operations": ops}
+    result = sm._handle_add_task("Pay hydro | due: friday | time: 17:00")
+    # Locate the created task
+    pending = [t for t in ops._tasks if "Pay hydro" in t["text"]]
+    assert len(pending) == 1
+    assert pending[0]["due_time"] == "17:00"

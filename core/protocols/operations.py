@@ -339,6 +339,41 @@ class OperationsProtocol(Protocol):
 
         return None
 
+    @classmethod
+    def _parse_natural_datetime(cls, text):
+        """Parse "<date> at <time>" or "<date> by <time>" into (date_str, time_str).
+        Either component can be None. If the text has no recognizable date but
+        only a time, returns (None, None) since bare times are ambiguous.
+        Time is always returned as 24h "HH:MM"."""
+        if not text:
+            return (None, None)
+        # Split off trailing "at TIME" or "by TIME"
+        m = re.search(
+            r"\s+(?:at|by)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\s*$",
+            text.strip(),
+            re.IGNORECASE,
+        )
+        time_str = None
+        date_text = text
+        if m:
+            hour = int(m.group(1))
+            minute = int(m.group(2) or 0)
+            ampm = (m.group(3) or "").lower()
+            if ampm == "pm" and hour != 12:
+                hour += 12
+            elif ampm == "am" and hour == 12:
+                hour = 0
+            elif not ampm:
+                # No am/pm — accept as 24h if hour > 12, else treat as 24h
+                pass
+            if 0 <= hour <= 23 and 0 <= minute <= 59:
+                time_str = f"{hour:02d}:{minute:02d}"
+                date_text = text[: m.start()].strip()
+            else:
+                time_str = None  # invalid time, ignore
+        date_str = cls._parse_natural_date(date_text) if date_text else None
+        return (date_str, time_str)
+
     @staticmethod
     def _parse_natural_time(text):
         """Parse natural time text into HH:MM string. Returns None on failure."""
