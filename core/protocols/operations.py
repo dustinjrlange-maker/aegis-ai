@@ -153,6 +153,7 @@ class OperationsProtocol(Protocol):
             task.setdefault("activity_type", "general")
             task.setdefault("notes", "")
             task.setdefault("attachments", [])
+            task.setdefault("due_time", None)
 
     def _save_tasks(self):
         """Persist tasks to disk."""
@@ -641,8 +642,8 @@ class OperationsProtocol(Protocol):
         logger.info("Spellcheck: %r → %r", text, result)
         return result
 
-    def add_task(self, text, priority="normal", due=None, category="general",
-                 activity_type="general"):
+    def add_task(self, text, priority="normal", due=None, due_time=None,
+                 category="general", activity_type="general"):
         """Add a task to the list. Silently dedupes against a recent similar task.
 
         Two-tier dedup:
@@ -710,6 +711,7 @@ class OperationsProtocol(Protocol):
             "priority": priority,
             "category": category,
             "due": due,
+            "due_time": due_time,
             "created": now_ts.isoformat(),
             "completed": False,
             "completed_at": None,
@@ -784,7 +786,7 @@ class OperationsProtocol(Protocol):
 
     def update_task(self, task_id, **updates):
         """Update allowed fields on a task."""
-        allowed = {"text", "priority", "due", "activity_type", "starred", "notes"}
+        allowed = {"text", "priority", "due", "due_time", "activity_type", "starred", "notes"}
         for task in self._tasks:
             if task["id"] == task_id:
                 for k, v in updates.items():

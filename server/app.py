@@ -148,6 +148,8 @@ class TaskRequest(BaseModel):
     text: Optional[str] = None
     task_id: Optional[int] = None
     priority: Optional[str] = "normal"
+    due: Optional[str] = None
+    due_time: Optional[str] = None
 
 
 class ThemeSwitchRequest(BaseModel):
@@ -228,6 +230,7 @@ class TaskUpdateRequest(BaseModel):
     text: Optional[str] = None
     priority: Optional[str] = None
     due: Optional[str] = None
+    due_time: Optional[str] = None
     activity_type: Optional[str] = None
     starred: Optional[bool] = None
     notes: Optional[str] = None
@@ -530,7 +533,12 @@ async def manage_tasks(req: TaskRequest, user_id: str = Depends(require_user)):
         return {"error": "Operations protocol not available"}
 
     if req.action == "add" and req.text:
-        task = ops.add_task(req.text, priority=req.priority or "normal")
+        task = ops.add_task(
+            req.text,
+            priority=req.priority or "normal",
+            due=req.due,
+            due_time=req.due_time,
+        )
         return {"success": True, "task": task}
     elif req.action == "done" and req.task_id:
         task = ops.complete_task(req.task_id)
