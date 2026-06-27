@@ -13103,6 +13103,8 @@ function maybeShowBriefing() { _applyStartupPanels(); }
 var _mailActiveTab = 'inbox';
 var _mailInboxLoaded = false;
 var _mailDraftsLoaded = false;
+var _mailDrafts = {};
+var _mailPanelClickWired = false;
 
 function openMailPanel() {
     document.getElementById('mailPanelOverlay').classList.add('open');
@@ -13110,6 +13112,13 @@ function openMailPanel() {
     panel.classList.add('open');
     restorePanelPosition(panel);
     _mailOnPanelOpen();
+    if (!_mailPanelClickWired) {
+        var mp = document.getElementById('mailPanel');
+        if (mp) {
+            mp.addEventListener('click', _mailOnPanelClick);
+            _mailPanelClickWired = true;
+        }
+    }
 }
 
 function closeMailPanel() {
@@ -13335,8 +13344,58 @@ function _mailOnInboxClick(e) {
     }
 }
 
+// Delegated click router for action-bar buttons inside the Mail panel.
+// Marker-class dispatch — reads draft id from the closest .mail-draft-editor
+// and message id from the closest .mail-action-bar with data-message-id.
+function _mailOnPanelClick(e) {
+    var btn = e.target.closest('button');
+    if (!btn) return;
+    // Draft editor buttons (Save / Send / Discard / Regen)
+    var editor = btn.closest('.mail-draft-editor');
+    if (editor) {
+        var draftId = editor.getAttribute('data-draft-id');
+        if (!draftId) return;
+        if (btn.classList.contains('mail-act-save-draft')) {
+            e.stopPropagation();
+            _mailSaveDraft(draftId);
+        } else if (btn.classList.contains('mail-act-send')) {
+            e.stopPropagation();
+            if (typeof _mailStartSend === 'function') _mailStartSend(draftId, btn);
+        } else if (btn.classList.contains('mail-act-discard')) {
+            e.stopPropagation();
+            _mailDiscardDraft(draftId);
+        } else if (btn.classList.contains('mail-act-regen')) {
+            e.stopPropagation();
+            _mailRegenerateDraft(draftId);
+        }
+        return;
+    }
+    // Intent-row buttons inside an action bar (Reply flow Step 1)
+    var intentRow = btn.closest('.mail-intent-row');
+    if (intentRow) {
+        var bar = intentRow.closest('.mail-action-bar');
+        if (!bar) return;
+        var messageId = bar.getAttribute('data-message-id');
+        if (!messageId) return;
+        if (btn.classList.contains('mail-act-draft-with-intent')) {
+            e.stopPropagation();
+            _mailDraftReply(messageId, true);
+        } else if (btn.classList.contains('mail-act-skip-and-draft')) {
+            e.stopPropagation();
+            _mailDraftReply(messageId, false);
+        }
+    }
+}
+
 function _mailEscapeAttr(s) {
     return String(s || '').replace(/'/g, "\\'");
+}
+
+// HTML-escape a string for safe interpolation INSIDE a textarea value.
+// Unlike escapeHtml, this does NOT convert \n to <br> — the textarea must
+// see literal newlines so they render correctly.
+function _mailEscapeText(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 async function _mailMarkRead(messageId) {
@@ -13363,14 +13422,13 @@ function _mailStartReply(messageId) {
         '#mailInboxSection .mail-action-bar[data-message-id="' + messageId + '"]'
     );
     if (!bar) return;
+    // Marker classes; clicks routed via delegated _mailOnPanelClick
     bar.innerHTML =
         '<div class="mail-intent-row">' +
             '<input type="text" class="mail-intent-input" id="mailIntentInput_' + messageId + '" ' +
                 'placeholder="What\'s the gist? (optional)" autofocus>' +
-            '<button class="pill-btn-primary" onclick="_mailDraftReply(\'' +
-                _mailEscapeAttr(messageId) + '\', true)">Draft With Intent</button>' +
-            '<button class="pill-btn-secondary" onclick="_mailDraftReply(\'' +
-                _mailEscapeAttr(messageId) + '\', false)">skip and draft now</button>' +
+            '<button class="pill-btn-primary mail-act-draft-with-intent">Draft With Intent</button>' +
+            '<button class="pill-btn-secondary mail-act-skip-and-draft">Skip and draft now</button>' +
         '</div>';
     var input = document.getElementById('mailIntentInput_' + messageId);
     if (input) {
@@ -13419,26 +13477,20 @@ function _mailRenderDraftEditor(draft) {
     var body = draft.body || '';
     var to = draft.to || '';
     // Stash the draft origin so regenerate works
-    window._mailDrafts = window._mailDrafts || {};
-    window._mailDrafts[draftId] = draft;
+    _mailDrafts[draftId] = draft;
     return '<div class="mail-draft-editor" data-draft-id="' + escapeHtml(draftId) + '">' +
         '<div class="mail-draft-meta">' +
             '<span>To: ' + escapeHtml(to) + '</span>' +
-            '<button class="mail-regen-icon" onclick="_mailRegenerateDraft(\'' +
-                _mailEscapeAttr(draftId) + '\')" title="Regenerate">↺</button>' +
+            '<button class="mail-regen-icon mail-act-regen" title="Regenerate">↺</button>' +
         '</div>' +
         '<input type="text" class="mail-draft-subject" id="mailDraftSubject_' + draftId + '" ' +
             'value="' + escapeHtml(subject) + '" placeholder="Subject">' +
         '<textarea class="mail-draft-body" id="mailDraftBody_' + draftId + '">' +
-            escapeHtml(body) + '</textarea>' +
+            _mailEscapeText(body) + '</textarea>' +
         '<div class="mail-action-bar">' +
-            '<button class="pill-btn" onclick="_mailSaveDraft(\'' +
-                _mailEscapeAttr(draftId) + '\')">Save Draft</button>' +
-            '<button class="pill-btn-send" id="mailSendBtn_' + draftId +
-                '" onclick="_mailStartSend(\'' + _mailEscapeAttr(draftId) +
-                '\', this)">Send</button>' +
-            '<button class="pill-btn-danger" onclick="_mailDiscardDraft(\'' +
-                _mailEscapeAttr(draftId) + '\')">Discard</button>' +
+            '<button class="pill-btn mail-act-save-draft">Save Draft</button>' +
+            '<button class="pill-btn-send mail-act-send" id="mailSendBtn_' + draftId + '">Send</button>' +
+            '<button class="pill-btn-danger mail-act-discard">Discard</button>' +
         '</div>' +
     '</div>';
 }
@@ -13448,11 +13500,16 @@ async function _mailSaveDraft(draftId) {
     var bodyEl = document.getElementById('mailDraftBody_' + draftId);
     if (!subjEl || !bodyEl) return;
     try {
-        await authFetch(API + '/email/drafts/' + encodeURIComponent(draftId), {
+        var res = await authFetch(API + '/email/drafts/' + encodeURIComponent(draftId), {
             method: 'PATCH',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({subject: subjEl.value, body: bodyEl.value}),
         });
+        var data = await res.json();
+        if (!data || data.ok === false) {
+            showToast(data && data.error ? 'Save failed: ' + data.error : 'Save failed', 'error');
+            return;
+        }
         showToast('Draft saved');
         if (_mailActiveTab === 'drafts') loadMailDrafts();
     } catch (e) {
@@ -13462,10 +13519,20 @@ async function _mailSaveDraft(draftId) {
 
 async function _mailDiscardDraft(draftId) {
     try {
-        await authFetch(API + '/email/drafts/' + encodeURIComponent(draftId), {
+        var res = await authFetch(API + '/email/drafts/' + encodeURIComponent(draftId), {
             method: 'DELETE',
         });
+        // DELETE may return an empty body — only fail-toast if we get a parseable
+        // error response.
+        var data = null;
+        try { data = await res.json(); } catch (e) { /* empty body — OK */ }
+        if (data && data.success === false) {
+            showToast(data.error ? 'Discard failed: ' + data.error : 'Discard failed', 'error');
+            return;
+        }
         showToast('Discarded');
+        // Clean up cache
+        if (_mailDrafts) delete _mailDrafts[draftId];
         // Collapse the row this draft was inside (if INBOX)
         var editor = document.querySelector(
             '#mailInboxSection .mail-draft-editor[data-draft-id="' + draftId + '"]'
@@ -13483,7 +13550,7 @@ async function _mailDiscardDraft(draftId) {
 }
 
 async function _mailRegenerateDraft(draftId) {
-    var origin = (window._mailDrafts || {})[draftId] && window._mailDrafts[draftId]._origin;
+    var origin = _mailDrafts[draftId] && _mailDrafts[draftId]._origin;
     if (!origin) return;
     var editor = document.querySelector(
         '.mail-draft-editor[data-draft-id="' + draftId + '"]'

@@ -1171,15 +1171,23 @@ async def email_update_draft(draft_id: str, body: dict,
     if not service:
         return {"ok": False, "error": "Gmail service unavailable"}
     try:
-        existing = service.users().drafts().get(userId="me", id=draft_id, format="metadata",
-                                                 metadataHeaders=["To","Cc","Bcc"]).execute()
+        existing = service.users().drafts().get(
+            userId="me", id=draft_id, format="metadata",
+            metadataHeaders=["To", "Cc", "Bcc"],
+        ).execute()
         headers = {h["name"]: h["value"] for h in
                    existing.get("message", {}).get("payload", {}).get("headers", [])}
         to = headers.get("To", "")
         cc = headers.get("Cc", "")
         bcc = headers.get("Bcc", "")
-    except Exception:
-        to, cc, bcc = "", "", ""
+    except Exception as e:
+        logger.warning("PATCH /api/email/drafts/%s — header fetch failed: %s",
+                       draft_id, e)
+        return {
+            "ok": False,
+            "error": "Couldn't read existing draft recipients. "
+                     "Refresh the drafts list and try again.",
+        }
     # Build new MIME and overwrite the draft in place
     try:
         raw, thread_id = gt._build_mime_message(
@@ -1198,7 +1206,8 @@ async def email_update_draft(draft_id: str, body: dict,
             "draft_id": result.get("id", draft_id),
         }
     except Exception as e:
-        return {"ok": False, "error": str(e)}
+        logger.warning("PATCH /api/email/drafts/%s — update failed: %s", draft_id, e)
+        return {"ok": False, "error": "Draft save failed."}
 
 
 @app.post("/api/email/mark-read/{message_id}")
