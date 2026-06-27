@@ -13687,6 +13687,116 @@ async function _mailComposeSubmit() {
     }
 }
 
+var _mailDraftsCache = [];
+
+async function loadMailDrafts() {
+    var section = document.getElementById('mailDraftsSection');
+    if (!section) return;
+    section.innerHTML = '<div class="mail-narrative-loading">Loading drafts…</div>';
+    try {
+        var res = await authFetch(API + '/email/drafts');
+        var data = await res.json();
+        if (data && data.error === 'not_authorized') {
+            _mailRenderAuthCTA(section);
+            return;
+        }
+        _mailDraftsCache = Array.isArray(data) ? data : (data.drafts || []);
+        _mailDraftsLoaded = true;
+        _mailRenderDraftsList();
+    } catch (e) {
+        section.innerHTML = '<div class="mail-empty">Couldn\'t load drafts. ' +
+            '<button class="pill-btn" onclick="loadMailDrafts()">↻ Retry</button></div>';
+    }
+}
+
+function _mailRenderDraftsList() {
+    var section = document.getElementById('mailDraftsSection');
+    if (!section) return;
+    if (!_mailDraftsCache.length) {
+        section.innerHTML =
+            '<div class="mail-empty">No drafts yet. Pike will save drafts here ' +
+            'when you ask him to compose anything, or when you save one from ' +
+            'INBOX or COMPOSE.</div>';
+        return;
+    }
+    var showPikeIcon = _mailGetSetting('showPikeIcon', true);
+    var html = '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 12px;">' +
+                  '<div style="color:var(--lcars-text-dim);font-size:11px">' +
+                      _mailDraftsCache.length + ' draft' +
+                      (_mailDraftsCache.length === 1 ? '' : 's') +
+                  '</div>' +
+                  '<button class="pill-btn" onclick="loadMailDrafts()">↻ Refresh</button>' +
+              '</div><div id="mailDraftsList">';
+    _mailDraftsCache.forEach(function(d) {
+        var draftId = d.id || d.draft_id;
+        var icon = (showPikeIcon && d.pike_drafted !== false) ? '◇' : '';
+        var ageS = d.created_at ? (Date.now()/1000 - d.created_at) : null;
+        var age = ageS ? ('saved ' + _mailFormatAge(Math.floor(ageS)) + ' ago') : '';
+        html += '<div class="mail-row" data-draft-id="' + escapeHtml(draftId) + '" ' +
+                'onclick="_mailToggleDraft(this)">' +
+                    '<div class="mail-row-icon">' + icon + '</div>' +
+                    '<div class="mail-row-meta">' +
+                        '<div class="mail-row-from">To: ' + escapeHtml(d.to || '?') + '</div>' +
+                        '<div class="mail-row-subj">' +
+                            escapeHtml(d.subject || '(no subject)') + '</div>' +
+                    '</div>' +
+                    '<div class="mail-row-age">' + escapeHtml(age) + '</div>' +
+                '</div>';
+    });
+    html += '</div>';
+    section.innerHTML = html;
+}
+
+async function _mailToggleDraft(rowEl) {
+    var draftId = rowEl.dataset.draftId;
+    var alreadyExpanded = rowEl.classList.contains('expanded');
+    document.querySelectorAll('#mailDraftsSection .mail-row').forEach(function(r) {
+        r.classList.remove('expanded');
+    });
+    document.querySelectorAll('#mailDraftsSection .mail-row-detail').forEach(function(d) {
+        d.remove();
+    });
+    if (alreadyExpanded) return;
+    rowEl.classList.add('expanded');
+    var ph = document.createElement('div');
+    ph.className = 'mail-row-detail';
+    ph.innerHTML = '<div class="mail-narrative-loading">Loading draft…</div>';
+    rowEl.parentNode.insertBefore(ph, rowEl.nextSibling);
+    try {
+        var res = await authFetch(API + '/email/drafts/' + encodeURIComponent(draftId));
+        var draft = await res.json();
+        if (!draft || draft.error) {
+            ph.innerHTML = '<div class="mail-empty">Couldn\'t load draft.</div>';
+            return;
+        }
+        // No origin metadata for old drafts — regenerate becomes a no-op for those
+        draft._origin = draft._origin || null;
+        ph.innerHTML = _mailRenderDraftEditor(draft);
+    } catch (e) {
+        ph.innerHTML = '<div class="mail-empty">Network error.</div>';
+    }
+}
+
+function _mailGetSetting(key, fallback) {
+    try {
+        var raw = localStorage.getItem('aegis_mail_settings');
+        if (raw) {
+            var obj = JSON.parse(raw);
+            if (key in obj) return obj[key];
+        }
+    } catch (e) {}
+    return fallback;
+}
+
+function _mailSetSetting(key, val) {
+    try {
+        var raw = localStorage.getItem('aegis_mail_settings');
+        var obj = raw ? JSON.parse(raw) : {};
+        obj[key] = val;
+        localStorage.setItem('aegis_mail_settings', JSON.stringify(obj));
+    } catch (e) {}
+}
+
 function _mailRenderAuthCTA(section) {
     section.innerHTML =
         '<div class="mail-auth-cta">' +
