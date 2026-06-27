@@ -3653,6 +3653,28 @@
         }
         .panel-settings-btn { font-size: 14px !important; }
 
+        /* Deadline visualization settings (task panel) */
+        .panel-settings-dropdown .deadline-setting-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 4px 0;
+            font-family: var(--font-display);
+            font-size: 10px;
+            color: var(--lcars-text);
+            letter-spacing: 0.5px;
+        }
+        .panel-settings-dropdown .deadline-setting-row .ds-label { flex: 1; }
+        .panel-settings-dropdown .deadline-setting-row input[type="checkbox"] { cursor: pointer; }
+        .panel-settings-dropdown .deadline-setting-row label { cursor: pointer; }
+        .panel-settings-dropdown .deadline-setting-row .ds-modes label { margin-left: 6px; }
+        .deadline-color-picker { display: inline-flex; gap: 4px; }
+        .deadline-color-picker button {
+            width: 22px; height: 22px; border: 2px solid transparent;
+            cursor: pointer; padding: 0; border-radius: 3px;
+        }
+        .deadline-color-picker button:hover { border-color: rgba(255,255,255,0.4); }
+
         /* ── Zone-based font color override ── */
         /* Legacy compat: keep has-custom-font working for any old code */
         .lcars-panel.has-custom-font,
@@ -7459,6 +7481,61 @@ function restoreChatWindowTheme() {
     }
 }
 
+// ── Deadline visualization settings (Task Manager) ──────────────────────────
+const DEADLINE_SETTINGS_KEY = 'aegis_task_deadline_settings';
+const DEADLINE_SETTINGS_DEFAULTS = {
+    showText: true,
+    showBar: true,
+    colorMode: 'shift',     // 'shift' or 'static'
+    staticColor: '#5599ff', // LCARS blue default
+};
+
+function getDeadlineSettings() {
+    try {
+        var raw = localStorage.getItem(DEADLINE_SETTINGS_KEY);
+        if (!raw) return Object.assign({}, DEADLINE_SETTINGS_DEFAULTS);
+        var parsed = JSON.parse(raw);
+        return Object.assign({}, DEADLINE_SETTINGS_DEFAULTS, parsed);
+    } catch (e) {
+        return Object.assign({}, DEADLINE_SETTINGS_DEFAULTS);
+    }
+}
+
+function setDeadlineSettings(patch) {
+    var current = getDeadlineSettings();
+    var next = Object.assign({}, current, patch);
+    localStorage.setItem(DEADLINE_SETTINGS_KEY, JSON.stringify(next));
+    _applyDeadlineSettings();
+    return next;
+}
+
+function _applyDeadlineSettings() {
+    // Triggered after any settings change. Re-renders the visible task surfaces.
+    if (typeof loadTasks === 'function') loadTasks();
+    if (typeof _refreshBriefingIfOpen === 'function') _refreshBriefingIfOpen();
+    if (typeof renderNextDeadlineBar === 'function') renderNextDeadlineBar();
+    // Show/hide the static color row based on current mode
+    var staticRow = document.getElementById('settingDeadlineStaticRow');
+    if (staticRow) {
+        var mode = getDeadlineSettings().colorMode;
+        staticRow.style.display = (mode === 'static') ? '' : 'none';
+    }
+}
+
+function _hydrateDeadlineSettingsUI() {
+    var s = getDeadlineSettings();
+    var textCb = document.getElementById('settingDeadlineShowText');
+    var barCb = document.getElementById('settingDeadlineShowBar');
+    var modeRadios = document.getElementsByName('deadlineColorMode');
+    var staticRow = document.getElementById('settingDeadlineStaticRow');
+    if (textCb) textCb.checked = s.showText;
+    if (barCb) barCb.checked = s.showBar;
+    for (var i = 0; i < modeRadios.length; i++) {
+        modeRadios[i].checked = (modeRadios[i].value === s.colorMode);
+    }
+    if (staticRow) staticRow.style.display = (s.colorMode === 'static') ? '' : 'none';
+}
+
 function togglePanelCollapse(panelId) {
     var panel = document.getElementById(panelId);
     if (!panel) return;
@@ -7508,7 +7585,12 @@ function togglePanelSettings(panelId) {
     if (existing) {
         existing.classList.toggle('open');
         // Refresh swatch active states when reopening
-        if (existing.classList.contains('open')) _refreshPanelSettingsState(panelId, existing);
+        if (existing.classList.contains('open')) {
+            _refreshPanelSettingsState(panelId, existing);
+            if (panelId === 'taskPanel' && typeof _hydrateDeadlineSettingsUI === 'function') {
+                _hydrateDeadlineSettingsUI();
+            }
+        }
         return;
     }
     // Create dropdown
@@ -7740,7 +7822,53 @@ function togglePanelSettings(panelId) {
     };
     dropdown.appendChild(resetColorOpt);
 
+    // ── Task Manager: Deadline visualization section ──
+    if (panelId === 'taskPanel') {
+        var dlDivider = document.createElement('div');
+        dlDivider.className = 'ps-divider';
+        dropdown.appendChild(dlDivider);
+
+        var dlSection = document.createElement('div');
+        dlSection.innerHTML =
+            '<div class="settings-label">DEADLINE VISUALIZATION</div>' +
+            '<label class="deadline-setting-row">' +
+                '<span class="ds-label">Show countdown text</span>' +
+                '<input type="checkbox" id="settingDeadlineShowText" ' +
+                       'onchange="setDeadlineSettings({showText: this.checked})">' +
+            '</label>' +
+            '<label class="deadline-setting-row">' +
+                '<span class="ds-label">Show progress bar</span>' +
+                '<input type="checkbox" id="settingDeadlineShowBar" ' +
+                       'onchange="setDeadlineSettings({showBar: this.checked})">' +
+            '</label>' +
+            '<div class="deadline-setting-row">' +
+                '<span class="ds-label">Color mode</span>' +
+                '<span class="ds-modes">' +
+                    '<label><input type="radio" name="deadlineColorMode" value="shift" ' +
+                           'onchange="setDeadlineSettings({colorMode: this.value})"> Shift</label>' +
+                    '<label><input type="radio" name="deadlineColorMode" value="static" ' +
+                           'onchange="setDeadlineSettings({colorMode: this.value})"> Static</label>' +
+                '</span>' +
+            '</div>' +
+            '<div class="deadline-setting-row" id="settingDeadlineStaticRow">' +
+                '<span class="ds-label">Bar color</span>' +
+                '<span class="deadline-color-picker">' +
+                    '<button data-c="#5599ff" onclick="setDeadlineSettings({staticColor:this.dataset.c})" style="background:#5599ff" title="Blue"></button>' +
+                    '<button data-c="#5dd9d9" onclick="setDeadlineSettings({staticColor:this.dataset.c})" style="background:#5dd9d9" title="Cyan"></button>' +
+                    '<button data-c="#ffc850" onclick="setDeadlineSettings({staticColor:this.dataset.c})" style="background:#ffc850" title="Amber"></button>' +
+                    '<button data-c="#ff8a50" onclick="setDeadlineSettings({staticColor:this.dataset.c})" style="background:#ff8a50" title="Orange"></button>' +
+                    '<button data-c="#ff5566" onclick="setDeadlineSettings({staticColor:this.dataset.c})" style="background:#ff5566" title="Red"></button>' +
+                    '<button data-c="#b487ff" onclick="setDeadlineSettings({staticColor:this.dataset.c})" style="background:#b487ff" title="Purple"></button>' +
+                '</span>' +
+            '</div>';
+        dropdown.appendChild(dlSection);
+    }
+
     panel.appendChild(dropdown);
+
+    if (panelId === 'taskPanel' && typeof _hydrateDeadlineSettingsUI === 'function') {
+        _hydrateDeadlineSettingsUI();
+    }
 
     // Close on outside click
     setTimeout(function() {
