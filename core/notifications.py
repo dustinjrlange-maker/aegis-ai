@@ -108,7 +108,9 @@ class NotificationService:
                 if not due:
                     continue
                 try:
-                    due_dt = datetime.fromisoformat(due)
+                    due_date_str = (due or "")[:10]
+                    due_time_str = task.get("due_time") or "23:59"
+                    due_dt = datetime.strptime(f"{due_date_str} {due_time_str}", "%Y-%m-%d %H:%M")
                 except (ValueError, TypeError):
                     continue
                 task_id = str(task.get("id", ""))

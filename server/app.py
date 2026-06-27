@@ -973,10 +973,12 @@ async def get_briefing(user_id: str = Depends(require_user)):
             due = task.get("due")
             if due:
                 try:
-                    due_dt = dt.fromisoformat(due)
+                    due_date_str = (due or "")[:10]
+                    due_time_str = task.get("due_time") or "23:59"
+                    due_dt = dt.strptime(f"{due_date_str} {due_time_str}", "%Y-%m-%d %H:%M")
                     if due_dt < now:
                         overdue_tasks.append(task)
-                    elif due_dt.strftime("%Y-%m-%d") == today_str:
+                    elif due_date_str == today_str:
                         due_today.append(task)
                 except (ValueError, TypeError):
                     pass
