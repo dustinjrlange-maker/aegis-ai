@@ -1442,6 +1442,54 @@
         }
         .task-star.starred { color: #f59e0b; }
 
+        /* Task deadline countdown layers ------------------------------------
+           Shared visuals between the Task Manager (.task-item) and the Daily
+           Briefing (.briefing-card). Three layers per card:
+             1. .task-deadline-fill-bg   — full-card low-opacity drain
+             2. .task-deadline-fill-bar  — 3px bottom strip
+             3. .task-deadline-text      — countdown chip on the meta row
+           Width animation is driven by a CSS transition set inline at render
+           time (duration = remaining seconds). _startDeadlineTransitions
+           kicks it off one frame after paint. */
+        .task-deadline-fill-bg {
+            position: absolute;
+            inset: 0;
+            opacity: 0.12;
+            pointer-events: none;
+            z-index: 0;
+            border-radius: inherit;
+        }
+        .task-deadline-fill-bar {
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            height: 3px;
+            pointer-events: none;
+            z-index: 1;
+        }
+        .task-deadline-text {
+            display: inline-block;
+            margin-left: 8px;
+            font-size: 11px;
+            letter-spacing: 0.06em;
+            font-variant-numeric: tabular-nums;
+            position: relative;
+            z-index: 2;
+        }
+        /* Ensure title and meta sit above the bg drain. */
+        .task-item > *,
+        .briefing-card > * {
+            position: relative;
+            z-index: 2;
+        }
+        /* Required for the absolutely-positioned drain layers to clip to the
+           card. .task-item had no position before; .briefing-card had none.
+           Neither has intentionally-overflowing children. */
+        .task-item, .briefing-card {
+            position: relative;
+            overflow: hidden;
+        }
+
         .task-meta-row {
             display: flex;
             gap: 8px;
@@ -8973,6 +9021,59 @@ function _deadlineColor(remainingFraction, settings) {
     return 'hsl(' + hue + ', 70%, 55%)';
 }
 
+/** Returns HTML for the three deadline layers (bg drain, bottom strip, text chip)
+ *  inside a task card. Empty string when no deadline / overdue / settings off.
+ *  Returned snippet expects to live inside a position:relative parent. */
+function _renderTaskDeadlineLayer(t, settings) {
+    if (!t || !t.due) return '';
+    var s = settings || getDeadlineSettings();
+    var dl = _computeTaskDeadline(t);
+    var now = Date.now();
+    if (dl === null || dl <= now) return ''; // overdue handled by existing CSS
+    var frac = _computeRemainingFraction(t, now);
+    var remSec = _computeRemainingSeconds(t, now);
+    var color = _deadlineColor(frac, s);
+    var widthPct = (frac * 100).toFixed(2);
+    var remSecForCss = Math.max(1, remSec); // avoid 0-duration transition
+    var html = '';
+    if (s.showBar) {
+        // Background drain layer (low opacity)
+        html += '<div class="task-deadline-fill-bg" style="'
+              + 'width:' + widthPct + '%;'
+              + 'background:' + color + ';'
+              + 'transition: width ' + remSecForCss + 's linear, background-color ' + remSecForCss + 's linear;'
+              + '" data-target-width="0"></div>';
+        // Bottom strip
+        html += '<div class="task-deadline-fill-bar" style="'
+              + 'width:' + widthPct + '%;'
+              + 'background:' + color + ';'
+              + 'box-shadow: 0 0 8px ' + color + '66;'
+              + 'transition: width ' + remSecForCss + 's linear, background-color ' + remSecForCss + 's linear;'
+              + '" data-target-width="0"></div>';
+    }
+    if (s.showText) {
+        html += '<span class="task-deadline-text" data-deadline-ms="' + dl + '" '
+              + 'style="color:' + color + '">'
+              + _formatCountdown(remSec) + '</span>';
+    }
+    return html;
+}
+
+/** Kick off the CSS transitions once the layers are in the DOM. Without this
+ *  the browser may render width at the initial value indefinitely. Called
+ *  from a requestAnimationFrame so the initial width has been painted. */
+function _startDeadlineTransitions(rootEl) {
+    requestAnimationFrame(function() {
+        var nodes = (rootEl || document).querySelectorAll(
+            '.task-deadline-fill-bg[data-target-width], .task-deadline-fill-bar[data-target-width]'
+        );
+        nodes.forEach(function(n) {
+            n.style.width = n.getAttribute('data-target-width') + '%';
+            n.removeAttribute('data-target-width');
+        });
+    });
+}
+
 function renderTasks(tasks) {
     const container = document.getElementById('taskList');
     if (tasks.length === 0) {
@@ -9088,6 +9189,7 @@ function renderTasks(tasks) {
             ? 'uncompleteTask(' + t.id + ')'
             : 'completeTask(' + t.id + ')';
         var checkedAttr = t.completed ? ' checked' : '';
+        var dlLayer = !t.completed ? _renderTaskDeadlineLayer(t) : '';
         return '<div class="task-item' + doneClassRoot + '">' +
             '<input type="checkbox" class="task-check"' + checkedAttr +
                 ' onclick="_toggleTaskComplete(' + t.id + ', this.checked)"' +
@@ -9106,12 +9208,16 @@ function renderTasks(tasks) {
                 '<button class="done-btn" onclick="' + doneBtnAction + '" aria-label="' + doneBtnLabel + ' task">' + doneBtnLabel + '</button>' +
                 '<button onclick="removeTask(' + t.id + ')" aria-label="Remove task">X</button>' +
             '</div>' +
+            dlLayer +
         '</div>' + editForm;
     }).join('');
 
     // After render, lazy-load thumbnails into the .task-attach-thumb cells.
     // Browsers can't put auth headers on <img src>, so we authFetch blobs.
     _loadTaskThumbnails(container);
+    // Kick off the deadline drain CSS transitions (deferred one frame so the
+    // initial width is painted before the target width is set).
+    _startDeadlineTransitions(container);
 }
 
 function updateTaskCount(tasks) {
@@ -12225,6 +12331,7 @@ function _briefingTaskCard(t, klass) {
         html += '<div class="field-notes empty">No notes yet. Click ↗ to open the task and add some.</div>';
     }
     html += '</div>';  // .card-expanded
+    html += _renderTaskDeadlineLayer(t);
     html += '</div>';  // .briefing-card
     return html;
 }
@@ -12402,6 +12509,8 @@ function renderBriefing(data) {
     html += '</div>';
 
     container.innerHTML = html;
+    // Kick off the deadline drain CSS transitions on any task cards just rendered.
+    _startDeadlineTransitions(container);
 }
 
 // Startup panels — which floating panels should auto-open when the app launches.
