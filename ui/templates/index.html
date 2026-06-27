@@ -8776,12 +8776,13 @@ function renderTasks(tasks) {
     }
 
     // Sort: pending starred → pending unstarred → completed (struck-through, at bottom)
+    // Within each group, newest first (highest id).
     var sorted = tasks.slice().sort(function(a, b) {
         if (!a.completed && b.completed) return -1;
         if (a.completed && !b.completed) return 1;
         if (a.starred && !b.starred) return -1;
         if (!a.starred && b.starred) return 1;
-        return a.id - b.id;
+        return b.id - a.id;
     });
 
     container.innerHTML = sorted.map(function(t) {
@@ -12049,10 +12050,14 @@ function renderBriefing(data) {
     var _seenTaskIds = {};
     function _renderTaskSection(list, klass, sectionTitleHtml) {
         if (!list || !list.length) return;
+        // Newest first within each section
+        var ordered = list.slice().sort(function(a, b) {
+            return (b && b.id || 0) - (a && a.id || 0);
+        });
         var cards = '';
         var count = 0;
-        for (var i = 0; i < list.length; i++) {
-            var t = list[i];
+        for (var i = 0; i < ordered.length; i++) {
+            var t = ordered[i];
             var key = (t && t.id !== undefined && t.id !== null) ? String(t.id) : null;
             if (key && _seenTaskIds[key]) continue;
             if (key) _seenTaskIds[key] = true;
@@ -13248,6 +13253,7 @@ async function renderWidgetTasks() {
         });
         var data = await res.json();
         var tasks = (data.tasks || []).filter(function(t) { return !t.completed; });
+        tasks.sort(function(a, b) { return b.id - a.id; }); // newest first
         var badge = document.getElementById('widgetTasksBadge');
         var body = document.getElementById('widgetTasksBody');
         if (badge) badge.textContent = tasks.length;
