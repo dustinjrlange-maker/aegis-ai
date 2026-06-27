@@ -8897,6 +8897,82 @@ async function loadTasks() {
     }
 }
 
+/** Combine due (YYYY-MM-DD) + due_time (HH:MM, default 23:59) into local epoch ms.
+ *  Returns null if t has no due date. */
+function _computeTaskDeadline(t) {
+    if (!t || !t.due) return null;
+    var datePart = (t.due || '').substring(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(datePart)) return null;
+    var timePart = t.due_time || '23:59';
+    var m = /^(\d{2}):(\d{2})$/.exec(timePart);
+    if (!m) return null;
+    var parts = datePart.split('-');
+    var d = new Date(
+        parseInt(parts[0], 10),
+        parseInt(parts[1], 10) - 1,
+        parseInt(parts[2], 10),
+        parseInt(m[1], 10),
+        parseInt(m[2], 10),
+        0, 0
+    );
+    return d.getTime();
+}
+
+/** Created date as epoch ms, falls back to (deadline - 24h) when missing. */
+function _computeTaskCreated(t) {
+    if (t && t.created) {
+        var ms = Date.parse(t.created);
+        if (!isNaN(ms)) return ms;
+    }
+    var dl = _computeTaskDeadline(t);
+    return (dl !== null) ? (dl - 24 * 3600 * 1000) : null;
+}
+
+/** Fraction of time remaining: 1.0 fresh, 0.0 at deadline, clamped. */
+function _computeRemainingFraction(t, nowMs) {
+    var dl = _computeTaskDeadline(t);
+    if (dl === null) return null;
+    var created = _computeTaskCreated(t);
+    if (created === null || created >= dl) return 0;
+    var now = (typeof nowMs === 'number') ? nowMs : Date.now();
+    var frac = (dl - now) / (dl - created);
+    if (frac > 1) frac = 1;
+    if (frac < 0) frac = 0;
+    return frac;
+}
+
+/** Remaining seconds (can be negative if overdue). null if no deadline. */
+function _computeRemainingSeconds(t, nowMs) {
+    var dl = _computeTaskDeadline(t);
+    if (dl === null) return null;
+    var now = (typeof nowMs === 'number') ? nowMs : Date.now();
+    return Math.floor((dl - now) / 1000);
+}
+
+/** Human-friendly countdown. Returns '' when overdue/null. */
+function _formatCountdown(remainingSec) {
+    if (remainingSec === null || remainingSec === undefined || remainingSec < 0) return '';
+    var days = Math.floor(remainingSec / 86400);
+    var hours = Math.floor((remainingSec % 86400) / 3600);
+    var mins = Math.floor((remainingSec % 3600) / 60);
+    var secs = remainingSec % 60;
+    if (days >= 1) return days + 'd ' + hours + 'h';
+    if (hours >= 1) return hours + 'h ' + mins + 'm';
+    return mins + 'm ' + secs + 's';
+}
+
+/** Returns a CSS color string for the given remaining fraction + settings.
+ *  Shift mode: HSL hue interpolated 120 (green) → 0 (red).
+ *  Static mode: settings.staticColor unchanged. */
+function _deadlineColor(remainingFraction, settings) {
+    if (!settings || settings.colorMode === 'static') {
+        return (settings && settings.staticColor) || '#5599ff';
+    }
+    var frac = Math.max(0, Math.min(1, remainingFraction || 0));
+    var hue = Math.round(120 * frac);
+    return 'hsl(' + hue + ', 70%, 55%)';
+}
+
 function renderTasks(tasks) {
     const container = document.getElementById('taskList');
     if (tasks.length === 0) {
