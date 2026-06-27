@@ -6230,6 +6230,7 @@
                 <option value="low">Low</option>
             </select>
             <input type="date" id="taskDueDate" aria-label="Due date" style="width:140px;" onclick="if(this.showPicker)this.showPicker()" onfocus="if(this.showPicker)this.showPicker()">
+            <input type="time" id="taskDueTime" aria-label="Due time (optional)" style="width:100px;" onclick="if(this.showPicker)this.showPicker()">
             <button onclick="addTask()">ADD</button>
         </div>
         <div id="taskList"></div>
@@ -8830,6 +8831,7 @@ function renderTasks(tasks) {
                         '<option value="low"' + (t.priority === 'low' ? ' selected' : '') + '>Low</option>' +
                     '</select>' +
                     '<input type="date" id="editDue_' + t.id + '" value="' + escapeHtml((t.due || '').substring(0, 10)) + '" onclick="if(this.showPicker)this.showPicker()" onfocus="if(this.showPicker)this.showPicker()">' +
+                    '<input type="time" id="editDueTime_' + t.id + '" value="' + escapeHtml(t.due_time || '') + '" aria-label="Due time (optional)" style="width:100px" onclick="if(this.showPicker)this.showPicker()">' +
                     '<input type="text" id="editAct_' + t.id + '" value="' + escapeHtml(t.activity_type || 'general') + '" placeholder="Activity type" style="width:80px">' +
                 '</div>' +
                 '<div class="task-notes-edit-wrap">' +
@@ -8930,16 +8932,19 @@ async function addTask() {
     var priority = document.getElementById('taskPriority').value;
     var dueEl = document.getElementById('taskDueDate');
     var due = dueEl ? dueEl.value : '';
+    var timeEl = document.getElementById('taskDueTime');
+    var due_time = (timeEl && timeEl.value) || null;
 
     try {
         await authFetch(API + '/tasks', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({action: 'add', text: text, priority: priority}),
+            body: JSON.stringify({action: 'add', text: text, priority: priority, due: due || null, due_time: due_time}),
         });
         input.value = '';
         if (dueEl) dueEl.value = '';
-        // If due date was set, update the task
+        if (timeEl) timeEl.value = '';
+        // If due date was set, update the task (legacy fallback for backends that ignore due on add)
         if (due) {
             var res2 = await authFetch(API + '/tasks', {
                 method: 'POST',
@@ -8953,11 +8958,12 @@ async function addTask() {
                 await authFetch(API + '/tasks/update', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({task_id: newest.id, due: due}),
+                    body: JSON.stringify({task_id: newest.id, due: due, due_time: due_time}),
                 });
             }
         }
         loadTasks();
+        _refreshBriefingIfOpen();
     } catch (e) {}
 }
 
@@ -9364,6 +9370,7 @@ async function saveTask(id) {
     var text = document.getElementById('editText_' + id);
     var pri = document.getElementById('editPri_' + id);
     var due = document.getElementById('editDue_' + id);
+    var dueTimeEl = document.getElementById('editDueTime_' + id);
     var act = document.getElementById('editAct_' + id);
     var notes = document.getElementById('editNotes_' + id);
     if (!text) return;
@@ -9372,6 +9379,7 @@ async function saveTask(id) {
     body.text = text.value.trim();
     body.priority = pri ? pri.value : 'normal';
     body.due = due ? due.value : '';
+    body.due_time = (dueTimeEl && dueTimeEl.value) || null;
     body.activity_type = act ? act.value.trim() : 'general';
     if (notes) body.notes = notes.value;
 
