@@ -69,3 +69,26 @@ def test_narrative_cache_expires_after_ttl():
         ea.get_inbox_digest(session)
 
     assert llm_mock.call_count == 2
+
+
+def test_failed_narrative_is_not_cached():
+    """If the LLM call raises, the next call should retry — not serve a stale failure."""
+    from core import email_assistant as ea
+    ea._narrative_cache.clear()
+
+    session = _mock_session()
+    with patch.object(ea, "_creds_from_session", return_value=object()), \
+         patch.object(ea.gt, "gmail_unread_count", return_value=0), \
+         patch.object(ea.gt, "gmail_list_messages", return_value=[
+             {"id": "m1", "subject": "x", "sender": "y", "date": "z", "snippet": "s"}
+         ]), \
+         patch.object(ea, "_llm", side_effect=[RuntimeError("boom"), "fresh narrative"]) as llm_mock:
+        r1 = ea.get_inbox_digest(session)
+        r2 = ea.get_inbox_digest(session)
+
+    # First call returned the failure-string narrative
+    assert "Briefing failed" in r1["narrative"] or r1["narrative"].startswith("[")
+    # Second call HIT the LLM again (no cache poisoning from the failure)
+    assert llm_mock.call_count == 2
+    # And the second call's narrative is the successful one
+    assert r2["narrative"] == "fresh narrative"

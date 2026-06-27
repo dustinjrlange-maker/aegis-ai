@@ -25,6 +25,8 @@ logger = logging.getLogger(__name__)
 
 
 # Per-user narrative cache: {user_id: (timestamp_epoch_s, narrative_str)}
+# NOTE: Single-process cache — fragments per-worker if uvicorn ever uses
+# multiple workers. Fine for Aegis's single-user local deployment.
 _narrative_cache: dict[str, tuple[float, str]] = {}
 _NARRATIVE_TTL_S: float = 600.0  # 10 minutes
 
@@ -74,7 +76,9 @@ def _format_messages_for_llm(messages: list[dict]) -> str:
 def get_inbox_digest(session, max_messages: int = 10, fresh: bool = False) -> dict:
     """Pike-voiced summary of recent inbox.
 
-    Returns: {narrative, unread_count, messages, error?}
+    Returns: {narrative, unread_count, messages, cached_age_s, error?}
+        - cached_age_s: int seconds since the cached narrative was generated.
+          0 when the narrative was just regenerated (cache miss or fresh=True).
     """
     creds = _creds_from_session(session)
     if not creds:
@@ -146,6 +150,7 @@ def get_inbox_digest(session, max_messages: int = 10, fresh: bool = False) -> di
         "narrative": narrative,
         "unread_count": unread_count,
         "messages": messages,
+        "cached_age_s": 0,
     }
 
 
