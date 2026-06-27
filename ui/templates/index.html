@@ -13116,6 +13116,11 @@ function closeMailPanel() {
     document.getElementById('mailPanelOverlay').classList.remove('open');
     document.getElementById('mailPanel').classList.remove('open');
     popPanelStack('mailPanelOverlay');
+    // Cancel any in-flight auth polling
+    if (_mailAuthPoll) {
+        clearInterval(_mailAuthPoll);
+        _mailAuthPoll = null;
+    }
 }
 
 function _mailSwitchTab(tabName) {
@@ -13155,10 +13160,16 @@ function _mailOnPanelOpen() {
 // ========== MAIL INBOX TAB ==========
 
 var _mailInbox = { narrative: '', messages: [], cachedAgeS: 0 };
+var _mailInboxClickWired = false;
 
 async function loadInboxDigest(fresh) {
     var section = document.getElementById('mailInboxSection');
     if (!section) return;
+    // Attach the delegated click listener exactly once
+    if (!_mailInboxClickWired) {
+        section.addEventListener('click', _mailOnInboxClick);
+        _mailInboxClickWired = true;
+    }
     if (fresh) section.innerHTML =
         '<div class="mail-narrative-loading">Pike is reading your inbox…</div>';
     try {
@@ -13290,16 +13301,38 @@ function _mailRenderMessageDetail(messageId, data) {
         bodyHtml = '<pre style="white-space:pre-wrap;font-family:inherit">' +
                    escapeHtml(data.body || '') + '</pre>';
     }
+    // Use marker classes on buttons + data-message-id on the bar; clicks are
+    // handled by the delegated _mailOnInboxClick listener so we don't have to
+    // interpolate the messageId into inline JS (which is brittle around quotes
+    // and backslashes).
     return '<div class="mail-detail-meta">' +
                 escapeHtml(data.date || '') + ' · from ' + escapeHtml(data.from || '') +
            '</div>' +
            '<div class="mail-detail-body">' + bodyHtml + '</div>' +
            '<div class="mail-action-bar" data-message-id="' + escapeHtml(messageId) + '">' +
-               '<button class="pill-btn-primary" onclick="_mailStartReply(\'' +
-                   _mailEscapeAttr(messageId) + '\')">Draft Reply</button>' +
-               '<button class="pill-btn" onclick="_mailOpenInGmail(\'' +
-                   _mailEscapeAttr(messageId) + '\')">Open in Gmail</button>' +
+               '<button class="pill-btn-primary mail-act-draft-reply">Draft Reply</button>' +
+               '<button class="pill-btn mail-act-open-gmail">Open in Gmail</button>' +
            '</div>';
+}
+
+// Delegated click handler attached once to #mailInboxSection. Routes clicks
+// on action-bar buttons by marker class, reading the message id from the
+// .mail-action-bar's data-message-id attribute. Avoids inline-JS quoting
+// issues AND stops clicks from bubbling to the row's expand/collapse toggle.
+function _mailOnInboxClick(e) {
+    var btn = e.target.closest('button');
+    if (!btn) return;
+    var bar = btn.closest('.mail-action-bar');
+    if (!bar) return;
+    var messageId = bar.getAttribute('data-message-id');
+    if (!messageId) return;
+    if (btn.classList.contains('mail-act-draft-reply')) {
+        e.stopPropagation();
+        if (typeof _mailStartReply === 'function') _mailStartReply(messageId);
+    } else if (btn.classList.contains('mail-act-open-gmail')) {
+        e.stopPropagation();
+        _mailOpenInGmail(messageId);
+    }
 }
 
 function _mailEscapeAttr(s) {
@@ -13311,7 +13344,9 @@ async function _mailMarkRead(messageId) {
         await authFetch(API + '/email/mark-read/' + encodeURIComponent(messageId), {
             method: 'POST',
         });
-    } catch (e) {}
+    } catch (e) {
+        console.warn('mail mark-read failed:', e);
+    }
 }
 
 function _mailOpenInGmail(messageId) {
@@ -13332,6 +13367,8 @@ function _mailRenderAuthCTA(section) {
         '</div>';
 }
 
+var _mailAuthPoll = null;
+
 function _mailStartAuth() {
     var url = '/api/google/oauth/start';
     if (window.electronAPI && typeof window.electronAPI.openExternal === 'function') {
@@ -13339,13 +13376,26 @@ function _mailStartAuth() {
     } else {
         window.open(url, '_blank');
     }
-    // Poll for auth-complete
-    var poll = setInterval(async function() {
+    // Cancel any prior poll
+    if (_mailAuthPoll) {
+        clearInterval(_mailAuthPoll);
+        _mailAuthPoll = null;
+    }
+    // Poll for auth-complete — max 60 attempts (3 min at 3s interval)
+    var attempts = 0;
+    _mailAuthPoll = setInterval(async function() {
+        attempts++;
+        if (attempts > 60) {
+            clearInterval(_mailAuthPoll);
+            _mailAuthPoll = null;
+            return;
+        }
         try {
             var res = await authFetch(API + '/google/status');
             var data = await res.json();
             if (data && data.connected) {
-                clearInterval(poll);
+                clearInterval(_mailAuthPoll);
+                _mailAuthPoll = null;
                 loadInboxDigest(true);
             }
         } catch (e) {}
