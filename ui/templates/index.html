@@ -13730,7 +13730,15 @@ function _mailRenderDraftsList() {
     _mailDraftsCache.forEach(function(d) {
         var draftId = d.id || d.draft_id;
         var icon = (showPikeIcon && d.pike_drafted !== false) ? '◇' : '';
-        var ageS = d.created_at ? (Date.now()/1000 - d.created_at) : null;
+        // Backend returns `updated` as an RFC 2822 string; `created_at` (epoch)
+        // is the forward-compat field. Try both before giving up.
+        var ageS = null;
+        if (typeof d.created_at === 'number') {
+            ageS = Date.now()/1000 - d.created_at;
+        } else if (d.updated) {
+            var ts = Date.parse(d.updated);
+            if (!isNaN(ts)) ageS = (Date.now() - ts) / 1000;
+        }
         var age = ageS ? ('saved ' + _mailFormatAge(Math.floor(ageS)) + ' ago') : '';
         html += '<div class="mail-row" data-draft-id="' + escapeHtml(draftId) + '" ' +
                 'onclick="_mailToggleDraft(this)">' +
