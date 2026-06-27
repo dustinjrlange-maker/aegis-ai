@@ -367,7 +367,7 @@ def gmail_send(creds, to, subject, body, reply_to_id=None):
 # ---------------------------------------------------------------------------
 
 
-def _build_mime_message(to, subject, body, reply_to_id=None, service=None):
+def _build_mime_message(to, subject, body, reply_to_id=None, service=None, cc=None, bcc=None):
     """Build a base64-encoded MIME message and (optional) thread id for a reply."""
     import base64
     from email.mime.text import MIMEText
@@ -375,6 +375,10 @@ def _build_mime_message(to, subject, body, reply_to_id=None, service=None):
     message = MIMEText(body)
     message["to"] = to
     message["subject"] = subject
+    if cc:
+        message["Cc"] = cc
+    if bcc:
+        message["Bcc"] = bcc
 
     thread_id = None
     if reply_to_id and service:
@@ -395,7 +399,7 @@ def _build_mime_message(to, subject, body, reply_to_id=None, service=None):
     return raw, thread_id
 
 
-def gmail_create_draft(creds, to, subject, body, reply_to_id=None):
+def gmail_create_draft(creds, to, subject, body, reply_to_id=None, cc=None, bcc=None):
     """Create a draft email (saved to user's Gmail drafts, NOT sent).
 
     Returns {success, draft_id, message_id} or {success: False, error: ...}.
@@ -405,7 +409,7 @@ def gmail_create_draft(creds, to, subject, body, reply_to_id=None):
         return {"success": False, "error": "Gmail service unavailable"}
 
     try:
-        raw, thread_id = _build_mime_message(to, subject, body, reply_to_id, service)
+        raw, thread_id = _build_mime_message(to, subject, body, reply_to_id, service, cc=cc, bcc=bcc)
         draft_body = {"message": {"raw": raw}}
         if thread_id:
             draft_body["message"]["threadId"] = thread_id

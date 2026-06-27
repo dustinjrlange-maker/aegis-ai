@@ -234,7 +234,8 @@ def draft_reply(session, message_id: str, intent: str | None = None) -> dict:
     }
 
 
-def draft_new(session, to: str, intent: str, subject_hint: str | None = None) -> dict:
+def draft_new(session, to: str, intent: str, subject_hint: str | None = None,
+              cc: str | None = None, bcc: str | None = None) -> dict:
     """Draft a new email (not a reply).
 
     Args:
@@ -285,7 +286,7 @@ def draft_new(session, to: str, intent: str, subject_hint: str | None = None) ->
         subject = first_line[len("subject:"):].strip()
         body = rest.lstrip("\n").strip()
 
-    result = gt.gmail_create_draft(creds, to=to, subject=subject, body=body)
+    result = gt.gmail_create_draft(creds, to=to, subject=subject, body=body, cc=cc, bcc=bcc)
     if not result.get("success"):
         return {
             "success": False,

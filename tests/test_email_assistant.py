@@ -92,3 +92,40 @@ def test_failed_narrative_is_not_cached():
     assert llm_mock.call_count == 2
     # And the second call's narrative is the successful one
     assert r2["narrative"] == "fresh narrative"
+
+
+def test_draft_new_threads_cc_and_bcc_to_gmail_create():
+    """draft_new should forward cc and bcc into gmail_create_draft."""
+    from core import email_assistant as ea
+    session = _mock_session()
+    with patch.object(ea, "_creds_from_session", return_value=object()), \
+         patch.object(ea, "_llm", return_value="Subject: Hi\n\nBody"), \
+         patch.object(ea.gt, "gmail_create_draft", return_value={
+             "success": True, "draft_id": "d1", "message_id": "m1"
+         }) as mock_create:
+        ea.draft_new(
+            session, to="bill@example.com",
+            intent="say hi",
+            cc="tyler@example.com",
+            bcc="audit@example.com",
+        )
+    # Inspect the kwargs the mock received
+    kwargs = mock_create.call_args.kwargs
+    assert kwargs.get("cc") == "tyler@example.com"
+    assert kwargs.get("bcc") == "audit@example.com"
+
+
+def test_draft_new_omits_cc_bcc_when_not_provided():
+    """Backwards compat — existing callers without cc/bcc still work."""
+    from core import email_assistant as ea
+    session = _mock_session()
+    with patch.object(ea, "_creds_from_session", return_value=object()), \
+         patch.object(ea, "_llm", return_value="Subject: Hi\n\nBody"), \
+         patch.object(ea.gt, "gmail_create_draft", return_value={
+             "success": True, "draft_id": "d1", "message_id": "m1"
+         }) as mock_create:
+        ea.draft_new(session, to="bill@example.com", intent="say hi")
+    kwargs = mock_create.call_args.kwargs
+    # cc/bcc may be passed as None or absent — both are fine
+    assert not kwargs.get("cc")
+    assert not kwargs.get("bcc")

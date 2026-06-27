@@ -1113,7 +1113,7 @@ async def email_draft_reply(body: dict, user_id: str = Depends(require_user)):
 async def email_draft_new(body: dict, user_id: str = Depends(require_user)):
     """Draft a fresh email (not a reply). Saves to Gmail drafts. Does NOT send.
 
-    Body: {to: str, intent: str, subject?: str}
+    Body: {to: str, intent: str, subject?: str, cc?: str, bcc?: str}
     """
     from core.email_assistant import draft_new
     session = session_manager.get_or_create(user_id)
@@ -1122,7 +1122,10 @@ async def email_draft_new(body: dict, user_id: str = Depends(require_user)):
     if not to or not intent:
         return {"success": False, "error": "to and intent required"}
     subject_hint = body.get("subject")
-    return draft_new(session, to=to, intent=intent, subject_hint=subject_hint)
+    cc = (body.get("cc") or "").strip() or None
+    bcc = (body.get("bcc") or "").strip() or None
+    return draft_new(session, to=to, intent=intent, subject_hint=subject_hint,
+                     cc=cc, bcc=bcc)
 
 
 @app.post("/api/email/send-draft/{draft_id}")
