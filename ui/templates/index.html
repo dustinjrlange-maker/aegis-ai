@@ -6769,7 +6769,9 @@
         </section>
         <section class="mail-tab-body" data-tab="compose" id="mailComposeSection"
                  style="display:none">
-            <div class="mail-empty">Compose tab &mdash; wired in Task 7.</div>
+            <div id="mailComposeContent">
+                <!-- rendered by _mailRenderComposeForm() -->
+            </div>
         </section>
         <section class="mail-tab-body" data-tab="drafts" id="mailDraftsSection"
                  style="display:none">
@@ -13581,6 +13583,109 @@ async function _mailRegenerateDraft(draftId) {
         if (bodyEl) bodyEl.value = '(regenerate failed — network error)';
     }
 }
+
+function _mailRenderComposeForm() {
+    var container = document.getElementById('mailComposeContent');
+    if (!container) return;
+    container.innerHTML =
+        '<form class="mail-compose-form" id="mailComposeForm" onsubmit="event.preventDefault();_mailComposeSubmit()">' +
+            '<label>To <input type="email" class="mail-field-to" id="mailFieldTo" ' +
+                'required placeholder="recipient@example.com" oninput="_mailUpdateComposeButton()"></label>' +
+            '<label>CC <input type="text" class="mail-field-cc" id="mailFieldCc" ' +
+                'placeholder="(optional, comma-separated)"></label>' +
+            '<label>BCC <input type="text" class="mail-field-bcc" id="mailFieldBcc" ' +
+                'placeholder="(optional, comma-separated)"></label>' +
+            '<label>Subject hint <input type="text" class="mail-field-subject" id="mailFieldSubject" ' +
+                'placeholder="(optional — Pike writes it if blank)"></label>' +
+            '<label>Intent <textarea class="mail-field-intent" id="mailFieldIntent" rows="4" required ' +
+                'placeholder="What do you want to say? Pike will draft it in your voice." ' +
+                'oninput="_mailUpdateComposeButton()"></textarea></label>' +
+            '<button type="submit" class="pill-btn-primary" id="mailComposeBtn" disabled>Draft</button>' +
+        '</form>';
+}
+
+function _mailUpdateComposeButton() {
+    var to = document.getElementById('mailFieldTo');
+    var intent = document.getElementById('mailFieldIntent');
+    var btn = document.getElementById('mailComposeBtn');
+    if (!to || !intent || !btn) return;
+    var emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to.value.trim());
+    var intentOk = intent.value.trim().length > 0;
+    btn.disabled = !(emailOk && intentOk);
+}
+
+async function _mailComposeSubmit() {
+    var to = document.getElementById('mailFieldTo').value.trim();
+    var cc = document.getElementById('mailFieldCc').value.trim();
+    var bcc = document.getElementById('mailFieldBcc').value.trim();
+    var subjectHint = document.getElementById('mailFieldSubject').value.trim();
+    var intent = document.getElementById('mailFieldIntent').value.trim();
+    if (!to || !intent) return;
+
+    var form = document.getElementById('mailComposeForm');
+    if (form) form.classList.add('composing');
+    var container = document.getElementById('mailComposeContent');
+    var spinner = document.createElement('div');
+    spinner.className = 'mail-compose-spinner';
+    spinner.textContent = 'Pike is composing…';
+    container.appendChild(spinner);
+
+    try {
+        var res = await authFetch(API + '/email/draft', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                to: to, intent: intent,
+                subject: subjectHint || undefined,
+                cc: cc || undefined,
+                bcc: bcc || undefined,
+            }),
+        });
+        var draft = await res.json();
+        if (!draft || draft.success === false) {
+            spinner.textContent = 'Couldn\'t draft right now.';
+            spinner.innerHTML += ' <button class="pill-btn" onclick="_mailRenderComposeForm()">Reset</button>';
+            return;
+        }
+        draft._origin = {
+            kind: 'new', to: to, intent: intent,
+            subject_hint: subjectHint, cc: cc, bcc: bcc
+        };
+        // Replace the entire content with the draft editor
+        container.innerHTML = '';
+        var wrap = document.createElement('div');
+        wrap.style.padding = '12px 16px';
+        wrap.innerHTML =
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
+                '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+                    '<span class="mail-recipient-pill" onclick="_mailRenderComposeForm()">To: ' +
+                        escapeHtml(to) + '</span>' +
+                    (cc ? '<span class="mail-recipient-pill" onclick="_mailRenderComposeForm()">CC: ' +
+                        escapeHtml(cc) + '</span>' : '') +
+                    (bcc ? '<span class="mail-recipient-pill" onclick="_mailRenderComposeForm()">BCC: ' +
+                        escapeHtml(bcc) + '</span>' : '') +
+                '</div>' +
+                '<button class="pill-btn-secondary" onclick="_mailRenderComposeForm()">↻ New Draft</button>' +
+            '</div>' +
+            _mailRenderDraftEditor(draft);
+        container.appendChild(wrap);
+    } catch (e) {
+        spinner.textContent = 'Network error.';
+    }
+}
+
+// Render the form once the COMPOSE tab is first shown
+(function _mailComposeInitHook() {
+    // Patch _mailSwitchTab to render the form when compose is activated
+    var origSwitch = _mailSwitchTab;
+    _mailSwitchTab = function(name) {
+        origSwitch(name);
+        if (name === 'compose') {
+            var container = document.getElementById('mailComposeContent');
+            if (container && !container.firstChild) _mailRenderComposeForm();
+        }
+    };
+})();
 
 function _mailRenderAuthCTA(section) {
     section.innerHTML =
