@@ -6,8 +6,16 @@ Separated from the protocol to keep API calls isolated and testable.
 
 import json
 import logging
+import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+# Tolerate Google returning a superset of the requested scopes during the OAuth
+# token exchange. This happens with incremental consent (include_granted_scopes):
+# once an account has granted a scope (e.g. an older gmail.send), Google keeps
+# returning it even after we stop requesting it, and oauthlib would otherwise
+# raise "Scope has changed" and abort the exchange.
+os.environ.setdefault("OAUTHLIB_RELAX_TOKEN_SCOPE", "1")
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +122,7 @@ def revoke_credentials(user_data_dir):
         logger.info("Deleted Google token file")
 
 
-def build_auth_url(redirect_uri):
+def build_auth_url(redirect_uri, state=None):
     """Generate an OAuth2 consent URL for Google sign-in.
 
     Returns the authorization URL string, or None on failure.
@@ -143,11 +151,15 @@ def build_auth_url(redirect_uri):
     flow = Flow.from_client_config(client_config, scopes=SCOPES)
     flow.redirect_uri = redirect_uri
 
-    auth_url, _ = flow.authorization_url(
-        access_type="offline",
-        include_granted_scopes="true",
-        prompt="consent",
-    )
+    kwargs = {
+        "access_type": "offline",
+        "include_granted_scopes": "true",
+        "prompt": "consent",
+    }
+    if state:
+        kwargs["state"] = state
+
+    auth_url, _ = flow.authorization_url(**kwargs)
     return auth_url
 
 

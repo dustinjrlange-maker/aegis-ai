@@ -14,6 +14,7 @@ narration of the inbox state).
 from __future__ import annotations
 
 import logging
+import re
 import time as _time
 
 import ollama
@@ -51,6 +52,22 @@ def _llm(messages: list[dict]) -> str:
         messages=messages,
     )
     return response["message"]["content"]
+
+
+def _clean_email_text(raw: str) -> str:
+    """Clean an LLM-drafted email while PRESERVING structure.
+
+    Unlike session.clean_reply (a chat-persona filter that collapses newlines,
+    caps at 3 sentences, and strips '!'), email bodies need their paragraph
+    breaks and full length intact — and a draft's "Subject: ...\\n\\n<body>"
+    layout depends on the newline survival. So we only strip qwen3 <think>
+    reasoning blocks and any wrapping code fences, then trim.
+    """
+    text = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL)
+    # Drop a leading/trailing ``` fence the model sometimes wraps output in.
+    text = re.sub(r"^\s*```[a-zA-Z]*\n?", "", text)
+    text = re.sub(r"\n?```\s*$", "", text)
+    return text.strip()
 
 
 def _format_messages_for_llm(messages: list[dict]) -> str:
@@ -197,7 +214,7 @@ def draft_reply(session, message_id: str, intent: str | None = None) -> dict:
             {"role": "system", "content": session.system_prompt_base},
             {"role": "user", "content": user_prompt},
         ])
-        body = session.clean_reply(raw).strip()
+        body = _clean_email_text(raw)
     except Exception as e:
         logger.exception("Reply drafting LLM call failed")
         return {"success": False, "error": f"LLM failed: {e}"}
@@ -275,7 +292,7 @@ def draft_new(session, to: str, intent: str, subject_hint: str | None = None,
             {"role": "system", "content": session.system_prompt_base},
             {"role": "user", "content": user_prompt},
         ])
-        text = session.clean_reply(raw).strip()
+        text = _clean_email_text(raw)
     except Exception as e:
         logger.exception("New-draft LLM call failed")
         return {"success": False, "error": f"LLM failed: {e}"}

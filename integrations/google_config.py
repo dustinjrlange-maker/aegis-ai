@@ -18,7 +18,9 @@ CONFIG_PATH = PROJECT_ROOT / "data" / "google_client.json"
 # OAuth2 scopes required for Gmail + Calendar
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
-    "https://www.googleapis.com/auth/gmail.send",
+    # gmail.compose covers draft create/update/delete AND sending drafts/messages.
+    # gmail.send alone cannot touch the drafts API, which the Mail feature relies on.
+    "https://www.googleapis.com/auth/gmail.compose",
     "https://www.googleapis.com/auth/calendar.readonly",
     "https://www.googleapis.com/auth/calendar.events",
 ]

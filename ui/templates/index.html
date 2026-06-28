@@ -13188,7 +13188,10 @@ function _mailSwitchTab(tabName) {
     }
     if (tabName === 'compose') {
         var composeContainer = document.getElementById('mailComposeContent');
-        if (composeContainer && !composeContainer.firstChild
+        // Use firstElementChild, not firstChild: the container holds an HTML
+        // comment placeholder (a non-element node), so firstChild is always
+        // truthy and the form would never render.
+        if (composeContainer && !composeContainer.firstElementChild
                 && typeof _mailRenderComposeForm === 'function') {
             _mailRenderComposeForm();
         }
