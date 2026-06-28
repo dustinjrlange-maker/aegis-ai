@@ -8277,6 +8277,36 @@ function togglePanelSettings(panelId) {
         dropdown.appendChild(dlSection);
     }
 
+    // ── Mail: per-panel settings ──
+    if (panelId === 'mailPanel') {
+        var s = {
+            maxMessages: _mailGetSetting('maxMessages', 10),
+            cacheTTLMin: _mailGetSetting('cacheTTLMin', 10),
+            showPikeIcon: _mailGetSetting('showPikeIcon', true),
+        };
+        var html =
+            '<div class="ps-divider"></div>' +
+            '<div class="settings-label">MAIL</div>' +
+            '<div class="deadline-setting-row">' +
+                '<span>Inbox messages</span>' +
+                '<input type="number" min="1" max="50" value="' + s.maxMessages +
+                    '" onchange="_mailSetSetting(\'maxMessages\', parseInt(this.value,10) || 10)" ' +
+                    'style="width:50px">' +
+            '</div>' +
+            '<div class="deadline-setting-row">' +
+                '<span>Cache TTL (min)</span>' +
+                '<input type="number" min="0" max="60" value="' + s.cacheTTLMin +
+                    '" onchange="_mailSetSetting(\'cacheTTLMin\', parseInt(this.value,10) || 10)" ' +
+                    'style="width:50px">' +
+            '</div>' +
+            '<label class="deadline-setting-row">' +
+                '<span>Show Pike icon on drafts</span>' +
+                '<input type="checkbox"' + (s.showPikeIcon ? ' checked' : '') +
+                    ' onchange="_mailSetSetting(\'showPikeIcon\', this.checked);if(_mailActiveTab===\'drafts\')_mailRenderDraftsList()">' +
+            '</label>';
+        dropdown.insertAdjacentHTML('beforeend', html);
+    }
+
     panel.appendChild(dropdown);
 
     if (panelId === 'taskPanel' && typeof _hydrateDeadlineSettingsUI === 'function') {
@@ -13132,6 +13162,12 @@ function closeMailPanel() {
         clearInterval(_mailAuthPoll);
         _mailAuthPoll = null;
     }
+    // Cancel any pending deferred-send so closing the panel aborts the send
+    if (_mailPendingSend) {
+        clearTimeout(_mailPendingSend.timeoutId);
+        if (_mailPendingSend.toastEl) _mailPendingSend.toastEl.remove();
+        _mailPendingSend = null;
+    }
 }
 
 function _mailSwitchTab(tabName) {
@@ -13803,6 +13839,111 @@ function _mailSetSetting(key, val) {
         obj[key] = val;
         localStorage.setItem('aegis_mail_settings', JSON.stringify(obj));
     } catch (e) {}
+}
+
+// ========== MAIL: SEND CONFIRMATION (two-step + 5s deferred + undo) ==========
+
+var _mailPendingSend = null; // {draftId, timeoutId, toastEl}
+
+function _mailStartSend(draftId, btn) {
+    if (!btn) return;
+    if (btn.classList.contains('confirming')) {
+        // Second click within the 5s window — commit to deferred send
+        clearTimeout(btn._resetTimeout);
+        btn.classList.remove('confirming');
+        btn.textContent = 'Sending…';
+        btn.disabled = true;
+        _mailCommitSend(draftId, btn);
+        return;
+    }
+    // First click — flip into confirming state
+    btn.classList.add('confirming');
+    btn.textContent = 'Confirm Send';
+    btn._resetTimeout = setTimeout(function() {
+        btn.classList.remove('confirming');
+        btn.textContent = 'Send';
+    }, 5000);
+}
+
+function _mailCommitSend(draftId, btn) {
+    // Save current edits to the draft before scheduling the send
+    var subjEl = document.getElementById('mailDraftSubject_' + draftId);
+    var bodyEl = document.getElementById('mailDraftBody_' + draftId);
+    var subject = subjEl ? subjEl.value : '';
+    var body = bodyEl ? bodyEl.value : '';
+    // Capture the editor element so we can restore it on undo
+    var editor = document.querySelector(
+        '.mail-draft-editor[data-draft-id="' + draftId + '"]'
+    );
+    // Hide the editor immediately
+    if (editor) editor.style.display = 'none';
+    // Show toast
+    var toast = _mailShowUndoToast(draftId);
+    var timeoutId = setTimeout(async function() {
+        toast.remove();
+        _mailPendingSend = null;
+        // Save edits to draft, then send
+        try {
+            await authFetch(API + '/email/drafts/' + encodeURIComponent(draftId), {
+                method: 'PATCH',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({subject: subject, body: body}),
+            });
+            var res = await authFetch(API + '/email/send-draft/' +
+                encodeURIComponent(draftId), {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({confirm: true}),
+            });
+            var result = await res.json();
+            if (result && result.success !== false) {
+                showToast('Sent');
+                // Remove the editor from DOM permanently
+                if (editor) editor.remove();
+                // Refresh inbox if it's loaded
+                if (_mailActiveTab === 'inbox' && _mailInboxLoaded) loadInboxDigest();
+                if (_mailActiveTab === 'drafts') loadMailDrafts();
+            } else {
+                showToast('Send failed — saved as draft', 'error');
+                if (editor) editor.style.display = '';
+            }
+        } catch (e) {
+            showToast('Send failed — saved as draft', 'error');
+            if (editor) editor.style.display = '';
+        }
+    }, 5000);
+    _mailPendingSend = {draftId: draftId, timeoutId: timeoutId,
+                       toastEl: toast, editorEl: editor};
+}
+
+function _mailShowUndoToast(draftId) {
+    var existing = document.getElementById('mailUndoToast');
+    if (existing) existing.remove();
+    var toast = document.createElement('div');
+    toast.id = 'mailUndoToast';
+    toast.className = 'mail-undo-toast';
+    toast.innerHTML =
+        '<span>Sending in 5s</span> ' +
+        '<span class="mail-undo-link" onclick="_mailUndoSend()">undo</span>';
+    document.body.appendChild(toast);
+    return toast;
+}
+
+function _mailUndoSend() {
+    if (!_mailPendingSend) return;
+    clearTimeout(_mailPendingSend.timeoutId);
+    if (_mailPendingSend.toastEl) _mailPendingSend.toastEl.remove();
+    if (_mailPendingSend.editorEl) {
+        _mailPendingSend.editorEl.style.display = '';
+        var btn = document.getElementById('mailSendBtn_' + _mailPendingSend.draftId);
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Send';
+            btn.classList.remove('confirming');
+        }
+    }
+    showToast('Send cancelled');
+    _mailPendingSend = null;
 }
 
 function _mailRenderAuthCTA(section) {
