@@ -25,7 +25,7 @@ from core.protocols import google_tools as gt
 logger = logging.getLogger(__name__)
 
 
-# Per-user narrative cache: {user_id: (timestamp_epoch_s, narrative_str)}
+# Per-user narrative cache: {(user_id, categories_tuple): (timestamp_epoch_s, narrative_str)}
 # NOTE: Single-process cache — fragments per-worker if uvicorn ever uses
 # multiple workers. Fine for Aegis's single-user local deployment.
 _narrative_cache: dict[str, tuple[float, str]] = {}
@@ -90,7 +90,8 @@ def _format_messages_for_llm(messages: list[dict]) -> str:
 # ---------------------------------------------------------------------------
 
 
-def get_inbox_digest(session, max_messages: int = 10, fresh: bool = False) -> dict:
+def get_inbox_digest(session, max_messages: int = 10, fresh: bool = False,
+                     categories: tuple = ("primary",)) -> dict:
     """Pike-voiced summary of recent inbox.
 
     Returns: {narrative, unread_count, messages, cached_age_s, error?}
@@ -107,8 +108,9 @@ def get_inbox_digest(session, max_messages: int = 10, fresh: bool = False) -> di
         }
 
     try:
-        unread_count = gt.gmail_unread_count(creds)
-        messages = gt.gmail_list_messages(creds, max_results=max_messages)
+        unread_count = gt.gmail_unread_count(creds, categories=categories)
+        messages = gt.gmail_list_messages(creds, max_results=max_messages,
+                                          categories=categories)
     except Exception as e:
         logger.exception("Inbox digest fetch failed")
         return {
@@ -128,7 +130,8 @@ def get_inbox_digest(session, max_messages: int = 10, fresh: bool = False) -> di
     # Narrative cache (per-user, TTL-gated). Always re-fetch the message list
     # since it's cheap; the LLM call is what we want to avoid.
     user_id = getattr(session, "user_id", "default")
-    cached = _narrative_cache.get(user_id)
+    cache_key = (user_id, tuple(categories) if categories else ())
+    cached = _narrative_cache.get(cache_key)
     if cached and not fresh:
         ts, narrative = cached
         if _time.time() - ts < _NARRATIVE_TTL_S:
@@ -158,7 +161,7 @@ def get_inbox_digest(session, max_messages: int = 10, fresh: bool = False) -> di
         ])
         narrative = session.clean_reply(raw).strip()
         # Cache the successful narrative.
-        _narrative_cache[user_id] = (_time.time(), narrative)
+        _narrative_cache[cache_key] = (_time.time(), narrative)
     except Exception as e:
         logger.exception("Inbox digest LLM call failed")
         narrative = f"[Briefing failed — {e}]"

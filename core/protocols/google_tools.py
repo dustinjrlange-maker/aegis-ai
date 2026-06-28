@@ -212,8 +212,8 @@ def _get_gmail_service(creds):
         return None
 
 
-def gmail_unread_count(creds):
-    """Get the number of unread emails in the inbox."""
+def gmail_unread_count(creds, categories=("primary",)):
+    """Get the number of unread emails in the inbox (Primary tab by default)."""
     service = _get_gmail_service(creds)
     if not service:
         return 0
@@ -221,7 +221,7 @@ def gmail_unread_count(creds):
     try:
         results = service.users().messages().list(
             userId="me",
-            q="is:unread in:inbox",
+            q="is:unread " + _inbox_query(categories),
             maxResults=1,
         ).execute()
         return results.get("resultSizeEstimate", 0)
@@ -250,9 +250,24 @@ def gmail_mark_read(creds, message_id):
         return {"ok": False, "error": str(e)}
 
 
-def gmail_list_messages(creds, max_results=10):
+def _inbox_query(categories=("primary",)):
+    """Build a Gmail search query for the inbox, scoped to tab categories.
+
+    Gmail's tabbed inbox maps to search categories: primary, social,
+    promotions, updates, forums. Passing categories=("primary",) yields the
+    Primary tab only (the user's default view) and hides promo/social noise.
+    Pass None/empty to disable filtering (all inbox mail).
+    """
+    if not categories:
+        return "in:inbox"
+    cats = " OR ".join("category:%s" % c for c in categories)
+    return "in:inbox (%s)" % cats
+
+
+def gmail_list_messages(creds, max_results=10, categories=("primary",)):
     """List recent inbox messages.
 
+    categories: Gmail tab categories to include (default Primary only).
     Returns list of {id, subject, sender, date, snippet}.
     """
     service = _get_gmail_service(creds)
@@ -262,7 +277,7 @@ def gmail_list_messages(creds, max_results=10):
     try:
         results = service.users().messages().list(
             userId="me",
-            q="in:inbox",
+            q=_inbox_query(categories),
             maxResults=max_results,
         ).execute()
 
@@ -324,30 +339,43 @@ def gmail_get_message(creds, message_id):
 
 
 def _extract_body(payload):
-    """Extract plain text body from a Gmail message payload."""
+    """Extract a best-effort text body from a Gmail payload.
+
+    Prefers text/plain; falls back to text/html (tags stripped). Recurses
+    through nested multipart/* so HTML-only mail (often wrapped in
+    multipart/related → multipart/alternative) still yields text instead of
+    a blank body. Script/style blocks are dropped before tag-stripping so
+    CSS/JS never leaks into the rendered text.
+    """
     import base64
+    import re
 
-    # Simple single-part message
-    if payload.get("mimeType") == "text/plain" and payload.get("body", {}).get("data"):
-        return base64.urlsafe_b64decode(payload["body"]["data"]).decode("utf-8", errors="replace")
+    def _decode(part):
+        data = part.get("body", {}).get("data")
+        if not data:
+            return ""
+        return base64.urlsafe_b64decode(data).decode("utf-8", errors="replace")
 
-    # Multipart — look for text/plain
-    for part in payload.get("parts", []):
-        if part.get("mimeType") == "text/plain" and part.get("body", {}).get("data"):
-            return base64.urlsafe_b64decode(part["body"]["data"]).decode("utf-8", errors="replace")
-        # Nested multipart
-        if part.get("parts"):
-            result = _extract_body(part)
-            if result:
-                return result
+    def _walk(part):
+        """Return (plain_text, html_text) found anywhere in this subtree."""
+        mime = part.get("mimeType", "")
+        plain = _decode(part) if mime == "text/plain" else ""
+        html = _decode(part) if mime == "text/html" else ""
+        for sub in part.get("parts", []) or []:
+            sub_plain, sub_html = _walk(sub)
+            plain = plain or sub_plain
+            html = html or sub_html
+        return plain, html
 
-    # Fallback: try text/html and strip tags
-    for part in payload.get("parts", []):
-        if part.get("mimeType") == "text/html" and part.get("body", {}).get("data"):
-            import re
-            html = base64.urlsafe_b64decode(part["body"]["data"]).decode("utf-8", errors="replace")
-            text = re.sub(r"<[^>]+>", " ", html)
-            text = re.sub(r"\s+", " ", text).strip()
+    plain, html = _walk(payload)
+    if plain.strip():
+        return plain
+    if html.strip():
+        text = re.sub(r"<(script|style)\b[^>]*>.*?</\1>", " ", html,
+                      flags=re.DOTALL | re.IGNORECASE)
+        text = re.sub(r"<[^>]+>", " ", text)
+        text = re.sub(r"\s+", " ", text).strip()
+        if text:
             return text
 
     return "(could not extract message body)"

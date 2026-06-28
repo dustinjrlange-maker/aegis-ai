@@ -1068,11 +1068,21 @@ async def get_briefing_narrative(
 
 @app.get("/api/email/inbox-digest")
 async def email_inbox_digest(fresh: int = 0, max_messages: int = 10,
+                              categories: str = "primary",
                               user_id: str = Depends(require_user)):
-    """Pike-voiced summary of the user's recent inbox."""
+    """Pike-voiced summary of the user's recent inbox.
+
+    categories: comma-separated Gmail tab categories to include
+    (primary, social, promotions, updates, forums). "all" disables filtering.
+    Defaults to Primary so promo/social/update noise stays hidden.
+    """
     from core.email_assistant import get_inbox_digest
     session = session_manager.get_or_create(user_id)
-    return get_inbox_digest(session, max_messages=max_messages, fresh=bool(fresh))
+    cats = tuple(c.strip() for c in categories.split(",") if c.strip())
+    if "all" in cats:
+        cats = ()
+    return get_inbox_digest(session, max_messages=max_messages,
+                            fresh=bool(fresh), categories=cats)
 
 
 @app.get("/api/email/drafts")

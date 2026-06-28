@@ -8286,6 +8286,25 @@ function togglePanelSettings(panelId) {
             maxMessages: _mailGetSetting('maxMessages', 10),
             showPikeIcon: _mailGetSetting('showPikeIcon', true),
         };
+        // Inbox category filter (mirrors Gmail's tabs). Default Primary only so
+        // promo/social/update mail stays out of the main view.
+        var mailCats = [
+            ['primary', 'Primary'], ['social', 'Social'],
+            ['promotions', 'Promotions'], ['updates', 'Updates'],
+            ['forums', 'Forums'],
+        ];
+        var curCats = _mailGetSetting('categories', 'primary');
+        var catRows = '';
+        for (var ci = 0; ci < mailCats.length; ci++) {
+            var catKey = mailCats[ci][0];
+            var on = (',' + curCats + ',').indexOf(',' + catKey + ',') >= 0;
+            catRows +=
+                '<label class="deadline-setting-row">' +
+                    '<span>' + mailCats[ci][1] + '</span>' +
+                    '<input type="checkbox"' + (on ? ' checked' : '') +
+                        ' onchange="_mailToggleCategory(\'' + catKey + '\', this.checked)">' +
+                '</label>';
+        }
         var html =
             '<div class="ps-divider"></div>' +
             '<div class="settings-label">MAIL</div>' +
@@ -8295,6 +8314,9 @@ function togglePanelSettings(panelId) {
                     '" onchange="_mailSetSetting(\'maxMessages\', parseInt(this.value,10) || 10)" ' +
                     'style="width:50px">' +
             '</div>' +
+            '<div class="settings-sublabel" style="opacity:.7;font-size:.8em;margin:6px 0 2px">' +
+                'Inbox categories</div>' +
+            catRows +
             '<label class="deadline-setting-row">' +
                 '<span>Show Pike icon on drafts</span>' +
                 '<input type="checkbox"' + (mailSettings.showPikeIcon ? ' checked' : '') +
@@ -13226,7 +13248,9 @@ async function loadInboxDigest(fresh) {
     if (fresh) section.innerHTML =
         '<div class="mail-narrative-loading">Pike is reading your inbox…</div>';
     try {
-        var url = API + '/email/inbox-digest' + (fresh ? '?fresh=1' : '');
+        var cats = _mailGetSetting('categories', 'primary');
+        var url = API + '/email/inbox-digest?categories=' +
+            encodeURIComponent(cats) + (fresh ? '&fresh=1' : '');
         var res = await authFetch(url);
         var data = await res.json();
         if (data && data.error === 'not_authorized') {
@@ -13838,6 +13862,24 @@ function _mailSetSetting(key, val) {
         obj[key] = val;
         localStorage.setItem('aegis_mail_settings', JSON.stringify(obj));
     } catch (e) {}
+}
+
+// Toggle a Gmail inbox category (primary/social/promotions/updates/forums) in
+// the saved filter, then reload the inbox. Never lets the set go empty — an
+// empty filter would fetch ALL categories, the opposite of what the user wants.
+function _mailToggleCategory(cat, on) {
+    var cur = _mailGetSetting('categories', 'primary')
+        .split(',').map(function (s) { return s.trim(); })
+        .filter(function (s) { return s; });
+    var i = cur.indexOf(cat);
+    if (on && i < 0) cur.push(cat);
+    if (!on && i >= 0) cur.splice(i, 1);
+    if (!cur.length) cur = ['primary'];
+    _mailSetSetting('categories', cur.join(','));
+    _mailInboxLoaded = false;
+    if (_mailActiveTab === 'inbox' && typeof loadInboxDigest === 'function') {
+        loadInboxDigest(true);
+    }
 }
 
 // ========== MAIL: SEND CONFIRMATION (two-step + 5s deferred + undo) ==========
