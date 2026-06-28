@@ -371,9 +371,13 @@ def _extract_body(payload):
     if plain.strip():
         return plain
     if html.strip():
+        import html as _htmlmod
         text = re.sub(r"<(script|style)\b[^>]*>.*?</\1>", " ", html,
                       flags=re.DOTALL | re.IGNORECASE)
         text = re.sub(r"<[^>]+>", " ", text)
+        text = _htmlmod.unescape(text)          # &nbsp; &amp; &#39; -> real chars
+        text = text.replace("‌", "")        # drop zero-width non-joiners
+        text = text.replace("\xa0", " ")         # nbsp -> normal space
         text = re.sub(r"\s+", " ", text).strip()
         if text:
             return text
