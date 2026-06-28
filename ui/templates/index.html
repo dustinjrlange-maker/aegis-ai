@@ -13963,12 +13963,31 @@ function _mailRenderAuthCTA(section) {
 
 var _mailAuthPoll = null;
 
-function _mailStartAuth() {
-    var url = '/api/google/oauth/start';
+async function _mailStartAuth() {
+    // Step 1: ask the backend for the Google OAuth URL (requires Aegis auth,
+    // so we use authFetch). Step 2: open THAT URL externally — Google won't
+    // authorize inside an Electron webview, must be a real browser.
+    var authUrl = null;
+    try {
+        var res = await authFetch(API + '/google/auth');
+        var data = await res.json();
+        if (data && data.auth_url) {
+            authUrl = data.auth_url;
+        } else if (data && data.error) {
+            if (typeof showToast === 'function') {
+                showToast('Google auth not configured: ' + data.error, 'error');
+            }
+            return;
+        }
+    } catch (e) {
+        if (typeof showToast === 'function') showToast("Couldn't start Google auth", 'error');
+        return;
+    }
+    if (!authUrl) return;
     if (window.electronAPI && typeof window.electronAPI.openExternal === 'function') {
-        window.electronAPI.openExternal(url);
+        window.electronAPI.openExternal(authUrl);
     } else {
-        window.open(url, '_blank');
+        window.open(authUrl, '_blank');
     }
     // Cancel any prior poll
     if (_mailAuthPoll) {
