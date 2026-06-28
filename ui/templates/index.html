@@ -8279,9 +8279,11 @@ function togglePanelSettings(panelId) {
 
     // ── Mail: per-panel settings ──
     if (panelId === 'mailPanel') {
-        var s = {
+        // cacheTTLMin omitted — backend hardcodes _NARRATIVE_TTL_S=600. Re-add
+        // when there's a real reason to expose it (per-request override
+        // would need a new query param on /api/email/inbox-digest).
+        var mailSettings = {
             maxMessages: _mailGetSetting('maxMessages', 10),
-            cacheTTLMin: _mailGetSetting('cacheTTLMin', 10),
             showPikeIcon: _mailGetSetting('showPikeIcon', true),
         };
         var html =
@@ -8289,19 +8291,13 @@ function togglePanelSettings(panelId) {
             '<div class="settings-label">MAIL</div>' +
             '<div class="deadline-setting-row">' +
                 '<span>Inbox messages</span>' +
-                '<input type="number" min="1" max="50" value="' + s.maxMessages +
+                '<input type="number" min="1" max="50" value="' + mailSettings.maxMessages +
                     '" onchange="_mailSetSetting(\'maxMessages\', parseInt(this.value,10) || 10)" ' +
-                    'style="width:50px">' +
-            '</div>' +
-            '<div class="deadline-setting-row">' +
-                '<span>Cache TTL (min)</span>' +
-                '<input type="number" min="0" max="60" value="' + s.cacheTTLMin +
-                    '" onchange="_mailSetSetting(\'cacheTTLMin\', parseInt(this.value,10) || 10)" ' +
                     'style="width:50px">' +
             '</div>' +
             '<label class="deadline-setting-row">' +
                 '<span>Show Pike icon on drafts</span>' +
-                '<input type="checkbox"' + (s.showPikeIcon ? ' checked' : '') +
+                '<input type="checkbox"' + (mailSettings.showPikeIcon ? ' checked' : '') +
                     ' onchange="_mailSetSetting(\'showPikeIcon\', this.checked);if(_mailActiveTab===\'drafts\')_mailRenderDraftsList()">' +
             '</label>';
         dropdown.insertAdjacentHTML('beforeend', html);
@@ -13882,13 +13878,23 @@ function _mailCommitSend(draftId, btn) {
     var timeoutId = setTimeout(async function() {
         toast.remove();
         _mailPendingSend = null;
-        // Save edits to draft, then send
+        // Save edits to draft, then send. If the PATCH fails, abort — sending
+        // a stale draft and showing 'Sent' would be silently wrong.
         try {
-            await authFetch(API + '/email/drafts/' + encodeURIComponent(draftId), {
+            var patchRes = await authFetch(API + '/email/drafts/' + encodeURIComponent(draftId), {
                 method: 'PATCH',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({subject: subject, body: body}),
             });
+            var patchData = null;
+            try { patchData = await patchRes.json(); } catch (e) {}
+            if (!patchRes.ok || (patchData && patchData.ok === false)) {
+                showToast('Save failed — send cancelled', 'error');
+                if (editor) editor.style.display = '';
+                var pBtn = document.getElementById('mailSendBtn_' + draftId);
+                if (pBtn) { pBtn.disabled = false; pBtn.textContent = 'Send'; }
+                return;
+            }
             var res = await authFetch(API + '/email/send-draft/' +
                 encodeURIComponent(draftId), {
                 method: 'POST',
