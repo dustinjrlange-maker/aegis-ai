@@ -172,7 +172,7 @@ class EmailOpsProtocol(Protocol):
 
     # ---- classification ----
 
-    _ALLOWED_ACTIONS = ("reply", "send", "edit", "discard")
+    _ALLOWED_ACTIONS = ("reply", "new", "forward", "send", "edit", "discard")
 
     def _build_classifier_prompt(self, text, listing, pending):
         return (
@@ -182,11 +182,15 @@ class EmailOpsProtocol(Protocol):
             f"A draft is currently pending: {'yes' if pending else 'no'}\n\n"
             f'User said: "{text}"\n\n'
             "Reply with ONE line, exactly this format:\n"
-            "ACTION=<reply|send|edit|discard|none> | REF=<inbox number or -> "
-            "| INSTRUCTION=<what to say, or ->\n\n"
+            "ACTION=<reply|new|forward|send|edit|discard|none> | REF=<inbox number or -> "
+            "| TO=<email address or -> | INSTRUCTION=<what to say, or ->\n\n"
             "Rules:\n"
             "- reply: replying to an inbox email. REF = the inbox number. "
             "INSTRUCTION = what the reply should say.\n"
+            "- new: a brand-new email. TO = the recipient's email address. "
+            "INSTRUCTION = what it should say.\n"
+            "- forward: forward an inbox email. REF = the inbox number. "
+            "TO = the recipient's email address.\n"
             "- send: send the pending draft. Only if a draft is pending.\n"
             "- edit: change the pending draft. INSTRUCTION = the change. "
             "Only if a draft is pending.\n"
@@ -207,6 +211,11 @@ class EmailOpsProtocol(Protocol):
         ref_m = re.search(r"REF\s*=\s*#?(\d+)", text)
         if ref_m:
             out["ref"] = ref_m.group(1)
+        to_m = re.search(r"TO\s*=\s*([^|]+)", text)
+        if to_m:
+            to_val = to_m.group(1).strip()
+            if to_val and to_val != "-":
+                out["to"] = to_val
         ins_m = re.search(r"INSTRUCTION\s*=\s*(.+)", text)
         if ins_m:
             ins = ins_m.group(1).strip()

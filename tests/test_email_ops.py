@@ -337,3 +337,21 @@ def test_classify_skips_inbox_when_pending(monkeypatch):
                         lambda messages, **kw: "ACTION=discard | REF=- | INSTRUCTION=-")
     p._classify("discard that")
     assert called["inbox"] is False   # inbox NOT fetched while a draft is pending
+
+
+def test_parse_classification_new_with_to():
+    p = _proto(_FakeSession())
+    out = p._parse_classification(
+        "ACTION=new | REF=- | TO=bob@x.ca | INSTRUCTION=ask about the schedule")
+    assert out["action"] == "new"
+    assert out["to"] == "bob@x.ca"
+    assert out["instruction"] == "ask about the schedule"
+
+
+def test_parse_classification_forward():
+    p = _proto(_FakeSession())
+    out = p._parse_classification("ACTION=forward | REF=3 | TO=sue@x.ca | INSTRUCTION=-")
+    assert out["action"] == "forward"
+    assert out["ref"] == "3"
+    assert out["to"] == "sue@x.ca"
+    assert "instruction" not in out
