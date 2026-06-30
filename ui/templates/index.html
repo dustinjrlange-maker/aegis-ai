@@ -9896,6 +9896,16 @@ function _refreshAfterChat() {
     }
     if (_isPanelOpen('moodPanel') && typeof loadMoods === 'function') loadMoods();
     if (_isPanelOpen('contactPanel') && typeof loadContacts === 'function') loadContacts();
+    // Mail panel: a chat-driven email action may have created/sent a draft or
+    // changed the inbox. Refresh whichever mail tab is showing.
+    if (typeof _isPanelOpen === 'function' && _isPanelOpen('mailPanel')) {
+        if (_mailActiveTab === 'drafts' && typeof loadMailDrafts === 'function') {
+            _mailDraftsLoaded = false;
+            loadMailDrafts();
+        } else if (_mailActiveTab === 'inbox' && typeof loadInboxDigest === 'function') {
+            loadInboxDigest(true);
+        }
+    }
     // Sidebar widgets — only re-render the ones that are visible (display !== none)
     ['widget-tasks', 'widget-calendar', 'widget-mood', 'widget-habits'].forEach(function(wid) {
         var w = document.getElementById(wid);
