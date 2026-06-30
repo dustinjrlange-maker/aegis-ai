@@ -287,3 +287,53 @@ def test_session_registers_email_ops_with_backref():
     proto = s.protocol_registry.get("email_ops")
     assert proto is not None
     assert proto._session is s
+
+
+def test_edit_failure_preserves_old_draft(monkeypatch):
+    p = _proto(_FakeSession())
+    _pending_reply(p)
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(gt, "gmail_list_messages",
+                        lambda creds, max_results, categories: [])
+    monkeypatch.setattr(ea, "_llm",
+                        lambda messages, **kw: "ACTION=edit | REF=- | INSTRUCTION=make it formal")
+    deleted = {"called": False}
+    monkeypatch.setattr(gt, "gmail_delete_draft",
+                        lambda creds, draft_id: deleted.update(called=True))
+    monkeypatch.setattr(ea, "draft_reply",
+                        lambda session, message_id, intent: {"success": False, "error": "LLM down"})
+    result = p.process_input("make it formal", {})
+    assert "LLM down" in result["response"]
+    assert deleted["called"] is False          # old draft NOT deleted on failure
+    assert p._pending["draft_id"] == "d1"        # pending unchanged
+
+
+def test_send_requires_literal_phrase(monkeypatch):
+    p = _proto(_FakeSession())
+    _pending_reply(p)
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(gt, "gmail_list_messages",
+                        lambda creds, max_results, categories: [])
+    monkeypatch.setattr(ea, "_llm",
+                        lambda messages, **kw: "ACTION=send | REF=- | INSTRUCTION=-")
+    called = {"sent": False}
+    monkeypatch.setattr(ea, "send_draft",
+                        lambda session, draft_id: called.update(sent=True) or {"success": True})
+    result = p.process_input("yeah ok do it", {})   # affirmative but no send word
+    assert called["sent"] is False                   # must NOT send
+    assert "confirm" in result["response"].lower()
+    assert p._pending is not None                     # draft still held
+
+
+def test_classify_skips_inbox_when_pending(monkeypatch):
+    p = _proto(_FakeSession())
+    _pending_reply(p)
+    called = {"inbox": False}
+    def _boom(self):
+        called["inbox"] = True
+        return "", {}
+    monkeypatch.setattr(EmailOpsProtocol, "_recent_inbox", _boom)
+    monkeypatch.setattr(ea, "_llm",
+                        lambda messages, **kw: "ACTION=discard | REF=- | INSTRUCTION=-")
+    p._classify("discard that")
+    assert called["inbox"] is False   # inbox NOT fetched while a draft is pending

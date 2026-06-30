@@ -27,6 +27,10 @@ _EMAIL_CUE = re.compile(
     re.IGNORECASE,
 )
 
+# A real send requires an explicit send word, not just an affirmative — the
+# classifier alone must not be able to transmit a held draft on a vague "yeah ok".
+_SEND_PHRASE = re.compile(r"\b(send|ship it|fire it off)\b", re.IGNORECASE)
+
 
 class EmailOpsProtocol(Protocol):
     """Turns chat requests into email actions (Phase 1: reply/send/edit/discard)."""
@@ -114,6 +118,9 @@ class EmailOpsProtocol(Protocol):
         )
 
     def _do_send(self, action, text):
+        if not _SEND_PHRASE.search(text or ""):
+            return ("Just to confirm — send the draft to "
+                    f"{self._pending.get('to', 'them')}? Say \"send it\" to confirm.")
         res = ea.send_draft(self._session, self._pending["draft_id"])
         if not res.get("success"):
             return f"I couldn't send it: {res.get('error', 'unknown error')}"
@@ -134,14 +141,14 @@ class EmailOpsProtocol(Protocol):
         p = self._pending
         change = action.get("instruction") or text
         new_intent = f"{p.get('intent', '')} | revision: {change}".strip(" |")
+        res = ea.draft_reply(self._session, p["message_id"], intent=new_intent)
+        if not res.get("success"):
+            return f"I couldn't revise it: {res.get('error', 'unknown error')}"
         creds = ea._creds_from_session(self._session)
         try:
             gt.gmail_delete_draft(creds, p["draft_id"])
         except Exception:
             logger.exception("Could not delete superseded draft")
-        res = ea.draft_reply(self._session, p["message_id"], intent=new_intent)
-        if not res.get("success"):
-            return f"I couldn't revise it: {res.get('error', 'unknown error')}"
         self._pending = {
             **p,
             "draft_id": res["draft_id"],
@@ -236,7 +243,10 @@ class EmailOpsProtocol(Protocol):
         return None
 
     def _classify(self, text):
-        listing, self._id_map = self._recent_inbox()
+        if self._pending is None:
+            listing, self._id_map = self._recent_inbox()
+        else:
+            listing, self._id_map = "", {}
         prompt = self._build_classifier_prompt(text, listing, self._pending is not None)
         try:
             raw = ea._llm(
