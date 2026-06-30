@@ -1068,11 +1068,21 @@ async def get_briefing_narrative(
 
 @app.get("/api/email/inbox-digest")
 async def email_inbox_digest(fresh: int = 0, max_messages: int = 10,
+                              categories: str = "primary",
                               user_id: str = Depends(require_user)):
-    """Pike-voiced summary of the user's recent inbox."""
+    """Pike-voiced summary of the user's recent inbox.
+
+    categories: comma-separated Gmail tab categories to include
+    (primary, social, promotions, updates, forums). "all" disables filtering.
+    Defaults to Primary so promo/social/update noise stays hidden.
+    """
     from core.email_assistant import get_inbox_digest
     session = session_manager.get_or_create(user_id)
-    return get_inbox_digest(session, max_messages=max_messages, fresh=bool(fresh))
+    cats = tuple(c.strip() for c in categories.split(",") if c.strip())
+    if "all" in cats:
+        cats = ()
+    return get_inbox_digest(session, max_messages=max_messages,
+                            fresh=bool(fresh), categories=cats)
 
 
 @app.get("/api/email/drafts")
@@ -1960,6 +1970,10 @@ async def google_auth_start(request: Request, user_id: str = Depends(require_use
 
     # Build redirect URI from the incoming request
     host = request.headers.get("host", "localhost:8484")
+    # Google treats 127.0.0.1 and localhost as distinct redirect URIs; the
+    # Electron shell loads the app over 127.0.0.1, so normalize to the
+    # localhost form that's registered in the Google Cloud Console.
+    host = host.replace("127.0.0.1", "localhost")
     scheme = request.headers.get("x-forwarded-proto", "http")
     redirect_uri = f"{scheme}://{host}/api/google/callback"
 
@@ -1967,13 +1981,9 @@ async def google_auth_start(request: Request, user_id: str = Depends(require_use
     state = secrets.token_urlsafe(32)
     _oauth_states[state] = user_id
 
-    auth_url = build_auth_url(redirect_uri)
+    auth_url = build_auth_url(redirect_uri, state=state)
     if not auth_url:
         return {"error": "Could not generate Google auth URL"}
-
-    # Append state to the auth URL
-    separator = "&" if "?" in auth_url else "?"
-    auth_url += f"{separator}state={state}"
 
     return {"auth_url": auth_url}
 
@@ -2003,6 +2013,8 @@ async def google_auth_callback(request: Request):
 
     # Build the same redirect URI used in the auth request
     host = request.headers.get("host", "localhost:8484")
+    # Must match the normalization done in the auth request above.
+    host = host.replace("127.0.0.1", "localhost")
     scheme = request.headers.get("x-forwarded-proto", "http")
     redirect_uri = f"{scheme}://{host}/api/google/callback"
 

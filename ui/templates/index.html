@@ -5669,6 +5669,48 @@
             text-align: center;
         }
 
+        /* Inbox category tabs (Gmail-style) */
+        .mail-cat-tabs {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+            padding: 6px 8px 2px;
+        }
+        .mail-cat-tab {
+            background: rgba(85,153,255,0.08);
+            color: var(--lcars-text-dim);
+            border: 1px solid transparent;
+            padding: 3px 11px;
+            border-radius: 11px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 10px;
+            letter-spacing: 0.06em;
+            transition: background 0.15s, color 0.15s;
+        }
+        .mail-cat-tab:hover { background: rgba(85,153,255,0.16); color: var(--lcars-text); }
+        .mail-cat-tab.active {
+            background: rgba(93,217,217,0.18);
+            color: var(--lcars-text);
+            border-color: var(--lcars-cyan, #5dd9d9);
+        }
+
+        /* Load-more button */
+        .mail-loadmore-wrap { text-align: center; padding: 10px 8px 16px; }
+        .mail-loadmore {
+            background: rgba(85,153,255,0.10);
+            color: var(--lcars-cyan, #5dd9d9);
+            border: 1px solid rgba(93,217,217,0.4);
+            border-radius: 13px;
+            padding: 6px 18px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 11px;
+            letter-spacing: 0.06em;
+            transition: background 0.15s;
+        }
+        .mail-loadmore:hover { background: rgba(93,217,217,0.2); }
+
         /* Message + draft rows */
         .mail-row {
             display: grid;
@@ -8286,13 +8328,17 @@ function togglePanelSettings(panelId) {
             maxMessages: _mailGetSetting('maxMessages', 10),
             showPikeIcon: _mailGetSetting('showPikeIcon', true),
         };
+        // Category selection lives in the inbox tabs now; this is just the base
+        // message count (the "Load more" button extends it from here).
         var html =
             '<div class="ps-divider"></div>' +
             '<div class="settings-label">MAIL</div>' +
             '<div class="deadline-setting-row">' +
                 '<span>Inbox messages</span>' +
                 '<input type="number" min="1" max="50" value="' + mailSettings.maxMessages +
-                    '" onchange="_mailSetSetting(\'maxMessages\', parseInt(this.value,10) || 10)" ' +
+                    '" onchange="_mailSetSetting(\'maxMessages\', parseInt(this.value,10) || 10);' +
+                    '_mailInboxLimit = parseInt(this.value,10) || 10;' +
+                    'if(_mailActiveTab===\'inbox\')loadInboxDigest(true)" ' +
                     'style="width:50px">' +
             '</div>' +
             '<label class="deadline-setting-row">' +
@@ -13188,7 +13234,10 @@ function _mailSwitchTab(tabName) {
     }
     if (tabName === 'compose') {
         var composeContainer = document.getElementById('mailComposeContent');
-        if (composeContainer && !composeContainer.firstChild
+        // Use firstElementChild, not firstChild: the container holds an HTML
+        // comment placeholder (a non-element node), so firstChild is always
+        // truthy and the form would never render.
+        if (composeContainer && !composeContainer.firstElementChild
                 && typeof _mailRenderComposeForm === 'function') {
             _mailRenderComposeForm();
         }
@@ -13212,6 +13261,34 @@ function _mailOnPanelOpen() {
 var _mailInbox = { narrative: '', messages: [], cachedAgeS: 0 };
 var _mailInboxClickWired = false;
 
+// Inbox category tabs (single-select). 'all' maps to no filter on the backend.
+var MAIL_CATEGORY_TABS = [
+    ['primary', 'Primary'], ['social', 'Social'], ['promotions', 'Promotions'],
+    ['updates', 'Updates'], ['forums', 'Forums'], ['all', 'All'],
+];
+var MAIL_LOADMORE_STEP = 15;
+// How many messages to fetch this load; grows via "Load more", resets on tab switch.
+var _mailInboxLimit = 0;
+
+function _mailBaseLimit() {
+    var n = parseInt(_mailGetSetting('maxMessages', 10), 10);
+    return (n && n > 0) ? n : 10;
+}
+
+// Switch the active inbox category, reset the message count, and reload.
+function _mailSwitchCategory(cat) {
+    if (_mailGetSetting('categories', 'primary') === cat) return;
+    _mailSetSetting('categories', cat);
+    _mailInboxLimit = _mailBaseLimit();
+    loadInboxDigest(true);
+}
+
+// Pull more messages (a single larger fetch — the digest re-summarizes).
+function _mailLoadMore() {
+    _mailInboxLimit = (_mailInboxLimit || _mailBaseLimit()) + MAIL_LOADMORE_STEP;
+    loadInboxDigest(true);
+}
+
 async function loadInboxDigest(fresh) {
     var section = document.getElementById('mailInboxSection');
     if (!section) return;
@@ -13223,7 +13300,11 @@ async function loadInboxDigest(fresh) {
     if (fresh) section.innerHTML =
         '<div class="mail-narrative-loading">Pike is reading your inbox…</div>';
     try {
-        var url = API + '/email/inbox-digest' + (fresh ? '?fresh=1' : '');
+        var cats = _mailGetSetting('categories', 'primary');
+        if (!_mailInboxLimit) _mailInboxLimit = _mailBaseLimit();
+        var url = API + '/email/inbox-digest?categories=' +
+            encodeURIComponent(cats) + '&max_messages=' + _mailInboxLimit +
+            (fresh ? '&fresh=1' : '');
         var res = await authFetch(url);
         var data = await res.json();
         if (data && data.error === 'not_authorized') {
@@ -13250,7 +13331,15 @@ function _mailRenderInbox() {
     var ageLabel = _mailInbox.cachedAgeS > 0
         ? 'Cached ' + _mailFormatAge(_mailInbox.cachedAgeS) + ' ago'
         : 'Just generated';
-    var html = '';
+    // Gmail-style category tabs (single-select). Drives the ?categories= filter.
+    var activeCat = _mailGetSetting('categories', 'primary');
+    var html = '<div class="mail-cat-tabs">';
+    MAIL_CATEGORY_TABS.forEach(function(t) {
+        html += '<button class="mail-cat-tab' +
+            (t[0] === activeCat ? ' active' : '') +
+            '" onclick="_mailSwitchCategory(\'' + t[0] + '\')">' + t[1] + '</button>';
+    });
+    html += '</div>';
     if (_mailInbox.narrative) {
         html += '<div class="mail-narrative">' +
                 '<div class="mail-narrative-text">' +
@@ -13264,13 +13353,19 @@ function _mailRenderInbox() {
     }
     html += '<div id="mailMessageList">';
     if (!_mailInbox.messages.length) {
-        html += '<div class="mail-empty">No messages.</div>';
+        html += '<div class="mail-empty">No messages in this category.</div>';
     } else {
         _mailInbox.messages.forEach(function(m) {
             html += _mailRenderMessageRow(m);
         });
     }
     html += '</div>';
+    // Offer "load more" only when the fetch came back full (likely more behind it).
+    if (_mailInbox.messages.length >= _mailInboxLimit) {
+        html += '<div class="mail-loadmore-wrap">' +
+            '<button class="mail-loadmore" onclick="_mailLoadMore()">' +
+            'Load ' + MAIL_LOADMORE_STEP + ' more</button></div>';
+    }
     section.innerHTML = html;
 }
 

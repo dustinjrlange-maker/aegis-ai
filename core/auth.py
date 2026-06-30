@@ -28,10 +28,43 @@ logger = logging.getLogger(__name__)
 
 USERS_FILE = PROJECT_ROOT / "data" / "users.json"
 USERS_DIR = PROJECT_ROOT / "data" / "users"
+SESSIONS_FILE = PROJECT_ROOT / "data" / "sessions.json"
 SESSION_EXPIRY_HOURS = 24
 
-# In-memory session store: {token: {username, login_time, last_activity}}
+# Session store: {token: {username, login_time, last_activity}}. Persisted to
+# disk so logins survive an app restart (the in-memory-only version forced a
+# re-login on every restart, since the server forgot every token).
 active_sessions: dict[str, dict] = {}
+
+
+def _save_sessions():
+    """Persist the session store to disk (best-effort)."""
+    try:
+        SESSIONS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        SESSIONS_FILE.write_text(
+            json.dumps(active_sessions, ensure_ascii=False), encoding="utf-8"
+        )
+    except IOError as e:
+        logger.warning("Could not save sessions.json: %s", e)
+
+
+def _load_sessions():
+    """Load persisted sessions on startup, dropping any that have expired."""
+    if not SESSIONS_FILE.exists():
+        return
+    try:
+        data = json.loads(SESSIONS_FILE.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, IOError) as e:
+        logger.warning("Could not load sessions.json: %s", e)
+        return
+    now = datetime.now()
+    for token, sess in data.items():
+        try:
+            last = datetime.fromisoformat(sess["last_activity"])
+        except (KeyError, ValueError, TypeError):
+            continue
+        if now - last <= timedelta(hours=SESSION_EXPIRY_HOURS):
+            active_sessions[token] = sess
 
 
 # --- User Registry ---
@@ -164,6 +197,7 @@ def create_session(username: str) -> str:
         "login_time": now.isoformat(),
         "last_activity": now.isoformat(),
     }
+    _save_sessions()
     return token
 
 
@@ -174,19 +208,29 @@ def validate_token(token: str) -> str | None:
         return None
 
     # Check expiry
+    now = datetime.now()
     last = datetime.fromisoformat(session["last_activity"])
-    if datetime.now() - last > timedelta(hours=SESSION_EXPIRY_HOURS):
+    if now - last > timedelta(hours=SESSION_EXPIRY_HOURS):
         del active_sessions[token]
+        _save_sessions()
         return None
 
-    # Update last activity
-    session["last_activity"] = datetime.now().isoformat()
+    # Update last activity. Only persist when it has advanced enough to matter,
+    # so we aren't writing the file on every single authenticated request.
+    session["last_activity"] = now.isoformat()
+    if now - last > timedelta(minutes=5):
+        _save_sessions()
     return session["username"]
 
 
 def invalidate_token(token: str):
     """Remove a session token (logout)."""
     active_sessions.pop(token, None)
+    _save_sessions()
+
+
+# Load any persisted sessions so logins survive a restart.
+_load_sessions()
 
 
 def get_current_user(request) -> str | None:

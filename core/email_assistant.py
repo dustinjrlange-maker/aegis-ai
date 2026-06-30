@@ -14,6 +14,7 @@ narration of the inbox state).
 from __future__ import annotations
 
 import logging
+import re
 import time as _time
 
 import ollama
@@ -24,7 +25,7 @@ from core.protocols import google_tools as gt
 logger = logging.getLogger(__name__)
 
 
-# Per-user narrative cache: {user_id: (timestamp_epoch_s, narrative_str)}
+# Per-user narrative cache: {(user_id, categories_tuple): (timestamp_epoch_s, narrative_str)}
 # NOTE: Single-process cache — fragments per-worker if uvicorn ever uses
 # multiple workers. Fine for Aegis's single-user local deployment.
 _narrative_cache: dict[str, tuple[float, str]] = {}
@@ -53,6 +54,22 @@ def _llm(messages: list[dict]) -> str:
     return response["message"]["content"]
 
 
+def _clean_email_text(raw: str) -> str:
+    """Clean an LLM-drafted email while PRESERVING structure.
+
+    Unlike session.clean_reply (a chat-persona filter that collapses newlines,
+    caps at 3 sentences, and strips '!'), email bodies need their paragraph
+    breaks and full length intact — and a draft's "Subject: ...\\n\\n<body>"
+    layout depends on the newline survival. So we only strip qwen3 <think>
+    reasoning blocks and any wrapping code fences, then trim.
+    """
+    text = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL)
+    # Drop a leading/trailing ``` fence the model sometimes wraps output in.
+    text = re.sub(r"^\s*```[a-zA-Z]*\n?", "", text)
+    text = re.sub(r"\n?```\s*$", "", text)
+    return text.strip()
+
+
 def _format_messages_for_llm(messages: list[dict]) -> str:
     """Render an inbox listing as a compact text block for the LLM."""
     if not messages:
@@ -73,7 +90,8 @@ def _format_messages_for_llm(messages: list[dict]) -> str:
 # ---------------------------------------------------------------------------
 
 
-def get_inbox_digest(session, max_messages: int = 10, fresh: bool = False) -> dict:
+def get_inbox_digest(session, max_messages: int = 10, fresh: bool = False,
+                     categories: tuple = ("primary",)) -> dict:
     """Pike-voiced summary of recent inbox.
 
     Returns: {narrative, unread_count, messages, cached_age_s, error?}
@@ -90,8 +108,9 @@ def get_inbox_digest(session, max_messages: int = 10, fresh: bool = False) -> di
         }
 
     try:
-        unread_count = gt.gmail_unread_count(creds)
-        messages = gt.gmail_list_messages(creds, max_results=max_messages)
+        unread_count = gt.gmail_unread_count(creds, categories=categories)
+        messages = gt.gmail_list_messages(creds, max_results=max_messages,
+                                          categories=categories)
     except Exception as e:
         logger.exception("Inbox digest fetch failed")
         return {
@@ -111,7 +130,8 @@ def get_inbox_digest(session, max_messages: int = 10, fresh: bool = False) -> di
     # Narrative cache (per-user, TTL-gated). Always re-fetch the message list
     # since it's cheap; the LLM call is what we want to avoid.
     user_id = getattr(session, "user_id", "default")
-    cached = _narrative_cache.get(user_id)
+    cache_key = (user_id, tuple(categories) if categories else ())
+    cached = _narrative_cache.get(cache_key)
     if cached and not fresh:
         ts, narrative = cached
         if _time.time() - ts < _NARRATIVE_TTL_S:
@@ -141,7 +161,7 @@ def get_inbox_digest(session, max_messages: int = 10, fresh: bool = False) -> di
         ])
         narrative = session.clean_reply(raw).strip()
         # Cache the successful narrative.
-        _narrative_cache[user_id] = (_time.time(), narrative)
+        _narrative_cache[cache_key] = (_time.time(), narrative)
     except Exception as e:
         logger.exception("Inbox digest LLM call failed")
         narrative = f"[Briefing failed — {e}]"
@@ -197,7 +217,7 @@ def draft_reply(session, message_id: str, intent: str | None = None) -> dict:
             {"role": "system", "content": session.system_prompt_base},
             {"role": "user", "content": user_prompt},
         ])
-        body = session.clean_reply(raw).strip()
+        body = _clean_email_text(raw)
     except Exception as e:
         logger.exception("Reply drafting LLM call failed")
         return {"success": False, "error": f"LLM failed: {e}"}
@@ -275,7 +295,7 @@ def draft_new(session, to: str, intent: str, subject_hint: str | None = None,
             {"role": "system", "content": session.system_prompt_base},
             {"role": "user", "content": user_prompt},
         ])
-        text = session.clean_reply(raw).strip()
+        text = _clean_email_text(raw)
     except Exception as e:
         logger.exception("New-draft LLM call failed")
         return {"success": False, "error": f"LLM failed: {e}"}
