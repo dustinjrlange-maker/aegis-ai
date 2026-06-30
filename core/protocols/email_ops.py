@@ -65,3 +65,64 @@ class EmailOpsProtocol(Protocol):
         result["intercept"] = True
         result["response"] = response
         return result
+
+    # ---- classification ----
+
+    _ALLOWED_ACTIONS = ("reply", "send", "edit", "discard")
+
+    def _build_classifier_prompt(self, text, listing, pending):
+        return (
+            "You classify a user's email request into ONE action.\n\n"
+            "Recent inbox (most recent first):\n"
+            f"{listing or '(inbox empty)'}\n\n"
+            f"A draft is currently pending: {'yes' if pending else 'no'}\n\n"
+            f'User said: "{text}"\n\n'
+            "Reply with ONE line, exactly this format:\n"
+            "ACTION=<reply|send|edit|discard|none> | REF=<inbox number or -> "
+            "| INSTRUCTION=<what to say, or ->\n\n"
+            "Rules:\n"
+            "- reply: replying to an inbox email. REF = the inbox number. "
+            "INSTRUCTION = what the reply should say.\n"
+            "- send: send the pending draft. Only if a draft is pending.\n"
+            "- edit: change the pending draft. INSTRUCTION = the change. "
+            "Only if a draft is pending.\n"
+            "- discard: cancel the pending draft. Only if a draft is pending.\n"
+            "- none: anything that is not an email action.\n"
+            "Output ONLY the one line. No explanation."
+        )
+
+    def _parse_classification(self, raw):
+        text = re.sub(r"<think>.*?</think>", "", raw or "", flags=re.DOTALL)
+        m = re.search(r"ACTION\s*=\s*([a-zA-Z]+)", text)
+        if not m:
+            return {"action": "none"}
+        action = m.group(1).strip().lower()
+        if action not in self._ALLOWED_ACTIONS:
+            return {"action": "none"}
+        out = {"action": action}
+        ref_m = re.search(r"REF\s*=\s*#?(\d+)", text)
+        if ref_m:
+            out["ref"] = ref_m.group(1)
+        ins_m = re.search(r"INSTRUCTION\s*=\s*(.+)", text)
+        if ins_m:
+            ins = ins_m.group(1).strip()
+            # strip a trailing " | KEY=..." if the model crammed extra fields after
+            ins = re.split(r"\s*\|\s*[A-Z]+\s*=", ins)[0].strip()
+            if ins and ins != "-":
+                out["instruction"] = ins
+        return out
+
+    def _classify(self, text):
+        listing, self._id_map = self._recent_inbox()
+        prompt = self._build_classifier_prompt(text, listing, self._pending is not None)
+        try:
+            raw = ea._llm(
+                [{"role": "system",
+                  "content": "You are an email-intent classifier. Output ONE line only."},
+                 {"role": "user", "content": prompt}],
+                sensitivity="private", task="email_classify",
+            )
+        except Exception:
+            logger.exception("Email classify LLM call failed")
+            return {"action": "none"}
+        return self._parse_classification(raw)

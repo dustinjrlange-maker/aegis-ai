@@ -73,3 +73,32 @@ def test_no_session_is_inert():
 def test_empty_message_is_inert():
     p = _proto(_FakeSession())
     assert p.process_input("   ", {})["intercept"] is False
+
+
+def test_parse_classification_reply():
+    p = _proto(_FakeSession())
+    out = p._parse_classification(
+        "ACTION=reply | REF=#2 | INSTRUCTION=confirm I got the money, thank him")
+    assert out == {"action": "reply", "ref": "2",
+                   "instruction": "confirm I got the money, thank him"}
+
+
+def test_parse_classification_send_no_ref():
+    p = _proto(_FakeSession())
+    out = p._parse_classification("ACTION=send | REF=- | INSTRUCTION=-")
+    assert out == {"action": "send"}
+
+
+def test_parse_classification_strips_think_block():
+    p = _proto(_FakeSession())
+    raw = "<think>the user wants to reply</think>\nACTION=reply | REF=1 | INSTRUCTION=hi"
+    out = p._parse_classification(raw)
+    assert out["action"] == "reply"
+    assert out["ref"] == "1"
+    assert out["instruction"] == "hi"
+
+
+def test_parse_classification_unknown_is_none():
+    p = _proto(_FakeSession())
+    assert p._parse_classification("ACTION=banana | REF=- | INSTRUCTION=-") == {"action": "none"}
+    assert p._parse_classification("garbage with no action") == {"action": "none"}
