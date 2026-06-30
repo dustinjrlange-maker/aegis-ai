@@ -55,8 +55,72 @@ class EmailOpsProtocol(Protocol):
             return result
         if not (self._pending or _EMAIL_CUE.search(text)):
             return result
-        # Classification + dispatch arrive in later tasks.
-        return result
+
+        action = self._classify(text)
+        act = action.get("action", "none")
+        if act == "none":
+            return result  # fall through to normal chat
+
+        # Actions that operate on a pending draft are no-ops without one.
+        if act in ("send", "edit", "discard") and not self._pending:
+            return result
+
+        if ea._creds_from_session(self._session) is None:
+            return self._intercept(
+                result,
+                "I can't reach your email yet — connect Google in the Mail panel first.")
+
+        handler = {
+            "reply": self._do_reply,
+            "send": self._do_send,
+            "edit": self._do_edit,
+            "discard": self._do_discard,
+        }.get(act)
+        if handler is None:
+            return result  # not wired in Phase 1 -> normal chat
+
+        try:
+            response = handler(action, text)
+        except Exception as e:
+            logger.exception("Email action '%s' failed", act)
+            response = f"Something went wrong with that email action: {e}"
+        if response is None:
+            return result  # handler declined -> normal chat
+        return self._intercept(result, response)
+
+    # ---- action handlers ----
+
+    def _do_reply(self, action, text):
+        message_id = self._resolve_ref(action)
+        if not message_id:
+            return "I couldn't tell which email you mean — which one should I reply to?"
+        intent = action.get("instruction") or text
+        res = ea.draft_reply(self._session, message_id, intent=intent)
+        if not res.get("success"):
+            return f"I couldn't draft that reply: {res.get('error', 'unknown error')}"
+        self._pending = {
+            "draft_id": res["draft_id"],
+            "kind": "reply",
+            "message_id": message_id,
+            "to": res.get("to", ""),
+            "subject": res.get("subject", ""),
+            "intent": intent,
+        }
+        return (
+            f"Here's your reply to {res.get('to', 'them')} —\n"
+            f"Subject: {res.get('subject', '')}\n\n"
+            f"{res.get('body', '')}\n\n"
+            "Send it, tweak it, or discard?"
+        )
+
+    def _do_send(self, action, text):
+        raise NotImplementedError
+
+    def _do_edit(self, action, text):
+        raise NotImplementedError
+
+    def _do_discard(self, action, text):
+        raise NotImplementedError
 
     def process_output(self, response, context):
         return {"response": response, "suppress": False, "append": ""}

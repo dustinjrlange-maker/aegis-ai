@@ -132,3 +132,63 @@ def test_resolve_ref_uses_idmap():
     assert p._resolve_ref({"ref": "2"}) == "m2"
     assert p._resolve_ref({"ref": "9"}) is None
     assert p._resolve_ref({}) is None
+
+
+def _wire_reply(monkeypatch, draft_result):
+    """Patch classify->reply, inbox, and draft_reply for an end-to-end reply."""
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(gt, "gmail_list_messages", lambda creds, max_results, categories: [
+        {"id": "m1", "sender": "John Milton Carlson <j@x.ca>", "subject": "Money"},
+    ])
+    monkeypatch.setattr(ea, "_llm",
+                        lambda messages, **kw: "ACTION=reply | REF=1 | INSTRUCTION=thank him")
+    monkeypatch.setattr(ea, "draft_reply",
+                        lambda session, message_id, intent: draft_result)
+
+
+def test_reply_creates_pending_and_shows_draft(monkeypatch):
+    p = _proto(_FakeSession())
+    _wire_reply(monkeypatch, {
+        "success": True, "draft_id": "d1", "to": "John Milton Carlson <j@x.ca>",
+        "subject": "Re: Money", "body": "Hi John, got the payment - thanks!",
+    })
+    result = p.process_input("reply to the John Milton Carlson email, thank him", {})
+    assert result["intercept"] is True
+    assert "John Milton Carlson" in result["response"]
+    assert "got the payment" in result["response"]
+    assert p._pending["draft_id"] == "d1"
+    assert p._pending["message_id"] == "m1"
+    assert p._pending["kind"] == "reply"
+
+
+def test_reply_unauthorized(monkeypatch):
+    p = _proto(_FakeSession(creds=None))
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s: None)
+    monkeypatch.setattr(ea, "_llm",
+                        lambda messages, **kw: "ACTION=reply | REF=1 | INSTRUCTION=hi")
+    monkeypatch.setattr(gt, "gmail_list_messages",
+                        lambda creds, max_results, categories: [])
+    result = p.process_input("reply to john", {})
+    assert result["intercept"] is True
+    assert "connect google" in result["response"].lower()
+
+
+def test_reply_draft_failure_is_reported(monkeypatch):
+    p = _proto(_FakeSession())
+    _wire_reply(monkeypatch, {"success": False, "error": "Gmail down"})
+    result = p.process_input("reply to john, thank him", {})
+    assert result["intercept"] is True
+    assert "Gmail down" in result["response"]
+    assert p._pending is None
+
+
+def test_classified_none_falls_through(monkeypatch):
+    p = _proto(_FakeSession())
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(gt, "gmail_list_messages",
+                        lambda creds, max_results, categories: [])
+    monkeypatch.setattr(ea, "_llm",
+                        lambda messages, **kw: "ACTION=none | REF=- | INSTRUCTION=-")
+    # "send" matches the gate cue but classifier says none -> normal chat
+    result = p.process_input("send my regards to the team in person", {})
+    assert result["intercept"] is False
