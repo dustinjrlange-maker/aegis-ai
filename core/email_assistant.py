@@ -45,8 +45,16 @@ def _creds_from_session(session):
     return google_proto._get_creds()
 
 
-def _llm(messages: list[dict]) -> str:
-    """Call the chat model and return the response content."""
+def _llm(messages: list[dict], *, sensitivity: str = "local",
+         task: str | None = None) -> str:
+    """Call the chat model and return the response content.
+
+    sensitivity / task are forward-compat hints for the planned hybrid
+    local/cloud router (see aegis_strategic_direction memory). Today every
+    call runs locally on Ollama regardless; the future router will read these
+    to decide local vs cloud, treating sensitivity="private" as local-only by
+    default. This keeps the seam in ONE place.
+    """
     response = ollama.chat(
         model=CONFIG["model"]["chat"],
         messages=messages,
