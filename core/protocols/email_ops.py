@@ -112,6 +112,32 @@ class EmailOpsProtocol(Protocol):
                 out["instruction"] = ins
         return out
 
+    # ---- target resolution ----
+
+    def _recent_inbox(self):
+        """Return (listing_text, {index: message_id}) for the last ~15 inbox msgs."""
+        creds = ea._creds_from_session(self._session)
+        if not creds:
+            return "", {}
+        try:
+            msgs = gt.gmail_list_messages(creds, max_results=15, categories=None)
+        except Exception:
+            logger.exception("Could not list inbox for classification")
+            return "", {}
+        lines, id_map = [], {}
+        for i, m in enumerate(msgs, 1):
+            id_map[i] = m.get("id")
+            sender = (m.get("sender") or "?").strip()
+            subject = (m.get("subject") or "(no subject)").strip()
+            lines.append(f"#{i} · {sender} · {subject}")
+        return "\n".join(lines), id_map
+
+    def _resolve_ref(self, action):
+        ref = action.get("ref")
+        if ref and str(ref).isdigit():
+            return self._id_map.get(int(ref))
+        return None
+
     def _classify(self, text):
         listing, self._id_map = self._recent_inbox()
         prompt = self._build_classifier_prompt(text, listing, self._pending is not None)

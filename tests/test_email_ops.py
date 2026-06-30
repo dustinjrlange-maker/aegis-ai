@@ -1,4 +1,5 @@
 import core.email_assistant as ea
+from core.protocols import google_tools as gt
 
 
 def test_llm_accepts_sensitivity_and_task_kwargs(monkeypatch):
@@ -102,3 +103,32 @@ def test_parse_classification_unknown_is_none():
     p = _proto(_FakeSession())
     assert p._parse_classification("ACTION=banana | REF=- | INSTRUCTION=-") == {"action": "none"}
     assert p._parse_classification("garbage with no action") == {"action": "none"}
+
+
+def test_recent_inbox_builds_listing_and_idmap(monkeypatch):
+    p = _proto(_FakeSession())
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(gt, "gmail_list_messages", lambda creds, max_results, categories: [
+        {"id": "m1", "sender": "John <j@x.ca>", "subject": "Money"},
+        {"id": "m2", "sender": "Jane <ja@x.ca>", "subject": "Lunch"},
+    ])
+    listing, id_map = p._recent_inbox()
+    assert "#1" in listing and "John" in listing
+    assert "#2" in listing and "Jane" in listing
+    assert id_map == {1: "m1", 2: "m2"}
+
+
+def test_recent_inbox_no_creds_is_empty(monkeypatch):
+    p = _proto(_FakeSession(creds=None))
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s: None)
+    listing, id_map = p._recent_inbox()
+    assert listing == ""
+    assert id_map == {}
+
+
+def test_resolve_ref_uses_idmap():
+    p = _proto(_FakeSession())
+    p._id_map = {1: "m1", 2: "m2"}
+    assert p._resolve_ref({"ref": "2"}) == "m2"
+    assert p._resolve_ref({"ref": "9"}) is None
+    assert p._resolve_ref({}) is None
