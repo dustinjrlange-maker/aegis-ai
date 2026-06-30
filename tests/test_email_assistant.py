@@ -155,3 +155,35 @@ def test_gmail_get_message_helper_is_callable():
     """Sanity: gmail_get_message is importable and accepts (creds, message_id)."""
     from core.protocols.google_tools import gmail_get_message
     assert callable(gmail_get_message)
+
+
+def test_draft_forward_builds_quoted_draft(monkeypatch):
+    import core.email_assistant as ea
+    from core.protocols import google_tools as gt
+
+    class _G:
+        def _get_creds(self): return "CREDS"
+    class _R:
+        def get(self, n): return _G() if n == "google" else None
+    class _S:
+        protocol_registry = _R()
+        system_prompt_base = "SYS"
+        user_id = "u"
+
+    monkeypatch.setattr(gt, "gmail_get_message", lambda creds, mid: {
+        "subject": "Quarterly numbers", "from": "Ann <ann@x.ca>",
+        "date": "Mon, 1 Jun 2026", "body": "Here are the figures.",
+    })
+    captured = {}
+    monkeypatch.setattr(gt, "gmail_create_draft",
+                        lambda creds, to, subject, body, **kw: captured.update(
+                            to=to, subject=subject, body=body) or {"success": True, "draft_id": "d9"})
+
+    res = ea.draft_forward(_S(), "m1", "bob@x.ca", note="fyi")
+    assert res["success"] is True
+    assert res["draft_id"] == "d9"
+    assert captured["to"] == "bob@x.ca"
+    assert captured["subject"] == "Fwd: Quarterly numbers"
+    assert "fyi" in captured["body"]
+    assert "Forwarded message" in captured["body"]
+    assert "Here are the figures." in captured["body"]

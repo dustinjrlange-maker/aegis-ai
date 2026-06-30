@@ -334,6 +334,38 @@ def draft_new(session, to: str, intent: str, subject_hint: str | None = None,
     }
 
 
+def draft_forward(session, message_id: str, to: str, note: str | None = None) -> dict:
+    """Forward an inbox message to a new recipient. Saved as a draft, NOT sent.
+
+    Returns: {success, draft_id, subject, to, body, error?}
+    """
+    creds = _creds_from_session(session)
+    if not creds:
+        return {"success": False, "error": "Email not authorized"}
+    original = gt.gmail_get_message(creds, message_id)
+    if not original:
+        return {"success": False, "error": f"Could not load message {message_id}"}
+
+    orig_subject = original.get("subject", "") or "(no subject)"
+    subject = orig_subject if orig_subject.lower().startswith("fwd:") else f"Fwd: {orig_subject}"
+    parts = []
+    if note:
+        parts.append(note.strip())
+        parts.append("")
+    parts.append("---------- Forwarded message ----------")
+    parts.append(f"From: {original.get('from', '')}")
+    parts.append(f"Date: {original.get('date', '')}")
+    parts.append(f"Subject: {orig_subject}")
+    parts.append("")
+    parts.append(original.get("body", "") or "")
+    body = "\n".join(parts)
+
+    result = gt.gmail_create_draft(creds, to=to, subject=subject, body=body)
+    if not result.get("success"):
+        return {"success": False, "error": result.get("error", "Draft creation failed"), "body": body}
+    return {"success": True, "draft_id": result["draft_id"], "subject": subject, "to": to, "body": body}
+
+
 def list_drafts(session, max_results: int = 20) -> list[dict]:
     """List recent drafts. Pure passthrough."""
     creds = _creds_from_session(session)
