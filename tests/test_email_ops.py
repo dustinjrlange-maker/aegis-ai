@@ -278,3 +278,12 @@ def test_edit_redrafts_and_updates_pending(monkeypatch):
     assert "Dear John" in result["response"]
     assert p._pending["draft_id"] == "d2"
     assert "more formal" in p._pending["intent"]
+
+
+def test_session_registers_email_ops_with_backref():
+    """A real UserSession must register email_ops and attach itself."""
+    from core.session import UserSession
+    s = UserSession("plan_test_user")
+    proto = s.protocol_registry.get("email_ops")
+    assert proto is not None
+    assert proto._session is s
