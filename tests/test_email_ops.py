@@ -192,3 +192,89 @@ def test_classified_none_falls_through(monkeypatch):
     # "send" matches the gate cue but classifier says none -> normal chat
     result = p.process_input("send my regards to the team in person", {})
     assert result["intercept"] is False
+
+
+def _pending_reply(p):
+    p._pending = {"draft_id": "d1", "kind": "reply", "message_id": "m1",
+                  "to": "John <j@x.ca>", "subject": "Re: Money", "intent": "thank him"}
+
+
+def test_send_sends_pending_and_clears(monkeypatch):
+    p = _proto(_FakeSession())
+    _pending_reply(p)
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(gt, "gmail_list_messages",
+                        lambda creds, max_results, categories: [])
+    monkeypatch.setattr(ea, "_llm",
+                        lambda messages, **kw: "ACTION=send | REF=- | INSTRUCTION=-")
+    sent = {}
+    monkeypatch.setattr(ea, "send_draft",
+                        lambda session, draft_id: sent.update({"id": draft_id}) or {"success": True})
+    result = p.process_input("send it", {})
+    assert result["intercept"] is True
+    assert "sent to" in result["response"].lower()
+    assert sent["id"] == "d1"
+    assert p._pending is None
+
+
+def test_send_with_no_pending_falls_through(monkeypatch):
+    p = _proto(_FakeSession())  # no pending
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(gt, "gmail_list_messages",
+                        lambda creds, max_results, categories: [])
+    monkeypatch.setattr(ea, "_llm",
+                        lambda messages, **kw: "ACTION=send | REF=- | INSTRUCTION=-")
+    result = p.process_input("send it", {})
+    assert result["intercept"] is False
+
+
+def test_send_failure_keeps_pending(monkeypatch):
+    p = _proto(_FakeSession())
+    _pending_reply(p)
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(gt, "gmail_list_messages",
+                        lambda creds, max_results, categories: [])
+    monkeypatch.setattr(ea, "_llm",
+                        lambda messages, **kw: "ACTION=send | REF=- | INSTRUCTION=-")
+    monkeypatch.setattr(ea, "send_draft",
+                        lambda session, draft_id: {"success": False, "error": "no scope"})
+    result = p.process_input("send it", {})
+    assert "no scope" in result["response"]
+    assert p._pending is not None  # not cleared on failure
+
+
+def test_discard_deletes_and_clears(monkeypatch):
+    p = _proto(_FakeSession())
+    _pending_reply(p)
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(gt, "gmail_list_messages",
+                        lambda creds, max_results, categories: [])
+    monkeypatch.setattr(ea, "_llm",
+                        lambda messages, **kw: "ACTION=discard | REF=- | INSTRUCTION=-")
+    deleted = {}
+    monkeypatch.setattr(gt, "gmail_delete_draft",
+                        lambda creds, draft_id: deleted.setdefault("id", draft_id))
+    result = p.process_input("discard that", {})
+    assert "discard" in result["response"].lower()
+    assert deleted["id"] == "d1"
+    assert p._pending is None
+
+
+def test_edit_redrafts_and_updates_pending(monkeypatch):
+    p = _proto(_FakeSession())
+    _pending_reply(p)
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(gt, "gmail_list_messages",
+                        lambda creds, max_results, categories: [])
+    monkeypatch.setattr(ea, "_llm",
+                        lambda messages, **kw: "ACTION=edit | REF=- | INSTRUCTION=make it more formal")
+    monkeypatch.setattr(gt, "gmail_delete_draft", lambda creds, draft_id: None)
+    monkeypatch.setattr(ea, "draft_reply", lambda session, message_id, intent: {
+        "success": True, "draft_id": "d2", "to": "John <j@x.ca>",
+        "subject": "Re: Money", "body": "Dear John, I confirm receipt. Regards.",
+    })
+    result = p.process_input("make it more formal", {})
+    assert result["intercept"] is True
+    assert "Dear John" in result["response"]
+    assert p._pending["draft_id"] == "d2"
+    assert "more formal" in p._pending["intent"]

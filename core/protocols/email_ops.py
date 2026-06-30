@@ -114,13 +114,46 @@ class EmailOpsProtocol(Protocol):
         )
 
     def _do_send(self, action, text):
-        raise NotImplementedError
-
-    def _do_edit(self, action, text):
-        raise NotImplementedError
+        res = ea.send_draft(self._session, self._pending["draft_id"])
+        if not res.get("success"):
+            return f"I couldn't send it: {res.get('error', 'unknown error')}"
+        to = self._pending.get("to", "them")
+        self._pending = None
+        return f"Sent to {to}."
 
     def _do_discard(self, action, text):
-        raise NotImplementedError
+        creds = ea._creds_from_session(self._session)
+        try:
+            gt.gmail_delete_draft(creds, self._pending["draft_id"])
+        except Exception:
+            logger.exception("Could not delete discarded draft")
+        self._pending = None
+        return "Discarded that draft."
+
+    def _do_edit(self, action, text):
+        p = self._pending
+        change = action.get("instruction") or text
+        new_intent = f"{p.get('intent', '')} | revision: {change}".strip(" |")
+        creds = ea._creds_from_session(self._session)
+        try:
+            gt.gmail_delete_draft(creds, p["draft_id"])
+        except Exception:
+            logger.exception("Could not delete superseded draft")
+        res = ea.draft_reply(self._session, p["message_id"], intent=new_intent)
+        if not res.get("success"):
+            return f"I couldn't revise it: {res.get('error', 'unknown error')}"
+        self._pending = {
+            **p,
+            "draft_id": res["draft_id"],
+            "to": res.get("to", p.get("to", "")),
+            "subject": res.get("subject", p.get("subject", "")),
+            "intent": new_intent,
+        }
+        return (
+            f"Updated draft to {res.get('to', 'them')} —\n\n"
+            f"{res.get('body', '')}\n\n"
+            "Send it, tweak it, or discard?"
+        )
 
     def process_output(self, response, context):
         return {"response": response, "suppress": False, "append": ""}
