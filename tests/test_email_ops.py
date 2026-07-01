@@ -459,6 +459,50 @@ def test_new_ignores_address_in_body(monkeypatch):
     assert p._pending is None
 
 
+def test_mark_read_action(monkeypatch):
+    p = _proto(_FakeSession())
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(gt, "gmail_list_messages", lambda creds, max_results, categories: [
+        {"id": "m5", "sender": "X", "subject": "Y"}])
+    monkeypatch.setattr(ea, "_llm",
+                        lambda messages, **kw: "ACTION=mark_read | REF=1 | TO=- | INSTRUCTION=-")
+    marked = {}
+    monkeypatch.setattr(gt, "gmail_mark_read",
+                        lambda creds, mid: marked.update(id=mid) or {"ok": True})
+    result = p.process_input("mark the first email as read", {})
+    assert result["intercept"] is True
+    assert "read" in result["response"].lower()
+    assert marked["id"] == "m5"
+    assert p._pending is None
+
+
+def test_archive_action(monkeypatch):
+    p = _proto(_FakeSession())
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(gt, "gmail_list_messages", lambda creds, max_results, categories: [
+        {"id": "m5", "sender": "X", "subject": "Y"}])
+    monkeypatch.setattr(ea, "_llm",
+                        lambda messages, **kw: "ACTION=archive | REF=1 | TO=- | INSTRUCTION=-")
+    archived = {}
+    monkeypatch.setattr(gt, "gmail_archive",
+                        lambda creds, mid: archived.update(id=mid) or {"ok": True})
+    result = p.process_input("archive that email", {})
+    assert result["intercept"] is True
+    assert "archive" in result["response"].lower()
+    assert archived["id"] == "m5"
+
+
+def test_mark_read_bad_ref_asks(monkeypatch):
+    p = _proto(_FakeSession())
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(gt, "gmail_list_messages", lambda creds, max_results, categories: [])
+    monkeypatch.setattr(ea, "_llm",
+                        lambda messages, **kw: "ACTION=mark_read | REF=- | TO=- | INSTRUCTION=-")
+    result = p.process_input("mark it read", {})
+    assert result["intercept"] is True
+    assert "which email" in result["response"].lower()
+
+
 def test_gmail_archive_removes_inbox_label(monkeypatch):
     calls = {}
     class _Ex:

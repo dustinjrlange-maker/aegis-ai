@@ -80,6 +80,8 @@ class EmailOpsProtocol(Protocol):
             "reply": self._do_reply,
             "new": self._do_new,
             "forward": self._do_forward,
+            "mark_read": self._do_mark_read,
+            "archive": self._do_archive,
             "send": self._do_send,
             "edit": self._do_edit,
             "discard": self._do_discard,
@@ -172,6 +174,24 @@ class EmailOpsProtocol(Protocol):
             "Send it, tweak it, or discard?"
         )
 
+    def _do_mark_read(self, action, text):
+        message_id = self._resolve_ref(action)
+        if not message_id:
+            return "Which email should I mark as read?"
+        res = gt.gmail_mark_read(ea._creds_from_session(self._session), message_id)
+        if not res.get("ok"):
+            return f"I couldn't mark it read: {res.get('error', 'unknown error')}"
+        return "Marked it as read."
+
+    def _do_archive(self, action, text):
+        message_id = self._resolve_ref(action)
+        if not message_id:
+            return "Which email should I archive?"
+        res = gt.gmail_archive(ea._creds_from_session(self._session), message_id)
+        if not res.get("ok"):
+            return f"I couldn't archive it: {res.get('error', 'unknown error')}"
+        return "Archived it — it's out of your inbox."
+
     def _do_send(self, action, text):
         if not _SEND_PHRASE.search(text or ""):
             return ("Just to confirm — send the draft to "
@@ -236,7 +256,8 @@ class EmailOpsProtocol(Protocol):
 
     # ---- classification ----
 
-    _ALLOWED_ACTIONS = ("reply", "new", "forward", "send", "edit", "discard")
+    _ALLOWED_ACTIONS = ("reply", "new", "forward", "mark_read", "archive",
+                        "send", "edit", "discard")
 
     def _build_classifier_prompt(self, text, listing, pending):
         return (
@@ -246,7 +267,7 @@ class EmailOpsProtocol(Protocol):
             f"A draft is currently pending: {'yes' if pending else 'no'}\n\n"
             f'User said: "{text}"\n\n'
             "Reply with ONE line, exactly this format:\n"
-            "ACTION=<reply|new|forward|send|edit|discard|none> | REF=<inbox number or -> "
+            "ACTION=<reply|new|forward|mark_read|archive|send|edit|discard|none> | REF=<inbox number or -> "
             "| TO=<email address or -> | INSTRUCTION=<what to say, or ->\n\n"
             "Rules:\n"
             "- reply: replying to an inbox email. REF = the inbox number. "
@@ -255,6 +276,8 @@ class EmailOpsProtocol(Protocol):
             "INSTRUCTION = what it should say.\n"
             "- forward: forward an inbox email. REF = the inbox number. "
             "TO = the recipient's email address.\n"
+            "- mark_read: mark an inbox email as read. REF = the inbox number.\n"
+            "- archive: remove an inbox email from the inbox. REF = the inbox number.\n"
             "- send: send the pending draft. Only if a draft is pending.\n"
             "- edit: change the pending draft. INSTRUCTION = the change. "
             "Only if a draft is pending.\n"
@@ -265,7 +288,7 @@ class EmailOpsProtocol(Protocol):
 
     def _parse_classification(self, raw):
         text = re.sub(r"<think>.*?</think>", "", raw or "", flags=re.DOTALL)
-        m = re.search(r"ACTION\s*=\s*([a-zA-Z]+)", text)
+        m = re.search(r"ACTION\s*=\s*([a-zA-Z_]+)", text)
         if not m:
             return {"action": "none"}
         action = m.group(1).strip().lower()
