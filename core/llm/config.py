@@ -19,6 +19,8 @@ class RouterConfig:
     """Resolved router settings used by policy.decide() and router.chat()."""
     cloud_enabled: bool = False
     cloud_opt_in_features: tuple = field(default_factory=tuple)
+    cloud_model: str = "claude-opus-4-8"
+    cloud_max_tokens: int = 2048
 
 
 def load_config():
@@ -29,6 +31,8 @@ def load_config():
     defaults = CONFIG.get("llm_router", {})
     cloud_enabled = bool(defaults.get("cloud_enabled", False))
     opt_in = list(defaults.get("cloud_opt_in_features", []))
+    cloud_model = str(defaults.get("cloud_model", "claude-opus-4-8"))
+    cloud_max_tokens = int(defaults.get("cloud_max_tokens", 2048))
 
     if _OVERRIDE_PATH.exists():
         try:
@@ -37,8 +41,16 @@ def load_config():
                 cloud_enabled = bool(data["cloud_enabled"])
             if "cloud_opt_in_features" in data:
                 opt_in = list(data["cloud_opt_in_features"])
+            if "cloud_model" in data:
+                cloud_model = str(data["cloud_model"])
+            if "cloud_max_tokens" in data:
+                cloud_max_tokens = int(data["cloud_max_tokens"])
         except Exception:
             logger.exception("Bad %s — using config defaults", _OVERRIDE_PATH)
 
-    return RouterConfig(cloud_enabled=cloud_enabled,
-                        cloud_opt_in_features=tuple(opt_in))
+    return RouterConfig(
+        cloud_enabled=cloud_enabled,
+        cloud_opt_in_features=tuple(opt_in),
+        cloud_model=cloud_model,
+        cloud_max_tokens=cloud_max_tokens,
+    )
