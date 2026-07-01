@@ -48,8 +48,8 @@ def _llm(messages: list[dict], *, sensitivity: str = "private",
          task: str | None = None) -> str:
     """Call the chat model via the central router and return the content.
 
-    Email is personal content: tagged sensitivity="private" so it stays local
-    by default even after the cloud backend is wired (see router spec).
+    Email bodies are private content: tagged sensitivity="private" so they stay
+    local by default even after the cloud backend is wired (see router spec).
     """
     return _router_chat(messages, sensitivity=sensitivity, task=task)
 
