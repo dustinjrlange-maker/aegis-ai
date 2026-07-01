@@ -19,12 +19,14 @@ logger = logging.getLogger(__name__)
 _BACKENDS = {"local": LocalBackend(), "cloud": CloudBackend()}
 
 
-def chat(messages, *, sensitivity, task=None, model=None, options=None, format=None):
+def chat(messages, *, sensitivity, task=None, model=None, options=None, format=None) -> str:
     """Route one LLM call and return the response content string.
 
     sensitivity: "private" | "personal" | "public" (required — every site tags).
     task: opt-in / intent tag, logged; inert for tier escalation this build.
     model/options/format: passthrough to the backend (ollama semantics).
+    Config is re-read each call so the cloud toggle can change at runtime
+    without restart.
     """
     cfg = load_config()
     decision = _policy.decide(sensitivity, cfg, task=task)
@@ -33,7 +35,7 @@ def chat(messages, *, sensitivity, task=None, model=None, options=None, format=N
     if decision.backend == "cloud" and not backend.available():
         logger.info(
             "[llm-router] cloud escalation preview: sensitivity=%s task=%s "
-            "reason=%s — cloud unavailable, executing locally",
+            "policy_reason=%s — cloud unavailable, executing locally",
             sensitivity, task, decision.reason,
         )
         backend = _BACKENDS["local"]

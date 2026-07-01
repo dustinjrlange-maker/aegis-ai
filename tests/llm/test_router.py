@@ -70,6 +70,18 @@ def test_params_pass_through_to_backend(monkeypatch):
     assert call["format"] == "json"
 
 
+def test_cloud_routes_to_cloud_when_available(monkeypatch):
+    local = _FakeBackend("local", True)
+    cloud = _FakeBackend("cloud", True)  # available this time
+    _patch_backends(monkeypatch, local, cloud)
+    _cfg(monkeypatch, cloud_enabled=True)
+
+    out = router.chat([{"role": "user", "content": "hi"}], sensitivity="public")
+    assert out == "reply-from-cloud"
+    assert len(cloud.calls) == 1
+    assert len(local.calls) == 0
+
+
 def test_bad_sensitivity_raises(monkeypatch):
     _patch_backends(monkeypatch, _FakeBackend("local", True), _FakeBackend("cloud", False))
     _cfg(monkeypatch, cloud_enabled=False)
