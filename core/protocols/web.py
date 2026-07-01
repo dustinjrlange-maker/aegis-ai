@@ -683,7 +683,7 @@ class WebProtocol(Protocol):
         return "\n".join(lines)
 
     def _summarize_article(self, title, article_text):
-        """Send article text to Ollama for a focused summary."""
+        """Send article text to the LLM router for a focused summary."""
         prompt = (
             "/no_think\n"
             "Summarize this news article as 4-6 bullet points.\n"
