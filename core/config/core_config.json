@@ -92,6 +92,8 @@
 
     "llm_router": {
         "cloud_enabled": false,
-        "cloud_opt_in_features": []
+        "cloud_opt_in_features": [],
+        "cloud_model": "claude-opus-4-8",
+        "cloud_max_tokens": 2048
     }
 }
