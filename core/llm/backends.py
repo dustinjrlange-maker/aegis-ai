@@ -83,6 +83,9 @@ class CloudBackend:
         if system:
             kwargs["system"] = system
         response = self._get_client().messages.create(**kwargs)
+        # Claude 4-family models (incl. Opus 4.8) return stop_reason="refusal"
+        # on a safety-classifier decline (HTTP 200). Treat as a failure so the
+        # router falls back to local — matters for firearms-adjacent prompts.
         if getattr(response, "stop_reason", None) == "refusal":
             raise CloudRefusalError("Claude declined the request")
         for block in response.content:
