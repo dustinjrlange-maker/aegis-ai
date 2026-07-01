@@ -7,9 +7,8 @@ Time-of-day aware: morning brief, midday status, evening recap, late-night minim
 from datetime import datetime, timedelta
 import logging
 
-import ollama
-
 from core.config import CONFIG
+from core.llm import chat as router_chat
 
 logger = logging.getLogger(__name__)
 
@@ -247,14 +246,16 @@ def generate_narrative_briefing(session, period: str | None = None, unit: str = 
 
     narrative = ""
     try:
-        response = ollama.chat(
-            model=CONFIG["model"]["chat"],
-            messages=[
+        briefing_content = router_chat(
+            [
                 {"role": "system", "content": session.system_prompt_base},
                 {"role": "user", "content": user_prompt},
             ],
+            sensitivity="private",
+            task="summarize",
+            model=CONFIG["model"]["chat"],
         )
-        narrative = session.clean_reply(response["message"]["content"]).strip()
+        narrative = session.clean_reply(briefing_content).strip()
     except Exception as e:
         logger.exception("Narrative briefing generation failed")
         narrative = f"[Briefing unavailable — {e}]"

@@ -4,8 +4,8 @@ Extracts facts about the human companion from conversations.
 """
 
 import re
-import ollama
 from core.config import CONFIG
+from core.llm import chat as router_chat
 
 
 EXTRACTION_PROMPT = """You are an AI companion's memory system. Extract facts about the HUMAN COMPANION from this conversation.
@@ -73,14 +73,16 @@ def extract_keyed_facts(messages):
     conversation_text = "\n".join(conversation_lines)
     prompt = EXTRACTION_PROMPT.format(conversation=conversation_text)
 
-    response = ollama.chat(
+    raw_content = router_chat(
+        [{"role": "user", "content": prompt}],
+        sensitivity="private",
+        task="extract",
         model=CONFIG["model"]["fact_extraction"],
-        messages=[{"role": "user", "content": prompt}]
     )
 
     raw_output = re.sub(
         r'<think>.*?</think>', '',
-        response["message"]["content"],
+        raw_content,
         flags=re.DOTALL
     ).strip()
 
