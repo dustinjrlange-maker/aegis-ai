@@ -27,6 +27,7 @@ from core.protocols.web import WebProtocol
 from core.protocols.google import GoogleProtocol
 from core.protocols.command import CommandProtocol
 from core.protocols.creative import CreativeProtocol
+from core.protocols.email_ops import EmailOpsProtocol
 from core.protocols.bracket_commands import BracketCommandProtocol
 from core.memory.event_manager import EventManager
 from core.memory.mood_manager import MoodManager
@@ -104,6 +105,11 @@ class UserSession:
         self.protocol_registry.register(GoogleProtocol(data_dir=user_data_dir))
         self.protocol_registry.register(CommandProtocol())
         self.protocol_registry.register(CreativeProtocol())
+
+        # Chat-driven email actions — needs a session back-ref for Gmail creds.
+        email_ops = EmailOpsProtocol()
+        email_ops.attach_session(self)
+        self.protocol_registry.register(email_ops)
 
         # Phase 10 managers
         self.mood_manager = MoodManager(user_data_dir)

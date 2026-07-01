@@ -45,8 +45,16 @@ def _creds_from_session(session):
     return google_proto._get_creds()
 
 
-def _llm(messages: list[dict]) -> str:
-    """Call the chat model and return the response content."""
+def _llm(messages: list[dict], *, sensitivity: str = "local",
+         task: str | None = None) -> str:
+    """Call the chat model and return the response content.
+
+    sensitivity / task are forward-compat hints for the planned hybrid
+    local/cloud router (see aegis_strategic_direction memory). Today every
+    call runs locally on Ollama regardless; the future router will read these
+    to decide local vs cloud, treating sensitivity="private" as local-only by
+    default. This keeps the seam in ONE place.
+    """
     response = ollama.chat(
         model=CONFIG["model"]["chat"],
         messages=messages,
@@ -324,6 +332,38 @@ def draft_new(session, to: str, intent: str, subject_hint: str | None = None,
         "subject": subject,
         "to": to,
     }
+
+
+def draft_forward(session, message_id: str, to: str, note: str | None = None) -> dict:
+    """Forward an inbox message to a new recipient. Saved as a draft, NOT sent.
+
+    Returns: {success, draft_id, subject, to, body, error?}
+    """
+    creds = _creds_from_session(session)
+    if not creds:
+        return {"success": False, "error": "Email not authorized"}
+    original = gt.gmail_get_message(creds, message_id)
+    if not original:
+        return {"success": False, "error": f"Could not load message {message_id}"}
+
+    orig_subject = original.get("subject", "") or "(no subject)"
+    subject = orig_subject if orig_subject.lower().startswith("fwd:") else f"Fwd: {orig_subject}"
+    parts = []
+    if note:
+        parts.append(note.strip())
+        parts.append("")
+    parts.append("---------- Forwarded message ----------")
+    parts.append(f"From: {original.get('from', '')}")
+    parts.append(f"Date: {original.get('date', '')}")
+    parts.append(f"Subject: {orig_subject}")
+    parts.append("")
+    parts.append(original.get("body", "") or "")
+    body = "\n".join(parts)
+
+    result = gt.gmail_create_draft(creds, to=to, subject=subject, body=body)
+    if not result.get("success"):
+        return {"success": False, "error": result.get("error", "Draft creation failed"), "body": body}
+    return {"success": True, "draft_id": result["draft_id"], "subject": subject, "to": to, "body": body}
 
 
 def list_drafts(session, max_results: int = 20) -> list[dict]:
