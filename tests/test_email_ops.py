@@ -457,3 +457,22 @@ def test_new_ignores_address_in_body(monkeypatch):
     assert "email address" in result["response"].lower()   # asks, does not target spam@x.com
     assert called["drafted"] is False
     assert p._pending is None
+
+
+def test_gmail_archive_removes_inbox_label(monkeypatch):
+    calls = {}
+    class _Ex:
+        def execute(self): return {}
+    class _Msgs:
+        def modify(self, userId, id, body):
+            calls.update(userId=userId, id=id, body=body)
+            return _Ex()
+    class _Users:
+        def messages(self): return _Msgs()
+    class _Svc:
+        def users(self): return _Users()
+    monkeypatch.setattr(gt, "_get_gmail_service", lambda creds: _Svc())
+    res = gt.gmail_archive("CREDS", "m1")
+    assert res == {"ok": True}
+    assert calls["id"] == "m1"
+    assert calls["body"] == {"removeLabelIds": ["INBOX"]}
