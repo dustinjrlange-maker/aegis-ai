@@ -188,13 +188,14 @@ class TestWellnessProtocol:
         proto = WellnessProtocol()
         result = proto.process_input("sleep is for the weak", empty_context)
         assert result["context_injection"] != ""
-        assert "Wellness flag" in result["context_injection"]
+        assert "Wellness note" in result["context_injection"]
         assert "sleep" in result["context_injection"]
 
     def test_detects_sleep_deprivation_hours(self, empty_context):
         proto = WellnessProtocol()
         result = proto.process_input("I've been up 36 hours", empty_context)
-        assert "Wellness flag" in result["context_injection"]
+        assert "Wellness note" in result["context_injection"]
+        assert "sleep" in result["context_injection"]
 
     def test_detects_nutrition_trigger_skipped_lunch(self, empty_context):
         proto = WellnessProtocol()
@@ -205,7 +206,8 @@ class TestWellnessProtocol:
     def test_detects_nutrition_trigger_too_busy_to_eat(self, empty_context):
         proto = WellnessProtocol()
         result = proto.process_input("too busy to eat", empty_context)
-        assert "Wellness flag" in result["context_injection"]
+        assert "Wellness note" in result["context_injection"]
+        assert "meals" in result["context_injection"]
 
     def test_detects_burnout_trigger(self, empty_context):
         proto = WellnessProtocol()
@@ -216,7 +218,8 @@ class TestWellnessProtocol:
     def test_detects_burnout_running_on_fumes(self, empty_context):
         proto = WellnessProtocol()
         result = proto.process_input("I'm running on fumes", empty_context)
-        assert "Wellness flag" in result["context_injection"]
+        assert "Wellness note" in result["context_injection"]
+        assert "burnout" in result["context_injection"]
 
     def test_detects_medical_avoidance(self, empty_context):
         proto = WellnessProtocol()
@@ -332,12 +335,12 @@ class TestOperationsProtocol:
 
     def test_get_pending_tasks_returns_only_incomplete(self):
         proto = OperationsProtocol()
-        proto.add_task("Task A")
-        t2 = proto.add_task("Task B")
+        proto.add_task("Buy groceries")
+        t2 = proto.add_task("Call plumber")
         proto.complete_task(t2["id"])
         pending = proto.get_pending_tasks()
         assert len(pending) == 1
-        assert pending[0]["text"] == "Task A"
+        assert pending[0]["text"] == "Buy groceries"
 
     def test_format_task_list_returns_string(self):
         proto = OperationsProtocol()
@@ -399,9 +402,9 @@ class TestOperationsProtocol:
         result = proto.process_input("remind me to call the dentist", empty_context)
         assert result["context_injection"] != ""
         assert "auto-detected" in result["context_injection"]
-        # Task should have been created
+        # Task should have been created (title is capitalized by clean_task_title)
         assert len(proto._tasks) == 1
-        assert "call the dentist" in proto._tasks[0]["text"]
+        assert "Call the dentist" in proto._tasks[0]["text"]
 
     def test_process_input_injects_pending_tasks(self, empty_context):
         proto = OperationsProtocol()

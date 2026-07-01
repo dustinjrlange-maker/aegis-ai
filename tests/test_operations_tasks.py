@@ -40,18 +40,22 @@ class TestTaskIdIncrementing:
     def test_ids_increment_after_removal(self):
         """IDs are based on list length, so after removal the next ID reuses."""
         proto = OperationsProtocol()
-        proto.add_task("A")
-        proto.add_task("B")
+        proto.add_task("Buy groceries")
+        proto.add_task("Call plumber")
         proto.remove_task(2)
-        # After removing B, list has 1 item, so next ID = 2 (len + 1)
-        task = proto.add_task("C")
+        # After removing task 2, list has 1 item, so next ID = 2 (len + 1)
+        task = proto.add_task("Walk dog")
         assert task["id"] == 2
 
     def test_multiple_tasks_sequential_ids(self):
         proto = OperationsProtocol()
+        # Use distinct multi-word titles so fuzzy dedup in add_task doesn't merge
+        # them (e.g. "Task 0"/"Task 1" both reduce to the word set {task}).
+        titles = ["Buy groceries", "Call plumber", "Finish report",
+                  "Walk dog", "Book flights"]
         ids = []
-        for i in range(5):
-            task = proto.add_task(f"Task {i}")
+        for title in titles:
+            task = proto.add_task(title)
             ids.append(task["id"])
         assert ids == [1, 2, 3, 4, 5]
 
@@ -145,13 +149,13 @@ class TestFormatTaskList:
 
     def test_mixed_tasks_all_rendered(self):
         proto = OperationsProtocol()
-        proto.add_task("Task A", priority="high")
-        proto.add_task("Task B", priority="normal")
-        proto.add_task("Task C", priority="low")
+        proto.add_task("Buy groceries", priority="high")
+        proto.add_task("Call plumber", priority="normal")
+        proto.add_task("Finish report", priority="low")
         result = proto.format_task_list()
-        assert "Task A" in result
-        assert "Task B" in result
-        assert "Task C" in result
+        assert "Buy groceries" in result
+        assert "Call plumber" in result
+        assert "Finish report" in result
 
 
 # =============================================================================
@@ -242,8 +246,8 @@ class TestOverdueDetection:
         proto = OperationsProtocol()
         past1 = (datetime.now() - timedelta(days=1)).isoformat()
         past2 = (datetime.now() - timedelta(days=3)).isoformat()
-        proto.add_task("Late 1", due=past1)
-        proto.add_task("Late 2", due=past2)
+        proto.add_task("Pay rent", due=past1)
+        proto.add_task("Submit taxes", due=past2)
         assert len(proto.get_overdue_tasks()) == 2
 
 
@@ -325,8 +329,8 @@ class TestOperationsStatus:
 
     def test_status_has_pending_tasks(self):
         proto = OperationsProtocol()
-        proto.add_task("A")
-        proto.add_task("B")
+        proto.add_task("Buy groceries")
+        proto.add_task("Call plumber")
         status = proto.get_status()
         assert status["pending_tasks"] == 2
         assert status["total_tasks"] == 2
