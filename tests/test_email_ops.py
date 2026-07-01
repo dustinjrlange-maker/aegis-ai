@@ -424,3 +424,36 @@ def test_edit_new_draft_uses_draft_new(monkeypatch):
     assert p._pending["draft_id"] == "n2"
     assert used["to"] == "bob@x.ca"
     assert "make it formal" in used["intent"]
+
+
+def test_edit_forward_is_blocked(monkeypatch):
+    p = _proto(_FakeSession())
+    p._pending = {"draft_id": "f1", "kind": "forward", "message_id": "m1",
+                  "to": "sue@x.ca", "subject": "Fwd: X", "intent": "forward the ann email to sue@x.ca"}
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(gt, "gmail_list_messages", lambda creds, max_results, categories: [])
+    monkeypatch.setattr(ea, "_llm",
+                        lambda messages, **kw: "ACTION=edit | REF=- | TO=- | INSTRUCTION=make it formal")
+    called = {"redrafted": False}
+    monkeypatch.setattr(ea, "draft_forward",
+                        lambda *a, **k: called.update(redrafted=True) or {"success": True})
+    result = p.process_input("make it formal", {})
+    assert "reword" in result["response"].lower() or "forward again" in result["response"].lower()
+    assert called["redrafted"] is False
+    assert p._pending["draft_id"] == "f1"
+
+
+def test_new_ignores_address_in_body(monkeypatch):
+    p = _proto(_FakeSession())
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(gt, "gmail_list_messages", lambda creds, max_results, categories: [])
+    # classifier returns no recipient (TO=-) though the body mentions an address
+    monkeypatch.setattr(ea, "_llm",
+                        lambda messages, **kw: "ACTION=new | REF=- | TO=- | INSTRUCTION=tell boss spam@x.com keeps emailing")
+    called = {"drafted": False}
+    monkeypatch.setattr(ea, "draft_new", lambda *a, **k: called.update(drafted=True) or {"success": True})
+    result = p.process_input("email my boss that spam@x.com keeps emailing me", {})
+    assert result["intercept"] is True
+    assert "email address" in result["response"].lower()   # asks, does not target spam@x.com
+    assert called["drafted"] is False
+    assert p._pending is None

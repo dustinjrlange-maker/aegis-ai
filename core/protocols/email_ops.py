@@ -121,16 +121,19 @@ class EmailOpsProtocol(Protocol):
             "Send it, tweak it, or discard?"
         )
 
-    def _extract_recipient(self, action, text):
+    def _extract_recipient(self, action):
+        """Recipient comes only from the classifier's structured TO= field.
+
+        We deliberately do NOT scan the free text: an address in the message
+        is usually content ("...john@x.com keeps emailing me"), not the intended
+        recipient. If TO= is missing, the handler asks for an address.
+        """
         cand = (action.get("to") or "").strip()
         m = _EMAIL_ADDR.search(cand)
-        if m:
-            return m.group(0)
-        m = _EMAIL_ADDR.search(text or "")
         return m.group(0) if m else None
 
     def _do_new(self, action, text):
-        to = self._extract_recipient(action, text)
+        to = self._extract_recipient(action)
         if not to:
             return "Who should I send it to? Give me an email address."
         intent = action.get("instruction") or text
@@ -152,7 +155,7 @@ class EmailOpsProtocol(Protocol):
         message_id = self._resolve_ref(action)
         if not message_id:
             return "Which email should I forward?"
-        to = self._extract_recipient(action, text)
+        to = self._extract_recipient(action)
         if not to:
             return "Who should I forward it to? Give me an email address."
         res = ea.draft_forward(self._session, message_id, to)
@@ -191,6 +194,9 @@ class EmailOpsProtocol(Protocol):
 
     def _do_edit(self, action, text):
         p = self._pending
+        if p.get("kind") == "forward":
+            return ("I can't reword a forwarded message — discard it and forward "
+                    "again if you need it different.")
         change = action.get("instruction") or text
         new_intent = f"{p.get('intent', '')} | revision: {change}".strip(" |")
         kind = p.get("kind", "reply")
