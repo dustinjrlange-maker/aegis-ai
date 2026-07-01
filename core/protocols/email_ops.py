@@ -193,7 +193,13 @@ class EmailOpsProtocol(Protocol):
         p = self._pending
         change = action.get("instruction") or text
         new_intent = f"{p.get('intent', '')} | revision: {change}".strip(" |")
-        res = ea.draft_reply(self._session, p["message_id"], intent=new_intent)
+        kind = p.get("kind", "reply")
+        if kind == "new":
+            res = ea.draft_new(self._session, p.get("to", ""), intent=new_intent)
+        elif kind == "forward":
+            res = ea.draft_forward(self._session, p["message_id"], p.get("to", ""), note=new_intent)
+        else:
+            res = ea.draft_reply(self._session, p["message_id"], intent=new_intent)
         if not res.get("success"):
             return f"I couldn't revise it: {res.get('error', 'unknown error')}"
         creds = ea._creds_from_session(self._session)

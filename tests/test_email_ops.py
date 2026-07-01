@@ -401,3 +401,26 @@ def test_forward_creates_pending(monkeypatch):
     assert p._pending["kind"] == "forward"
     assert p._pending["draft_id"] == "f1"
     assert p._pending["message_id"] == "m1"
+
+
+def test_edit_new_draft_uses_draft_new(monkeypatch):
+    p = _proto(_FakeSession())
+    p._pending = {"draft_id": "n1", "kind": "new", "message_id": None,
+                  "to": "bob@x.ca", "subject": "Hello", "intent": "say hi"}
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(gt, "gmail_list_messages", lambda creds, max_results, categories: [])
+    monkeypatch.setattr(ea, "_llm",
+                        lambda messages, **kw: "ACTION=edit | REF=- | TO=- | INSTRUCTION=make it formal")
+    monkeypatch.setattr(gt, "gmail_delete_draft", lambda creds, draft_id: None)
+    used = {}
+    monkeypatch.setattr(ea, "draft_new", lambda session, to, intent: used.update(
+        to=to, intent=intent) or {"success": True, "draft_id": "n2", "to": to,
+                                   "subject": "Hello", "body": "Dear Bob, ..."})
+    # draft_reply must NOT be used for a 'new' draft
+    monkeypatch.setattr(ea, "draft_reply",
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("used draft_reply")))
+    result = p.process_input("make it formal", {})
+    assert result["intercept"] is True
+    assert p._pending["draft_id"] == "n2"
+    assert used["to"] == "bob@x.ca"
+    assert "make it formal" in used["intent"]
