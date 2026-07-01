@@ -1,15 +1,15 @@
 # core/llm/backends.py
 """LLM backends behind the router.
 
-LocalBackend wraps ollama.chat (real). CloudBackend is a stub this build:
-available() is False so the router never routes to it — the later cloud build
-fills in the Anthropic adapter here.
+LocalBackend wraps ollama.chat. CloudBackend calls the Anthropic Claude API,
+enabled only when a key resolves and the anthropic package is importable.
 """
 from __future__ import annotations
 
 import ollama
 
 from core.config import CONFIG
+from core.llm.config import load_config, resolve_api_key
 
 
 class CloudRefusalError(RuntimeError):
@@ -40,15 +40,55 @@ class LocalBackend:
         return response["message"]["content"]
 
 
-class CloudBackend:
-    """Placeholder for the future Claude API adapter. Not wired this build."""
-    name = "cloud"
-
-    def available(self):
+def _anthropic_installed():
+    """Return True if the anthropic package can be imported."""
+    try:
+        import anthropic  # noqa: F401
+        return True
+    except ImportError:
         return False
 
+
+class CloudBackend:
+    """Anthropic Claude API adapter.
+
+    Enabled only when an API key resolves AND the `anthropic` package is
+    importable; otherwise available() is False and the router falls back to
+    local. Ignores the passed (local) model and uses the configured cloud model.
+    """
+    name = "cloud"
+
+    def __init__(self):
+        self._client = None  # lazily constructed anthropic.Anthropic
+
+    def available(self):
+        if resolve_api_key() is None:
+            return False
+        return _anthropic_installed()
+
+    def _get_client(self):
+        if self._client is None:
+            import anthropic
+            self._client = anthropic.Anthropic(api_key=resolve_api_key())
+        return self._client
+
     def chat(self, messages, *, model=None, options=None, format=None):
-        raise NotImplementedError("Cloud backend is not wired yet (local-only build)")
+        cfg = load_config()
+        system, convo = _split_system(messages)
+        kwargs = {
+            "model": cfg.cloud_model,          # configured cloud model, not `model`
+            "max_tokens": cfg.cloud_max_tokens,
+            "messages": convo,
+        }
+        if system:
+            kwargs["system"] = system
+        response = self._get_client().messages.create(**kwargs)
+        if getattr(response, "stop_reason", None) == "refusal":
+            raise CloudRefusalError("Claude declined the request")
+        for block in response.content:
+            if getattr(block, "type", None) == "text":
+                return block.text
+        raise CloudResponseError("No text block in Claude response")
 
 
 def _split_system(messages):
