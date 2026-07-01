@@ -4,7 +4,8 @@ import core.llm.config as cfgmod
 from core.llm.config import RouterConfig, load_config
 
 
-def test_defaults_are_local_only():
+def test_defaults_are_local_only(tmp_path, monkeypatch):
+    monkeypatch.setattr(cfgmod, "_OVERRIDE_PATH", tmp_path / "nonexistent.json")
     cfg = load_config()
     assert cfg.cloud_enabled is False
     assert cfg.cloud_opt_in_features == ()

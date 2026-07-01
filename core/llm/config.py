@@ -16,6 +16,7 @@ _OVERRIDE_PATH = PROJECT_ROOT / "data" / "llm_router.json"
 
 @dataclass
 class RouterConfig:
+    """Resolved router settings used by policy.decide() and router.chat()."""
     cloud_enabled: bool = False
     cloud_opt_in_features: tuple = field(default_factory=tuple)
 
