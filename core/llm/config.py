@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from dataclasses import dataclass, field
 
 from core.config import CONFIG, PROJECT_ROOT
@@ -12,6 +13,7 @@ from core.config import CONFIG, PROJECT_ROOT
 logger = logging.getLogger(__name__)
 
 _OVERRIDE_PATH = PROJECT_ROOT / "data" / "llm_router.json"
+_KEY_FILE = PROJECT_ROOT / "data" / "anthropic_key"
 
 
 @dataclass
@@ -54,3 +56,19 @@ def load_config():
         cloud_model=cloud_model,
         cloud_max_tokens=cloud_max_tokens,
     )
+
+
+def resolve_api_key():
+    """Resolve the Anthropic API key: ANTHROPIC_API_KEY env var first, then the
+    gitignored data/anthropic_key file. Returns None if neither is present.
+    Never raises — a bad key file is logged and treated as absent."""
+    env_key = os.environ.get("ANTHROPIC_API_KEY")
+    if env_key and env_key.strip():
+        return env_key.strip()
+    if _KEY_FILE.exists():
+        try:
+            text = _KEY_FILE.read_text(encoding="utf-8").strip()
+            return text or None
+        except Exception:
+            logger.exception("Bad %s — treating as no key", _KEY_FILE)
+    return None
