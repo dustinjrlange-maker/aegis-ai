@@ -38,8 +38,10 @@ def chat(messages, *, sensitivity, task=None, model=None, options=None, format=N
                 return backend.chat(messages, model=model, options=options, format=format)
             except Exception as e:
                 logger.warning(
-                    "[llm-router] cloud call failed (%s: %s) — falling back to local",
-                    type(e).__name__, e,
+                    "[llm-router] cloud call failed (%s: %s) sensitivity=%s task=%s "
+                    "— falling back to local",
+                    type(e).__name__, e, sensitivity, task,
+                    exc_info=True,
                 )
                 backend = _BACKENDS["local"]
         else:

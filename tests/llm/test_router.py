@@ -112,17 +112,21 @@ def test_cloud_runtime_error_falls_back_to_local(monkeypatch, caplog):
     with caplog.at_level("WARNING"):
         out = router.chat([{"role": "user", "content": "hi"}], sensitivity="public")
     assert out == "reply-from-local"          # local answer returned
+    assert len(cloud.calls) == 1              # cloud was attempted first
     assert len(local.calls) == 1
     assert any("cloud call failed" in r.message for r in caplog.records)
 
 
-def test_cloud_refusal_falls_back_to_local(monkeypatch):
+def test_cloud_refusal_falls_back_to_local(monkeypatch, caplog):
     from core.llm.backends import CloudRefusalError
     local = _FakeBackend("local", True)
     cloud = _RaisingBackend("cloud", CloudRefusalError("declined"))
     _patch_backends(monkeypatch, local, cloud)
     _cfg(monkeypatch, cloud_enabled=True)
 
-    out = router.chat([{"role": "user", "content": "guns"}], sensitivity="public")
+    with caplog.at_level("WARNING"):
+        out = router.chat([{"role": "user", "content": "guns"}], sensitivity="public")
     assert out == "reply-from-local"
+    assert len(cloud.calls) == 1
     assert len(local.calls) == 1
+    assert any("cloud call failed" in r.message for r in caplog.records)
