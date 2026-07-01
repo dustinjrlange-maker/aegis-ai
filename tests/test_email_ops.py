@@ -355,3 +355,49 @@ def test_parse_classification_forward():
     assert out["ref"] == "3"
     assert out["to"] == "sue@x.ca"
     assert "instruction" not in out
+
+
+def test_new_creates_pending(monkeypatch):
+    p = _proto(_FakeSession())
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(gt, "gmail_list_messages", lambda creds, max_results, categories: [])
+    monkeypatch.setattr(ea, "_llm",
+                        lambda messages, **kw: "ACTION=new | REF=- | TO=bob@x.ca | INSTRUCTION=say hi")
+    monkeypatch.setattr(ea, "draft_new", lambda session, to, intent: {
+        "success": True, "draft_id": "n1", "to": "bob@x.ca",
+        "subject": "Hello", "body": "Hi Bob, ..."})
+    result = p.process_input("email bob@x.ca and say hi", {})
+    assert result["intercept"] is True
+    assert "Hi Bob" in result["response"]
+    assert p._pending["kind"] == "new"
+    assert p._pending["draft_id"] == "n1"
+    assert p._pending["message_id"] is None
+
+
+def test_new_without_address_asks(monkeypatch):
+    p = _proto(_FakeSession())
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(gt, "gmail_list_messages", lambda creds, max_results, categories: [])
+    monkeypatch.setattr(ea, "_llm",
+                        lambda messages, **kw: "ACTION=new | REF=- | TO=- | INSTRUCTION=say hi to bob")
+    result = p.process_input("email bob and say hi", {})
+    assert result["intercept"] is True
+    assert "email address" in result["response"].lower()
+    assert p._pending is None
+
+
+def test_forward_creates_pending(monkeypatch):
+    p = _proto(_FakeSession())
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(gt, "gmail_list_messages", lambda creds, max_results, categories: [
+        {"id": "m1", "sender": "Ann <ann@x.ca>", "subject": "Numbers"}])
+    monkeypatch.setattr(ea, "_llm",
+                        lambda messages, **kw: "ACTION=forward | REF=1 | TO=sue@x.ca | INSTRUCTION=-")
+    monkeypatch.setattr(ea, "draft_forward", lambda session, message_id, to: {
+        "success": True, "draft_id": "f1", "to": "sue@x.ca",
+        "subject": "Fwd: Numbers", "body": "---------- Forwarded message ----------"})
+    result = p.process_input("forward the Ann email to sue@x.ca", {})
+    assert result["intercept"] is True
+    assert p._pending["kind"] == "forward"
+    assert p._pending["draft_id"] == "f1"
+    assert p._pending["message_id"] == "m1"

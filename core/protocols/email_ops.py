@@ -31,6 +31,8 @@ _EMAIL_CUE = re.compile(
 # classifier alone must not be able to transmit a held draft on a vague "yeah ok".
 _SEND_PHRASE = re.compile(r"\b(send|ship it|fire it off)\b", re.IGNORECASE)
 
+_EMAIL_ADDR = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+
 
 class EmailOpsProtocol(Protocol):
     """Turns chat requests into email actions (Phase 1: reply/send/edit/discard)."""
@@ -76,6 +78,8 @@ class EmailOpsProtocol(Protocol):
 
         handler = {
             "reply": self._do_reply,
+            "new": self._do_new,
+            "forward": self._do_forward,
             "send": self._do_send,
             "edit": self._do_edit,
             "discard": self._do_discard,
@@ -112,6 +116,54 @@ class EmailOpsProtocol(Protocol):
         }
         return (
             f"Here's your reply to {res.get('to', 'them')} —\n"
+            f"Subject: {res.get('subject', '')}\n\n"
+            f"{res.get('body', '')}\n\n"
+            "Send it, tweak it, or discard?"
+        )
+
+    def _extract_recipient(self, action, text):
+        cand = (action.get("to") or "").strip()
+        m = _EMAIL_ADDR.search(cand)
+        if m:
+            return m.group(0)
+        m = _EMAIL_ADDR.search(text or "")
+        return m.group(0) if m else None
+
+    def _do_new(self, action, text):
+        to = self._extract_recipient(action, text)
+        if not to:
+            return "Who should I send it to? Give me an email address."
+        intent = action.get("instruction") or text
+        res = ea.draft_new(self._session, to, intent=intent)
+        if not res.get("success"):
+            return f"I couldn't draft that email: {res.get('error', 'unknown error')}"
+        self._pending = {
+            "draft_id": res["draft_id"], "kind": "new", "message_id": None,
+            "to": res.get("to", to), "subject": res.get("subject", ""), "intent": intent,
+        }
+        return (
+            f"Here's your email to {res.get('to', to)} —\n"
+            f"Subject: {res.get('subject', '')}\n\n"
+            f"{res.get('body', '')}\n\n"
+            "Send it, tweak it, or discard?"
+        )
+
+    def _do_forward(self, action, text):
+        message_id = self._resolve_ref(action)
+        if not message_id:
+            return "Which email should I forward?"
+        to = self._extract_recipient(action, text)
+        if not to:
+            return "Who should I forward it to? Give me an email address."
+        res = ea.draft_forward(self._session, message_id, to)
+        if not res.get("success"):
+            return f"I couldn't draft that forward: {res.get('error', 'unknown error')}"
+        self._pending = {
+            "draft_id": res["draft_id"], "kind": "forward", "message_id": message_id,
+            "to": res.get("to", to), "subject": res.get("subject", ""), "intent": text,
+        }
+        return (
+            f"Here's the forward to {res.get('to', to)} —\n"
             f"Subject: {res.get('subject', '')}\n\n"
             f"{res.get('body', '')}\n\n"
             "Send it, tweak it, or discard?"
