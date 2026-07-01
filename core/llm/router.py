@@ -2,9 +2,10 @@
 """The single seam every Aegis LLM call routes through.
 
 chat() picks a backend via policy.decide(), then executes it. When policy
-picks cloud but the cloud backend is unavailable (always, this build), it logs
-a transparency preview and executes locally — the same path the later cloud
-build reuses for offline fallback.
+picks cloud, the router runs the cloud backend if it's available and falls back
+to local on any failure (network, auth, rate-limit, or a safety refusal); when
+cloud is unavailable (no key / package), it logs a transparency preview and
+executes locally.
 """
 from __future__ import annotations
 

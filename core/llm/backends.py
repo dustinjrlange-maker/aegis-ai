@@ -67,6 +67,10 @@ class CloudBackend:
         return _anthropic_installed()
 
     def _get_client(self):
+        # Client is cached after first construction. available() re-reads the
+        # key each call, so a key that appears after startup is picked up on
+        # first use; a mid-session key ROTATION isn't (cached client keeps the
+        # old key until a new CloudBackend / restart). Fine for single-user local.
         if self._client is None:
             import anthropic
             self._client = anthropic.Anthropic(api_key=resolve_api_key())
