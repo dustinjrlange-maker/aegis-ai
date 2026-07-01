@@ -32,12 +32,22 @@ def chat(messages, *, sensitivity, task=None, model=None, options=None, format=N
     decision = _policy.decide(sensitivity, cfg, task=task)
     backend = _BACKENDS[decision.backend]
 
-    if decision.backend == "cloud" and not backend.available():
-        logger.info(
-            "[llm-router] cloud escalation preview: sensitivity=%s task=%s "
-            "policy_reason=%s — cloud unavailable, executing locally",
-            sensitivity, task, decision.reason,
-        )
-        backend = _BACKENDS["local"]
+    if decision.backend == "cloud":
+        if backend.available():
+            try:
+                return backend.chat(messages, model=model, options=options, format=format)
+            except Exception as e:
+                logger.warning(
+                    "[llm-router] cloud call failed (%s: %s) — falling back to local",
+                    type(e).__name__, e,
+                )
+                backend = _BACKENDS["local"]
+        else:
+            logger.info(
+                "[llm-router] cloud escalation preview: sensitivity=%s task=%s "
+                "policy_reason=%s — cloud unavailable, executing locally",
+                sensitivity, task, decision.reason,
+            )
+            backend = _BACKENDS["local"]
 
     return backend.chat(messages, model=model, options=options, format=format)
