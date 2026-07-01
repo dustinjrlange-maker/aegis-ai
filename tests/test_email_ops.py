@@ -3,15 +3,18 @@ from core.protocols import google_tools as gt
 
 
 def test_llm_accepts_sensitivity_and_task_kwargs(monkeypatch):
-    """The seam must accept sensitivity/task without changing behavior."""
+    """The seam must accept sensitivity/task and delegate to the LLM router."""
     captured = {}
 
-    def fake_chat(model, messages):
-        captured["model"] = model
+    def fake_chat(messages, *, sensitivity, task=None, **kw):
         captured["messages"] = messages
-        return {"message": {"content": "ok"}}
+        captured["sensitivity"] = sensitivity
+        captured["task"] = task
+        return "ok"
 
-    monkeypatch.setattr(ea.ollama, "chat", fake_chat)
+    # _llm now routes through core.llm.chat (imported as _router_chat), not
+    # ollama directly — patch the router seam.
+    monkeypatch.setattr(ea, "_router_chat", fake_chat)
 
     out = ea._llm(
         [{"role": "user", "content": "hi"}],
@@ -19,8 +22,9 @@ def test_llm_accepts_sensitivity_and_task_kwargs(monkeypatch):
         task="email_classify",
     )
     assert out == "ok"
-    # kwargs are accepted but do not alter the local call today
     assert captured["messages"] == [{"role": "user", "content": "hi"}]
+    assert captured["sensitivity"] == "private"
+    assert captured["task"] == "email_classify"
 
 
 from core.protocols.email_ops import EmailOpsProtocol

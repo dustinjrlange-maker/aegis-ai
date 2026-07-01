@@ -88,5 +88,10 @@
             "ollama", "qwen", "lcars",
             "krunchy", "puppychat", "bluray", "fursuit", "fursuits"
         ]
+    },
+
+    "llm_router": {
+        "cloud_enabled": false,
+        "cloud_opt_in_features": []
     }
 }

@@ -14,7 +14,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-import ollama
+from core.llm import chat as router_chat
 from core.config import CONFIG, get_path, PROJECT_ROOT as PROJ_ROOT, load_capabilities
 from core.memory.manager import MemoryManager
 from core.memory.character_memory import CharacterMemory
@@ -382,12 +382,14 @@ def run():
         messages_to_send = messages[:-1] + [{"role": "user", "content": augmented_input}]
 
         try:
-            response = ollama.chat(
+            reply_content = router_chat(
+                messages_to_send,
+                sensitivity="personal",
+                task="chat",
                 model=CONFIG["model"]["chat"],
-                messages=messages_to_send
             )
 
-            reply = clean_reply(response["message"]["content"])
+            reply = clean_reply(reply_content)
 
             # Run output through protocol pipeline
             output_result = protocol_registry.process_output(reply, proto_context)

@@ -18,6 +18,7 @@ from core.protocols.base import Protocol
 from core.protocols.web_tools import search_web, fetch_page, fetch_page_rich
 from core.memory.news_service import NewsService
 from core.config import CONFIG
+from core.llm import chat as router_chat
 
 logger = logging.getLogger(__name__)
 
@@ -682,9 +683,7 @@ class WebProtocol(Protocol):
         return "\n".join(lines)
 
     def _summarize_article(self, title, article_text):
-        """Send article text to Ollama for a focused summary."""
-        import ollama
-
+        """Send article text to the LLM router for a focused summary."""
         prompt = (
             "/no_think\n"
             "Summarize this news article as 4-6 bullet points.\n"
@@ -700,11 +699,12 @@ class WebProtocol(Protocol):
             model = CONFIG.get("model", {}).get("chat", "qwen3:8b")
             logger.info("Summarizing article '%s' (%d chars) via %s",
                         title[:50], len(article_text), model)
-            response = ollama.chat(
+            summary = router_chat(
+                [{"role": "user", "content": prompt}],
+                sensitivity="public",
+                task="summarize",
                 model=model,
-                messages=[{"role": "user", "content": prompt}],
             )
-            summary = response["message"]["content"]
 
             # Strip <think> tags from qwen3
             summary = re.sub(r'<think>.*?</think>', '', summary, flags=re.DOTALL).strip()

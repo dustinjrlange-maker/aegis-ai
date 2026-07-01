@@ -17,9 +17,8 @@ import logging
 import re
 import time as _time
 
-import ollama
-
 from core.config import CONFIG
+from core.llm import chat as _router_chat
 from core.protocols import google_tools as gt
 
 logger = logging.getLogger(__name__)
@@ -45,21 +44,14 @@ def _creds_from_session(session):
     return google_proto._get_creds()
 
 
-def _llm(messages: list[dict], *, sensitivity: str = "local",
+def _llm(messages: list[dict], *, sensitivity: str = "private",
          task: str | None = None) -> str:
-    """Call the chat model and return the response content.
+    """Call the chat model via the central router and return the content.
 
-    sensitivity / task are forward-compat hints for the planned hybrid
-    local/cloud router (see aegis_strategic_direction memory). Today every
-    call runs locally on Ollama regardless; the future router will read these
-    to decide local vs cloud, treating sensitivity="private" as local-only by
-    default. This keeps the seam in ONE place.
+    Email bodies are private content: tagged sensitivity="private" so they stay
+    local by default even after the cloud backend is wired (see router spec).
     """
-    response = ollama.chat(
-        model=CONFIG["model"]["chat"],
-        messages=messages,
-    )
-    return response["message"]["content"]
+    return _router_chat(messages, sensitivity=sensitivity, task=task)
 
 
 def _clean_email_text(raw: str) -> str:

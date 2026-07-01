@@ -6,8 +6,8 @@ Generates summaries of conversations for quick reference.
 import re
 from datetime import datetime
 from pathlib import Path
-import ollama
 from core.config import CONFIG, get_path
+from core.llm import chat as router_chat
 
 
 SUMMARY_PROMPT = """You are an AI companion's memory system. Analyze this conversation and produce a concise session journal entry.
@@ -66,13 +66,15 @@ def generate_summary(messages, session_id=None, data_dir=None):
         conversation=conversation_text
     )
 
-    # Use Ollama to generate the summary
-    response = ollama.chat(
+    # Use the LLM router to generate the summary
+    summary_content = router_chat(
+        [{"role": "user", "content": prompt}],
+        sensitivity="private",
+        task="summarize",
         model=CONFIG["model"]["summary"],
-        messages=[{"role": "user", "content": prompt}]
     )
 
-    summary_text = re.sub(r'<think>.*?</think>', '', response["message"]["content"], flags=re.DOTALL).strip()
+    summary_text = re.sub(r'<think>.*?</think>', '', summary_content, flags=re.DOTALL).strip()
 
     # Save as markdown
     filepath = logs_dir / f"session_{session_id}.md"

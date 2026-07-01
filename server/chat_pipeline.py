@@ -6,7 +6,7 @@ Reusable async chat function shared by the web UI and Telegram bot.
 import asyncio
 import logging
 
-import ollama
+from core.llm import chat as router_chat
 from core.config import CONFIG, load_capabilities
 from core.voice import emotion
 from core.protocols.context_budget import budget_injections
@@ -135,13 +135,15 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
     messages_to_send.append({"role": "user", "content": augmented})
 
     try:
-        # Run ollama.chat in a thread so we don't block the event loop
-        response = await asyncio.to_thread(
-            ollama.chat,
+        # Run the (synchronous) router in a thread so we don't block the loop
+        reply_content = await asyncio.to_thread(
+            router_chat,
+            messages_to_send,
+            sensitivity="personal",
+            task="chat",
             model=CONFIG["model"]["chat"],
-            messages=messages_to_send,
         )
-        reply = session.clean_reply(response["message"]["content"])
+        reply = session.clean_reply(reply_content)
 
         # Run through output protocols
         output_result = session.protocol_registry.process_output(reply, proto_context)
