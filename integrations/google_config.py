@@ -17,7 +17,11 @@ CONFIG_PATH = PROJECT_ROOT / "data" / "google_client.json"
 
 # OAuth2 scopes required for Gmail + Calendar
 SCOPES = [
-    "https://www.googleapis.com/auth/gmail.readonly",
+    # gmail.modify grants read access AND label operations (mark read/unread,
+    # archive by removing INBOX). It supersets gmail.readonly, so it replaces it —
+    # the chat mark-read/archive actions (and the Mail panel's mark-read, which
+    # was silently failing) both call messages.modify, which readonly can't do.
+    "https://www.googleapis.com/auth/gmail.modify",
     # gmail.compose covers draft create/update/delete AND sending drafts/messages.
     # gmail.send alone cannot touch the drafts API, which the Mail feature relies on.
     "https://www.googleapis.com/auth/gmail.compose",
