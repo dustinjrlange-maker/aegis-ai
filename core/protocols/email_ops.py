@@ -31,6 +31,16 @@ _EMAIL_CUE = re.compile(
 # classifier alone must not be able to transmit a held draft on a vague "yeah ok".
 _SEND_PHRASE = re.compile(r"\b(send|ship it|fire it off)\b", re.IGNORECASE)
 
+# ...but a send word inside a QUESTION or deliberation ("should I send it?",
+# "not sure, maybe send later", "don't send that") is NOT a confirmation.
+# Sending is irreversible, so if the message looks like the user is still
+# deciding — or explicitly negating — we re-confirm instead of transmitting.
+_NOT_A_CONFIRM = re.compile(
+    r"\?|\b(should|shall|do you think|not sure|maybe|later|wait|hold off|"
+    r"don't|do not|never ?mind)\b",
+    re.IGNORECASE,
+)
+
 _EMAIL_ADDR = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 
 
@@ -193,7 +203,8 @@ class EmailOpsProtocol(Protocol):
         return "Archived it — it's out of your inbox."
 
     def _do_send(self, action, text):
-        if not _SEND_PHRASE.search(text or ""):
+        t = text or ""
+        if not _SEND_PHRASE.search(t) or _NOT_A_CONFIRM.search(t):
             return ("Just to confirm — send the draft to "
                     f"{self._pending.get('to', 'them')}? Say \"send it\" to confirm.")
         res = ea.send_draft(self._session, self._pending["draft_id"])

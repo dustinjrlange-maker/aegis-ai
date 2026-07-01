@@ -325,6 +325,40 @@ def test_send_requires_literal_phrase(monkeypatch):
     assert p._pending is not None                     # draft still held
 
 
+def _wire_send_classifier(monkeypatch, p):
+    """Pending draft + a classifier that (wrongly) says ACTION=send."""
+    _pending_reply(p)
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(gt, "gmail_list_messages",
+                        lambda creds, max_results, categories: [])
+    monkeypatch.setattr(ea, "_llm",
+                        lambda messages, **kw: "ACTION=send | REF=- | INSTRUCTION=-")
+    called = {"sent": False}
+    monkeypatch.setattr(ea, "send_draft",
+                        lambda session, draft_id: called.update(sent=True) or {"success": True})
+    return called
+
+
+def test_send_not_fired_by_a_question(monkeypatch):
+    """A send word inside a QUESTION must re-confirm, never transmit — even if
+    the classifier maps the message to ACTION=send."""
+    p = _proto(_FakeSession())
+    called = _wire_send_classifier(monkeypatch, p)
+    result = p.process_input("should I send it to my boss or wait?", {})
+    assert called["sent"] is False          # must NOT send while deliberating
+    assert "confirm" in result["response"].lower()
+    assert p._pending is not None
+
+
+def test_send_not_fired_by_negation(monkeypatch):
+    """'don't send that' contains the send word but must NOT transmit."""
+    p = _proto(_FakeSession())
+    called = _wire_send_classifier(monkeypatch, p)
+    result = p.process_input("actually don't send that yet", {})
+    assert called["sent"] is False
+    assert p._pending is not None
+
+
 def test_classify_skips_inbox_when_pending(monkeypatch):
     p = _proto(_FakeSession())
     _pending_reply(p)
