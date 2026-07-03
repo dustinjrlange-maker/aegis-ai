@@ -22,9 +22,12 @@ class RouteDecision:
 def decide(sensitivity, cfg, *, task=None, offline=False):
     """Choose a backend for one LLM call.
 
-    cfg must expose .cloud_enabled (bool) and .cloud_opt_in_features (iterable
-    of task tags). `task` is used only as the per-feature opt-in key for the
-    `private` tier — it does NOT drive tier escalation this build.
+    cfg must expose .cloud_enabled (bool), .cloud_opt_in_features (iterable of
+    task tags), and .deep_mode (bool). `task` is the per-feature opt-in key for
+    the `private` tier AND gates `personal` escalation: personal routes to cloud
+    only for task="chat_task" (or "chat_emotional" when cfg.deep_mode is true);
+    everything else personal stays local. `public` always escalates when
+    cloud is enabled and online.
     """
     if sensitivity not in VALID_SENSITIVITIES:
         raise ValueError(
@@ -36,4 +39,10 @@ def decide(sensitivity, cfg, *, task=None, offline=False):
         return RouteDecision("local", "offline", False)
     if sensitivity == "private" and task not in cfg.cloud_opt_in_features:
         return RouteDecision("local", "private_local_default", False)
+    if sensitivity == "personal":
+        if task == "chat_task":
+            return RouteDecision("cloud", "cloud_eligible", True)
+        if task == "chat_emotional" and getattr(cfg, "deep_mode", False):
+            return RouteDecision("cloud", "deep_mode", True)
+        return RouteDecision("local", "personal_local_default", False)
     return RouteDecision("cloud", "cloud_eligible", True)
