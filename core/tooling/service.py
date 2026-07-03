@@ -31,7 +31,10 @@ def _resolve_launch(entry, config):
         command = resolved
     append_key = launch.get("append_config")
     if append_key:
-        args.extend(config.get(append_key, []))
+        val = config.get(append_key) or []
+        if isinstance(val, str):
+            val = [val]
+        args.extend(val)
     return command, args
 
 
@@ -128,6 +131,7 @@ def _execute(username, tool_id, method, arguments, reg_entry, cat_entry, outcome
                   int((_time.monotonic() - started) * 1000))
         return {"status": "ok", "result": result}
     except Exception as e:
+        logger.warning("%s.%s failed: %s", tool_id, method, e)
         audit.log(username, tool_id, method, arguments, "error",
                   int((_time.monotonic() - started) * 1000))
         return {"status": "error", "message": f"{tool_id}.{method} failed: {e}"}

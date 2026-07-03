@@ -100,3 +100,37 @@ def test_pin_confirm_executes_once(env, monkeypatch):
 
     again = service.confirm_pending("switch", "1234")
     assert again["status"] == "error"                           # consumed
+
+
+def test_install_warmup_failure_keeps_tool_installed(env, monkeypatch):
+    service, fake = env
+    def boom(*a, **k):
+        raise RuntimeError("spawn failed")
+    monkeypatch.setattr(fake, "ensure_started", boom)
+    msg = service.install_tool("switch", "time", {})
+    assert "failed to start" in msg.lower()
+    from core.tooling import registry
+    assert registry.get("switch", "time") is not None      # still installed
+
+
+def test_resolve_launch_npx_missing_is_graceful(env, monkeypatch):
+    service, _ = env
+    import core.tooling.service as svc
+    monkeypatch.setattr(svc.shutil, "which", lambda name: None)
+    service.install_tool("switch", "filesystem", {"approved_dirs": ["C:/safe"]})
+    result = service.call_tool("switch", "filesystem", "read_file", {"path": "C:/safe/x"})
+    assert result["status"] == "error"                     # graceful, not a crash
+
+
+def test_append_config_scalar_is_coerced(env):
+    service, fake = env
+    service.install_tool("switch", "filesystem", {"approved_dirs": "C:/only"})  # STRING, not list
+    args = fake.started[-1][3]                              # tuple(args) from ensure_started
+    assert "C:/only" in args                               # kept whole
+    assert "C" not in args                                 # NOT char-split
+
+
+def test_confirm_pending_with_nothing_pending(env):
+    service, _ = env
+    result = service.confirm_pending("switch", "1234")
+    assert result["status"] == "error"                     # (False, msg) branch

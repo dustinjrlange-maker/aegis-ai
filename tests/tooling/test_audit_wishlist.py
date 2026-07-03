@@ -43,6 +43,17 @@ def test_audit_recent_skips_blank_lines(tmp_path, monkeypatch):
     assert len(recent) == 1 and recent[0]["method"] == "get_current_time"
 
 
+def test_audit_log_swallows_write_errors(monkeypatch, caplog):
+    import logging
+    from core.tooling import audit
+    def boom(u):
+        raise OSError("disk full")
+    monkeypatch.setattr(audit, "_audit_path", boom)
+    with caplog.at_level(logging.WARNING):
+        audit.log("switch", "time", "m", {}, "ok", 1)   # must NOT raise
+    assert "audit" in caplog.text.lower()
+
+
 def test_wishlist_appends_with_timestamp(tmp_path, monkeypatch):
     import core.config
     from core.tooling import wishlist
