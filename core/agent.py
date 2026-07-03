@@ -14,7 +14,9 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from core.llm import chat as router_chat
+from core.llm import chat_with_meta as router_chat_with_meta
+from core.llm.turn_classifier import classify
+from server.chat_pipeline import route_task_tag
 from core.reply_shaping import build_filler_cleaner
 from core.config import CONFIG, get_path, PROJECT_ROOT as PROJ_ROOT, load_capabilities
 from core.memory.manager import MemoryManager
@@ -292,14 +294,19 @@ def run():
         messages_to_send = messages[:-1] + [{"role": "user", "content": augmented_input}]
 
         try:
-            reply_content = router_chat(
+            turn = classify(
+                user_input,
+                emotion_label=(emotion_result or {}).get("label"),
+                emotion_score=(emotion_result or {}).get("score", 0.0),
+            )
+            reply_content, route_meta = router_chat_with_meta(
                 messages_to_send,
                 sensitivity="personal",
-                task="chat",
+                task=route_task_tag(turn),
                 model=CONFIG["model"]["chat"],
             )
 
-            reply = clean_reply(reply_content)
+            reply = clean_reply(reply_content, mode=turn.mode)
 
             # Run output through protocol pipeline
             output_result = protocol_registry.process_output(reply, proto_context)
@@ -308,6 +315,9 @@ def run():
                 continue
 
             reply = output_result["response"]
+
+            if route_meta.backend_used == "cloud":
+                reply = f"{reply}\n\n☁ cloud brain"
 
             print()
             print(f"{agent_name}: {reply}")
