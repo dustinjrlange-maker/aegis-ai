@@ -10,6 +10,8 @@ from datetime import datetime
 from core.llm import chat_with_meta as router_chat_with_meta
 from core.llm.turn_classifier import classify, route_task_tag, inject_fact_memories
 from core.config import CONFIG, load_capabilities
+from core.tooling import service as tool_service
+from core.tooling.autocall import run_tool_loop
 from core.voice import emotion
 from core.protocols.context_budget import budget_injections
 
@@ -187,6 +189,26 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
         output_result = session.protocol_registry.process_output(reply, proto_context)
         if not output_result.get("suppress"):
             reply = output_result["response"]
+
+        # --- Phase 4B: tool auto-call loop (feed tool results back to Pike) ---
+        tooling_proto = session.protocol_registry.get("tooling")
+        if tooling_proto is not None and tooling_proto.get_pending_tool_calls():
+            def _tool_router(convo, sensitivity, task, model):
+                return router_chat_with_meta(convo, sensitivity=sensitivity,
+                                             task=task, model=model)
+
+            def _tool_process_output(r):
+                return session.protocol_registry.process_output(r, proto_context)
+
+            reply, route_meta, _pin_notes = await run_tool_loop(
+                username=user_id, tooling=tooling_proto,
+                convo=list(messages_to_send), reply=reply, raw_reply=reply_content,
+                route_meta=route_meta,
+                router=_tool_router, call_tool=tool_service.call_tool,
+                process_output=_tool_process_output,
+                clean_reply=lambda rc: session.clean_reply(rc, mode=turn.mode),
+                sensitivity="personal", task_tag=task_tag,
+                model=CONFIG["model"]["chat"])
 
         # Extract bracket command actions (if any were executed during output processing)
         bracket_proto = session.protocol_registry.get("bracket_commands")
