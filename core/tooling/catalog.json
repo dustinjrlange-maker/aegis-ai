@@ -1,0 +1,27 @@
+{
+  "time": {
+    "name": "Time",
+    "description": "Current time and timezone conversions (get_current_time, convert_time).",
+    "launch": {"command": "python", "args": ["-m", "mcp_server_time"]},
+    "default_tier": "read_scoped",
+    "method_tiers": {},
+    "config_fields": [],
+    "author": "MCP community (Anthropic reference server)",
+    "source": "https://pypi.org/project/mcp-server-time/"
+  },
+  "filesystem": {
+    "name": "Filesystem",
+    "description": "List, read, and search files in approved directories.",
+    "launch": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem"], "append_config": "approved_dirs"},
+    "default_tier": "read_broad",
+    "method_tiers": {
+      "write_file": "write_destructive",
+      "edit_file": "write_destructive",
+      "move_file": "write_destructive",
+      "create_directory": "write_destructive"
+    },
+    "config_fields": ["approved_dirs"],
+    "author": "Anthropic (official MCP server)",
+    "source": "https://www.npmjs.com/package/@modelcontextprotocol/server-filesystem"
+  }
+}
