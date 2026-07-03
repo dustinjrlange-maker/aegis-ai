@@ -5,8 +5,10 @@ Local-only passcode authentication — no cloud services.
 """
 
 import json
+import math
 import secrets
 import logging
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -179,6 +181,51 @@ def save_user_preferences(username: str, prefs: dict):
         return
     users[username]["preferences"] = prefs
     save_users(users)
+
+
+# --- Login Rate Limiting ---
+
+LOGIN_MAX_ATTEMPTS = 5
+LOGIN_LOCKOUT_SECONDS = 60
+
+# Failed-login tracker: {username: {count, locked_until}}. In-memory only —
+# single uvicorn worker, and a restart clearing it is acceptable.
+_failed_logins: dict[str, dict] = {}
+
+
+def record_failed_login(username: str, now: float | None = None):
+    """Record a failed login attempt; locks the account after LOGIN_MAX_ATTEMPTS."""
+    now = time.time() if now is None else now
+    key = username.lower().strip()
+    entry = _failed_logins.get(key)
+    if entry and entry["locked_until"] and now >= entry["locked_until"]:
+        entry = None  # previous lockout expired — start a fresh counter
+    if entry is None:
+        entry = {"count": 0, "locked_until": 0.0}
+        _failed_logins[key] = entry
+    entry["count"] += 1
+    if entry["count"] >= LOGIN_MAX_ATTEMPTS:
+        entry["locked_until"] = now + LOGIN_LOCKOUT_SECONDS
+
+
+def login_lockout_remaining(username: str, now: float | None = None) -> int:
+    """Seconds until login is allowed again for this username (0 = not locked)."""
+    now = time.time() if now is None else now
+    key = username.lower().strip()
+    entry = _failed_logins.get(key)
+    if not entry:
+        return 0
+    remaining = entry["locked_until"] - now
+    if remaining <= 0:
+        if entry["locked_until"]:
+            _failed_logins.pop(key, None)  # expired lockout — reset counter
+        return 0
+    return math.ceil(remaining)
+
+
+def clear_failed_logins(username: str):
+    """Reset the failure counter (call on successful login)."""
+    _failed_logins.pop(username.lower().strip(), None)
 
 
 # --- Session Tokens ---

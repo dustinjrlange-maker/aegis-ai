@@ -18,6 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse
 from pydantic import BaseModel
 from typing import Optional
+import ipaddress
 import json
 import hmac
 import hashlib
@@ -29,6 +30,7 @@ from core.auth import (
     load_users, create_user, verify_user, change_passcode,
     create_session, validate_token, invalidate_token, get_current_user,
     load_user_preferences, save_user_preferences, user_exists,
+    record_failed_login, clear_failed_logins, login_lockout_remaining,
 )
 from core.session import SessionManager
 from core.personality.pack_loader import (
@@ -66,6 +68,16 @@ logger = logging.getLogger("aegis.server")
 
 
 # --- Auth Dependency ---
+
+def _is_loopback(host: str | None) -> bool:
+    """True only if the request originates from this machine."""
+    if not host:
+        return False
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return host == "localhost"
+
 
 async def require_user(request: Request) -> str:
     """FastAPI dependency — require a valid authenticated user."""
@@ -404,7 +416,14 @@ async def auth_login(req: LoginRequest):
     Conversation history from the old session is saved to transcript.
     """
     username = req.username.lower().strip()
+    lockout = login_lockout_remaining(username)
+    if lockout > 0:
+        return {
+            "success": False,
+            "error": f"Too many failed attempts. Try again in {lockout}s.",
+        }
     if verify_user(username, req.passcode):
+        clear_failed_logins(username)
         # End any stale session so the next get_or_create() starts fresh
         session_manager.end_session(username)
         token = create_session(username)
@@ -416,6 +435,7 @@ async def auth_login(req: LoginRequest):
             "username": username,
             "display_name": display_name,
         }
+    record_failed_login(username)
     return {"success": False, "error": "Invalid username or passcode"}
 
 
@@ -504,11 +524,15 @@ async def end_session(user_id: str = Depends(require_user)):
 
 
 @app.post("/api/shutdown")
-async def shutdown():
+async def shutdown(request: Request):
     """Save all sessions and shut down gracefully (called by Electron on quit).
 
-    No auth required — only accessible from localhost during app teardown.
+    No auth token required, but strictly loopback-only — the server binds
+    0.0.0.0, so without this check any LAN host could end all sessions.
     """
+    client_host = request.client.host if request.client else None
+    if not _is_loopback(client_host):
+        raise HTTPException(status_code=403, detail="Shutdown is localhost-only")
     logger.info("Shutdown endpoint called — saving all sessions...")
     session_manager.end_all()
     return {"success": True}
