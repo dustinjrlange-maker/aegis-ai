@@ -8,11 +8,15 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 
 from core.llm import config as _cfg
 from core.llm.backends import CloudBackend
 
 logger = logging.getLogger(__name__)
+
+# Defense-in-depth: scrub any Anthropic key token from text shown to the UI.
+_KEY_TOKEN = re.compile(r"sk-ant-[A-Za-z0-9_-]+")
 
 
 def get_cloud_status() -> dict:
@@ -66,7 +70,8 @@ def _friendly_error(e: Exception) -> str:
         return "Couldn't reach Anthropic (network)"
     if "rate" in text and "limit" in text:
         return "Rate limited — try again shortly"
-    return str(e) or type(e).__name__
+    # Fallthrough: pass the raw message but scrub any key token first.
+    return _KEY_TOKEN.sub("[REDACTED]", str(e) or type(e).__name__)
 
 
 def test_cloud_key() -> dict:

@@ -129,3 +129,11 @@ def test_test_cloud_key_generic_error_passes_message(tmp_path, monkeypatch):
                         lambda: _RaisingBackend(RuntimeError("something odd")))
     out = cs.test_cloud_key()
     assert out["ok"] is False and "something odd" in out["error"]
+
+
+def test_friendly_error_redacts_key_token():
+    # A stray key token in an unexpected error message must be scrubbed.
+    err = Exception("weird failure involving sk-ant-api03-SECRETSECRET_tok in the body")
+    out = cs._friendly_error(err)
+    assert "sk-ant-" not in out
+    assert "[REDACTED]" in out
