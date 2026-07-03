@@ -132,10 +132,11 @@ async def lifespan(app):
         except Exception as e:
             logger.warning("Error stopping Telegram bot: %s", e)
 
-    # Shutdown — stop MCP tool servers
+    # Shutdown — stop MCP tool servers (shutdown() blocks on subprocess drain,
+    # so run it off the event loop)
     try:
         from core.tooling.mcp_manager import MANAGER
-        MANAGER.shutdown()
+        await asyncio.to_thread(MANAGER.shutdown)
     except Exception as e:
         logger.warning("Error stopping MCP manager: %s", e)
 

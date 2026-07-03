@@ -46,3 +46,10 @@ def test_audit_empty(client):
     resp = client.get("/api/tools/audit")
     assert resp.status_code == 200
     assert resp.json() == []
+
+
+def test_uninstall_not_installed_reports(client):
+    resp = client.post("/api/tools/uninstall/nope")
+    assert resp.status_code == 200
+    assert "message" in resp.json()
+    assert "isn't installed" in resp.json()["message"] or "not installed" in resp.json()["message"].lower()
