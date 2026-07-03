@@ -3,7 +3,7 @@ chromadb>=0.4.0
 coqui-tts[codec]>=0.24.0
 faster-whisper>=1.0.0
 sounddevice>=0.4.6
-numpy>=1.24.0
+numpy>=1.24.0,<2.4  # numba (via coqui-tts -> librosa) breaks on numpy 2.4+
 yt-dlp
 pydub
 transformers>=4.30.0
