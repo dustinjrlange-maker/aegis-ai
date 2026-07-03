@@ -326,3 +326,43 @@ def test_loop_pin_note_deduped_across_rounds():
         clean_reply=lambda x: x)
     assert final.count("needs your PIN") == 1      # note appears once despite 2 rounds
     assert len(pin) == 1
+
+
+def test_format_tool_result_caps_large_listing():
+    from core.tooling import autocall
+    big = "\n".join(f"[FILE] f{i}.txt" for i in range(300))   # 300 lines in one string
+    out = autocall._format_tool_result([big])
+    assert out.count("\n") <= autocall.MAX_RESULT_LINES        # capped by lines
+    assert "truncated" in out
+    assert len(out) <= autocall.MAX_RESULT_CHARS + 100         # char cap (+marker)
+
+
+def test_format_tool_result_small_unchanged():
+    from core.tooling import autocall
+    assert autocall._format_tool_result(["hi"]) == "hi"
+    assert autocall._format_tool_result([]) == "(empty)"
+
+
+def test_loop_reprompt_has_answer_framing():
+    tooling = _FakeTooling([[{"tool_id": "time", "method": "get_current_time",
+                              "args": {}}], []])
+    routed = []
+
+    def call_tool(u, t, m, a):
+        return {"status": "ok", "result": ["3:44 PM"]}
+
+    def router(convo, s, t, model):
+        routed.append(convo); return ("It's 3:44 PM.", "M")
+
+    def process_output(reply):
+        tooling.advance(); return {"response": reply, "suppress": False}
+
+    final, meta, pin = _run(
+        username="switch", tooling=tooling, convo=[{"role": "user", "content": "time?"}],
+        reply="checking", raw_reply="checking", route_meta="M0",
+        router=router, call_tool=call_tool, process_output=process_output,
+        clean_reply=lambda x: x)
+    sysmsg = [m for m in routed[0] if m["role"] == "system"][0]["content"]
+    assert "answer the user's question now" in sysmsg
+    assert "Do NOT call the same tool again" in sysmsg
+    assert "3:44 PM" in sysmsg                                 # result still present

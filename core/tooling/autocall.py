@@ -12,13 +12,31 @@ import logging
 logger = logging.getLogger("aegis.tooling.autocall")
 
 MAX_TOOL_ROUNDS = 3
+MAX_RESULT_LINES = 50
+MAX_RESULT_CHARS = 4000
 
 
 def _format_tool_result(result):
-    """Render a tool result (list of text lines, or anything) for Pike's context."""
+    """Render a tool result for the model's context, capped so a large result
+    (e.g. a directory with hundreds of entries) can't flood a small model."""
     if isinstance(result, list):
-        return "\n".join(str(r) for r in result) or "(empty)"
-    return str(result)
+        text = "\n".join(str(r) for r in result)
+    else:
+        text = str(result)
+    if not text:
+        return "(empty)"
+    truncated = False
+    lines = text.splitlines()
+    if len(lines) > MAX_RESULT_LINES:
+        lines = lines[:MAX_RESULT_LINES]
+        truncated = True
+    text = "\n".join(lines)
+    if len(text) > MAX_RESULT_CHARS:
+        text = text[:MAX_RESULT_CHARS]
+        truncated = True
+    if truncated:
+        text += "\n… (result truncated — ask for more, or narrow the request)"
+    return text
 
 
 async def run_tool_loop(*, username, tooling, convo, reply, raw_reply, route_meta,
@@ -73,9 +91,14 @@ async def run_tool_loop(*, username, tooling, convo, reply, raw_reply, route_met
                 result_msgs.append(f"(You tried {rej}, which isn't an available tool.)")
             if not result_msgs:            # only needs_pin this round → nothing to synthesize
                 break
+            tool_ctx = (
+                "Results of the tool call(s) you just made are below. Use them to "
+                "answer the user's question now, in your own words. Do NOT call the "
+                "same tool again unless you genuinely need different information.\n\n"
+                + "\n".join(result_msgs))
             convo = convo + [
                 {"role": "assistant", "content": raw_reply},
-                {"role": "system", "content": "\n".join(result_msgs)},
+                {"role": "system", "content": tool_ctx},
             ]
             raw_reply, route_meta = await asyncio.to_thread(
                 router, convo, sensitivity, task_tag, model)
