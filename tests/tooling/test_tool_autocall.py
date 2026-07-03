@@ -149,3 +149,151 @@ def test_parse_rejects_hyphenated_unknown_tool(monkeypatch):
     p.process_output("[TOOL: some-server.do_thing x=1]", {})   # matches regex now, not installed
     assert p.get_pending_tool_calls() == []
     assert p.get_rejections() == ["some-server.do_thing"]
+
+
+import asyncio
+
+
+class _FakeTooling:
+    """Serves a list of pending calls per round; advance() loads the next round."""
+    def __init__(self, rounds):
+        self._rounds = rounds
+        self._i = 0
+        self._rej = []
+
+    def get_pending_tool_calls(self):
+        return self._rounds[self._i] if self._i < len(self._rounds) else []
+
+    def get_rejections(self):
+        return self._rej
+
+    def advance(self):
+        self._i += 1
+
+
+def _run(**kw):
+    from core.tooling import autocall
+    base = dict(sensitivity="personal", task_tag="chat_task", model="qwen")
+    base.update(kw)
+    return asyncio.run(autocall.run_tool_loop(**base))
+
+
+def test_loop_ok_reprompts_and_synthesizes():
+    tooling = _FakeTooling([[{"tool_id": "filesystem", "method": "list_directory",
+                              "args": {"path": "X"}}], []])
+    calls, routed = [], []
+
+    def call_tool(u, t, m, a):
+        calls.append((t, m, a)); return {"status": "ok", "result": ["a.txt", "b.txt"]}
+
+    def router(convo, s, t, model):
+        routed.append(convo); return ("You have a.txt and b.txt.", "META2")
+
+    def process_output(reply):
+        tooling.advance(); return {"response": reply, "suppress": False}
+
+    final, meta, pin = _run(
+        username="switch", tooling=tooling, convo=[{"role": "user", "content": "ls"}],
+        reply="checking", raw_reply="checking [TOOL: x]", route_meta="META1",
+        router=router, call_tool=call_tool, process_output=process_output,
+        clean_reply=lambda x: x)
+    assert calls == [("filesystem", "list_directory", {"path": "X"})]
+    assert final == "You have a.txt and b.txt."
+    assert meta == "META2" and pin == []
+    assert len(routed) == 1
+    # the re-prompt convo carries Pike's own call + the tool result
+    assert any(m["role"] == "assistant" and "[TOOL: x]" in m["content"] for m in routed[0])
+    assert any(m["role"] == "system" and "a.txt" in m["content"] for m in routed[0])
+
+
+def test_loop_needs_pin_appends_note_no_reprompt():
+    tooling = _FakeTooling([[{"tool_id": "filesystem", "method": "write_file",
+                              "args": {}}], []])
+    routed = []
+
+    def call_tool(u, t, m, a):
+        return {"status": "needs_pin", "tool_id": "filesystem",
+                "method": "write_file", "required_tier": "write_destructive",
+                "message": "..."}
+
+    def router(convo, s, t, model):
+        routed.append(convo); return ("x", "M")
+
+    final, meta, pin = _run(
+        username="switch", tooling=tooling, convo=[{"role": "user", "content": "w"}],
+        reply="on it", raw_reply="on it", route_meta="M0",
+        router=router, call_tool=call_tool,
+        process_output=lambda r: {"response": r, "suppress": False}, clean_reply=lambda x: x)
+    assert "needs your PIN" in final and "write_file" in final
+    assert routed == []                # only needs_pin -> no re-prompt
+    assert meta == "M0" and len(pin) == 1
+
+
+def test_loop_error_is_fed_back():
+    tooling = _FakeTooling([[{"tool_id": "time", "method": "get_current_time",
+                              "args": {}}], []])
+    routed = []
+
+    def call_tool(u, t, m, a):
+        return {"status": "error", "message": "boom"}
+
+    def router(convo, s, t, model):
+        routed.append(convo); return ("sorry, that failed", "M2")
+
+    def process_output(reply):
+        tooling.advance(); return {"response": reply, "suppress": False}
+
+    final, meta, pin = _run(
+        username="switch", tooling=tooling, convo=[{"role": "user", "content": "t"}],
+        reply="checking", raw_reply="checking", route_meta="M0",
+        router=router, call_tool=call_tool, process_output=process_output,
+        clean_reply=lambda x: x)
+    assert len(routed) == 1
+    assert any(m["role"] == "system" and "failed: boom" in m["content"] for m in routed[0])
+    assert final == "sorry, that failed"
+
+
+def test_loop_round_cap_stops_at_three():
+    always = [{"tool_id": "time", "method": "get_current_time", "args": {}}]
+
+    class Always:
+        def get_pending_tool_calls(self): return always
+        def get_rejections(self): return []
+
+    n = {"c": 0}
+
+    def call_tool(u, t, m, a):
+        n["c"] += 1; return {"status": "ok", "result": ["t"]}
+
+    def router(convo, s, t, model):
+        return ("still going", "M")
+
+    final, meta, pin = _run(
+        username="switch", tooling=Always(), convo=[{"role": "user", "content": "x"}],
+        reply="r", raw_reply="r", route_meta="M0",
+        router=router, call_tool=call_tool,
+        process_output=lambda r: {"response": r, "suppress": False},
+        clean_reply=lambda x: x)
+    assert n["c"] == 3                  # exactly max_rounds executions
+
+
+def test_loop_exception_falls_back_to_preloop_reply():
+    class Always:
+        def get_pending_tool_calls(self):
+            return [{"tool_id": "time", "method": "get_current_time", "args": {}}]
+        def get_rejections(self): return []
+
+    def call_tool(u, t, m, a):
+        raise RuntimeError("kaboom")
+
+    def router(convo, s, t, model):
+        return ("unused", "M")
+
+    final, meta, pin = _run(
+        username="switch", tooling=Always(), convo=[{"role": "user", "content": "x"}],
+        reply="preloop reply", raw_reply="preloop", route_meta="M0",
+        router=router, call_tool=call_tool,
+        process_output=lambda r: {"response": r, "suppress": False},
+        clean_reply=lambda x: x)
+    assert final == "preloop reply"     # degraded gracefully, no raise
+    assert meta == "M0"
