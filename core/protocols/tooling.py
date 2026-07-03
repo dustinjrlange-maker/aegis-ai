@@ -13,8 +13,11 @@ from core.tooling import catalog, service, wishlist
 logger = logging.getLogger("aegis.protocols.tooling")
 
 
-# [TOOL: tool_id.method key=value ...]
-_TOOL_RE = re.compile(r"\[TOOL:\s*([a-z_]+)\.([a-z_]+)\s*(.*?)\]", re.I)
+# [TOOL: tool_id.method key=value ...]   (validated against the catalog below)
+# NOTE: tooling runs process_output at priority 50, ABOVE bracket_commands (49),
+# so it strips [TOOL:] before bracket_commands sees it; and no "TOOL" handler is
+# registered there anyway. Don't register a TOOL bracket handler or reorder these.
+_TOOL_RE = re.compile(r"\[TOOL:\s*([a-z0-9_-]+)\.([a-z0-9_-]+)\s*(.*?)\]", re.I)
 
 
 def _autocall_enabled():
@@ -77,22 +80,27 @@ class ToolingProtocol(Protocol):
             return {"response": response, "suppress": False, "append": ""}
         clean = response
         for m in matches:
-            tool_id = m.group(1).lower()
-            method = m.group(2).lower()
-            raw = m.group(3).strip()
-            entry = catalog.get_entry(tool_id)
-            installed = registry.get(self.username, tool_id) is not None
-            known = bool(entry) and (method in entry.get("method_tiers", {})
-                                     or method in entry.get("method_hints", {}))
-            if not installed or not known:
-                self._rejections.append(f"{tool_id}.{method}")
-            else:
-                args = self._parse_kv(raw.split(), split_commas=False)
-                self._pending_tool_calls.append(
-                    {"tool_id": tool_id, "method": method, "args": args})
+            try:
+                tool_id = m.group(1).lower()
+                method = m.group(2).lower()
+                raw = m.group(3).strip()
+                entry = catalog.get_entry(tool_id)
+                installed = registry.get(self.username, tool_id) is not None
+                known = bool(entry) and (method in entry.get("method_tiers", {})
+                                         or method in entry.get("method_hints", {}))
+                if not installed or not known:
+                    self._rejections.append(f"{tool_id}.{method}")
+                else:
+                    args = self._parse_kv(raw.split(), split_commas=False)
+                    self._pending_tool_calls.append(
+                        {"tool_id": tool_id, "method": method, "args": args})
+            except Exception as e:
+                logger.warning("Failed to parse a [TOOL:] call: %s", e)
+                self._rejections.append(f"{m.group(1)}.{m.group(2)}")
             clean = clean.replace(m.group(0), "")
         clean = re.sub(r"\n{3,}", "\n\n", clean)
         clean = re.sub(r"[ \t]+([.?,!])", r"\1", clean)
+        clean = re.sub(r"\.(?:[ \t]*\.)+", ".", clean)   # collapse ".." left by a stripped tag
         clean = clean.strip()
         return {"response": clean, "suppress": False, "append": ""}
 

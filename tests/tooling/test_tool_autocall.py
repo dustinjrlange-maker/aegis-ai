@@ -123,3 +123,29 @@ def test_parse_noop_when_toggle_off(monkeypatch):
     out = p.process_output("[TOOL: filesystem.list_directory path=x]", {})
     assert out["response"] == "[TOOL: filesystem.list_directory path=x]"   # left intact
     assert p.get_pending_tool_calls() == []
+
+
+def test_parse_survives_corrupt_catalog(monkeypatch):
+    """A broken catalog must not raise through process_output."""
+    import core.config
+    from core.protocols import tooling
+    from core.tooling import catalog
+    monkeypatch.setattr(core.config, "CONFIG", {"tooling": {"autocall_enabled": True}})
+    _reg_installed(monkeypatch, ["filesystem"])
+    monkeypatch.setattr(catalog, "get_entry", lambda t: (_ for _ in ()).throw(OSError("locked")))
+    p = tooling.ToolingProtocol(username="switch")
+    # must not raise; a call it can't validate is treated as a rejection
+    out = p.process_output("[TOOL: filesystem.read_file path=x]", {})
+    assert "[TOOL:" not in out["response"]
+    assert p.get_pending_tool_calls() == []
+
+
+def test_parse_rejects_hyphenated_unknown_tool(monkeypatch):
+    import core.config
+    from core.protocols import tooling
+    monkeypatch.setattr(core.config, "CONFIG", {"tooling": {"autocall_enabled": True}})
+    _reg_installed(monkeypatch, ["filesystem"])
+    p = tooling.ToolingProtocol(username="switch")
+    p.process_output("[TOOL: some-server.do_thing x=1]", {})   # matches regex now, not installed
+    assert p.get_pending_tool_calls() == []
+    assert p.get_rejections() == ["some-server.do_thing"]
