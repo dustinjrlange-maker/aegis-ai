@@ -14,6 +14,7 @@ from core.vault_pin import verify_vault_pin, has_vault_pin
 TIERS = ["read_scoped", "read_broad", "write_scoped_undoable", "write_destructive"]
 
 PENDING_MINUTES = 5
+MAX_PIN_ATTEMPTS = 5
 
 # username -> {tool_id, method, args, expires}. One pending op per user.
 _pending = {}
@@ -49,6 +50,7 @@ def stash_pending(username, tool_id, method, args):
             "method": method,
             "args": args,
             "expires": datetime.now() + timedelta(minutes=PENDING_MINUTES),
+            "attempts": 0,
         }
 
 
@@ -72,6 +74,13 @@ def confirm_with_pin(username, pin):
             _pending.pop(username, None)
             return False, "That confirmation expired — run the operation again."
         if not verify_vault_pin(username, pin):
-            return False, "Incorrect PIN. The operation is still pending."
+            entry["attempts"] += 1
+            if entry["attempts"] >= MAX_PIN_ATTEMPTS:
+                _pending.pop(username, None)
+                return False, ("Too many incorrect PIN attempts — operation cancelled. "
+                               "Run it again to retry.")
+            remaining = MAX_PIN_ATTEMPTS - entry["attempts"]
+            return False, (f"Incorrect PIN. The operation is still pending "
+                           f"({remaining} attempt{'s' if remaining != 1 else ''} left).")
         _pending.pop(username, None)
         return True, entry

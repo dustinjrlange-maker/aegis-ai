@@ -72,6 +72,23 @@ def test_check_fails_closed_on_malformed_tiers():
     assert trust.check("bogus_tier", TIME_CATALOG, "get_current_time") == "needs_pin"  # unknown installed tier
 
 
+def test_pin_attempts_exhausted_voids_pending(monkeypatch):
+    from core.tooling import trust
+    trust._pending.clear()
+    monkeypatch.setattr(trust, "has_vault_pin", lambda u: True)
+    monkeypatch.setattr(trust, "verify_vault_pin", lambda u, p: False)   # always wrong
+    trust.stash_pending("switch", "filesystem", "write_file", {})
+    for _ in range(trust.MAX_PIN_ATTEMPTS - 1):
+        ok, msg = trust.confirm_with_pin("switch", "0000")
+        assert ok is False and "pending" in msg.lower()
+    ok, msg = trust.confirm_with_pin("switch", "0000")                    # final miss
+    assert ok is False and "cancelled" in msg.lower()
+    # stash voided: even a now-correct PIN finds nothing pending
+    monkeypatch.setattr(trust, "verify_vault_pin", lambda u, p: True)
+    ok, msg = trust.confirm_with_pin("switch", "1234")
+    assert ok is False and "nothing" in msg.lower()
+
+
 def test_username_normalization_stash_then_confirm(monkeypatch):
     from core.tooling import trust
     trust._pending.clear()

@@ -42,6 +42,13 @@ def test_call_uninstalled_tool(client):
     assert body["status"] == "error" and "not installed" in body["message"]
 
 
+def test_pin_with_nothing_pending(client):
+    resp = client.post("/api/tools/pin", json={"pin": "1234"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "error"        # nothing pending -> error dict, route exists & wired
+
+
 def test_audit_empty(client):
     resp = client.get("/api/tools/audit")
     assert resp.status_code == 200

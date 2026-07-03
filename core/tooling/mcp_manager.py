@@ -122,6 +122,7 @@ class MCPManager:
     def ensure_started(self, username, tool_id, command, args, env=None,
                        timeout=SPAWN_TIMEOUT):
         """Start the server for (username, tool_id) if not already running."""
+        username = username.lower().strip()
         self._ensure_loop()
         key = (username, tool_id)
         with self._lock:
@@ -152,6 +153,7 @@ class MCPManager:
         still queued behind earlier calls. Callers under contention should size
         timeouts accordingly.
         """
+        username = username.lower().strip()
         handle = self._servers.get((username, tool_id))
         if handle is None or handle.dead or handle.queue is None:
             raise RuntimeError(f"{tool_id}: server not running")
@@ -166,11 +168,13 @@ class MCPManager:
         return self.call(username, tool_id, _LIST_TOOLS, timeout=timeout)
 
     def is_running(self, username, tool_id):
+        username = username.lower().strip()
         handle = self._servers.get((username, tool_id))
         return handle is not None and not handle.dead and handle.queue is not None
 
     def stop(self, username, tool_id):
         """Stop one server gracefully."""
+        username = username.lower().strip()
         handle = self._servers.pop((username, tool_id), None)
         if handle is None or handle.queue is None or self._loop is None:
             return

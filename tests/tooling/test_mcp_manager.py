@@ -155,6 +155,26 @@ def test_same_key_callers_share_one_session(monkeypatch):
     mgr.shutdown()
 
 
+def test_username_normalized_in_key(monkeypatch):
+    from core.tooling.mcp_manager import MCPManager
+    mgr = MCPManager()
+    sessions = []
+
+    @asynccontextmanager
+    async def fake_open(self, command, args, env):
+        s = FakeSession()
+        sessions.append(s)
+        yield s
+
+    monkeypatch.setattr(MCPManager, "_open_session", fake_open)
+    mgr.ensure_started("  Switch ", "echo", "cmd", [], timeout=5)
+    assert mgr.is_running("switch", "echo")               # same identity, normalized
+    out = mgr.call("SWITCH", "echo", "ping", {}, timeout=5)
+    assert out == ["ping:{}"]                             # reached the SAME session
+    assert len(sessions) == 1                             # no duplicate spawn
+    mgr.shutdown()
+
+
 def test_respawn_after_death(monkeypatch):
     """After a server stops (dead), a later ensure_started spawns a fresh one."""
     from core.tooling.mcp_manager import MCPManager

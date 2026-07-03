@@ -414,6 +414,10 @@ class ToolCallRequest(BaseModel):
     args: dict = {}
 
 
+class ToolPinRequest(BaseModel):
+    pin: str
+
+
 # --- Auth Routes (unauthenticated) ---
 
 @app.post("/api/auth/register")
@@ -2767,6 +2771,12 @@ async def tools_call(req: ToolCallRequest, user_id: str = Depends(require_user))
     from core.tooling import service
     return await asyncio.to_thread(service.call_tool, user_id, req.tool_id,
                                    req.method, req.args)
+
+
+@app.post("/api/tools/pin")
+async def tools_pin(req: ToolPinRequest, user_id: str = Depends(require_user)):
+    from core.tooling import service
+    return await asyncio.to_thread(service.confirm_pending, user_id, req.pin)
 
 
 @app.get("/api/tools/audit")
