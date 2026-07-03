@@ -37,4 +37,4 @@ def recent(username, limit=50):
     if not path.exists():
         return []
     lines = path.read_text(encoding="utf-8").strip().splitlines()
-    return [json.loads(line) for line in lines[-limit:]]
+    return [json.loads(line) for line in lines[-limit:] if line.strip()]

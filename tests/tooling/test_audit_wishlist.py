@@ -25,6 +25,24 @@ def test_audit_read_recent(tmp_path, monkeypatch):
     assert recent[-1]["method"] == "m4"           # newest last
 
 
+def test_audit_recent_absent_file_returns_empty(tmp_path, monkeypatch):
+    from core.tooling import audit
+    monkeypatch.setattr(audit, "_DATA_ROOT", tmp_path)
+    assert audit.recent("nobody") == []
+
+
+def test_audit_recent_skips_blank_lines(tmp_path, monkeypatch):
+    from core.tooling import audit
+    monkeypatch.setattr(audit, "_DATA_ROOT", tmp_path)
+    audit.log("switch", "time", "get_current_time", {}, "ok", 5)
+    # simulate a stray blank line (e.g. crash-truncated write / manual edit)
+    path = audit._audit_path("switch")
+    with open(path, "a", encoding="utf-8") as fh:
+        fh.write("\n")
+    recent = audit.recent("switch")           # must not raise
+    assert len(recent) == 1 and recent[0]["method"] == "get_current_time"
+
+
 def test_wishlist_appends_with_timestamp(tmp_path, monkeypatch):
     import core.config
     from core.tooling import wishlist
