@@ -154,6 +154,8 @@ def run():
     protocol_registry.register(GoogleProtocol(data_dir=user_data_dir))
     protocol_registry.register(CommandProtocol())
     protocol_registry.register(CreativeProtocol())
+    from core.protocols.tooling import ToolingProtocol
+    protocol_registry.register(ToolingProtocol(username=user_id))
     print("  Protocols online: " + ", ".join(protocol_registry.list_protocols()))
 
     # Conversation history

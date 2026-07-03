@@ -105,6 +105,8 @@ class UserSession:
         self.protocol_registry.register(GoogleProtocol(data_dir=user_data_dir))
         self.protocol_registry.register(CommandProtocol())
         self.protocol_registry.register(CreativeProtocol())
+        from core.protocols.tooling import ToolingProtocol
+        self.protocol_registry.register(ToolingProtocol(username=user_id))
 
         # Chat-driven email actions — needs a session back-ref for Gmail creds.
         email_ops = EmailOpsProtocol()
