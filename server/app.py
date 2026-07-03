@@ -4,6 +4,7 @@ Exposes the Aegis agent as an HTTP API for multi-device access.
 Run with: uvicorn server.app:app --host 0.0.0.0 --port 8484
 """
 
+import asyncio
 import sys
 import logging
 from pathlib import Path
@@ -130,6 +131,13 @@ async def lifespan(app):
             await stop_telegram_bot(telegram_app)
         except Exception as e:
             logger.warning("Error stopping Telegram bot: %s", e)
+
+    # Shutdown — stop MCP tool servers
+    try:
+        from core.tooling.mcp_manager import MANAGER
+        MANAGER.shutdown()
+    except Exception as e:
+        logger.warning("Error stopping MCP manager: %s", e)
 
     # Save all sessions
     logger.info("Server shutdown — saving all active sessions...")
@@ -392,6 +400,17 @@ class SocialPostRequest(BaseModel):
     content: str
     platform: Optional[str] = ""
     status: Optional[str] = "draft"
+
+
+class ToolInstallRequest(BaseModel):
+    tool_id: str
+    config: dict = {}
+
+
+class ToolCallRequest(BaseModel):
+    tool_id: str
+    method: str
+    args: dict = {}
 
 
 # --- Auth Routes (unauthenticated) ---
@@ -2712,6 +2731,47 @@ async def create_social_post(req: SocialPostRequest, user_id: str = Depends(requ
     if post:
         return {"success": True, "post": post}
     return {"success": False, "error": "Project not found"}
+
+
+# --- Tooling (Phase 4A) ---
+
+@app.get("/api/tools/catalog")
+async def tools_catalog(user_id: str = Depends(require_user)):
+    from core.tooling import catalog
+    return catalog.all_entries()
+
+
+@app.get("/api/tools/installed")
+async def tools_installed(user_id: str = Depends(require_user)):
+    from core.tooling import service
+    return await asyncio.to_thread(service.installed_summary, user_id)
+
+
+@app.post("/api/tools/install")
+async def tools_install(req: ToolInstallRequest, user_id: str = Depends(require_user)):
+    from core.tooling import service
+    message = await asyncio.to_thread(service.install_tool, user_id, req.tool_id, req.config)
+    return {"message": message}
+
+
+@app.post("/api/tools/uninstall/{tool_id}")
+async def tools_uninstall(tool_id: str, user_id: str = Depends(require_user)):
+    from core.tooling import service
+    message = await asyncio.to_thread(service.uninstall_tool, user_id, tool_id)
+    return {"message": message}
+
+
+@app.post("/api/tools/call")
+async def tools_call(req: ToolCallRequest, user_id: str = Depends(require_user)):
+    from core.tooling import service
+    return await asyncio.to_thread(service.call_tool, user_id, req.tool_id,
+                                   req.method, req.args)
+
+
+@app.get("/api/tools/audit")
+async def tools_audit(limit: int = 50, user_id: str = Depends(require_user)):
+    from core.tooling import audit
+    return await asyncio.to_thread(audit.recent, user_id, limit)
 
 
 # --- Static/PWA Routes ---
