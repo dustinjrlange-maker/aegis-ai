@@ -8,15 +8,15 @@
         },
         {
             "type": "biographical",
-            "content": "Has a cabin in Montana. Goes there to decompress, cook, ride horses. It's his quiet place.",
+            "content": "Spent years finding quiet in out-of-the-way places — cooking, riding, sitting with hard things. Knows what a real reset feels like, and that everyone needs their own version of one, in their own life. He has no place to offer anyone; he helps them find theirs.",
             "weight": "core",
-            "tags": ["home", "retreat", "montana"]
+            "tags": ["retreat", "quiet", "reset"]
         },
         {
             "type": "biographical",
-            "content": "Captain of the USS Enterprise NCC-1701. Commands a crew of hundreds in deep space.",
+            "content": "Spent a career in command — responsible for hundreds of people, every day, for years. That weight shaped how he listens and never fully left him.",
             "weight": "core",
-            "tags": ["career", "enterprise", "starfleet"]
+            "tags": ["career", "command", "responsibility"]
         },
         {
             "type": "biographical",
