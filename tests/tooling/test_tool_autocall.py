@@ -297,3 +297,32 @@ def test_loop_exception_falls_back_to_preloop_reply():
         clean_reply=lambda x: x)
     assert final == "preloop reply"     # degraded gracefully, no raise
     assert meta == "M0"
+
+
+def test_loop_pin_note_deduped_across_rounds():
+    tooling = _FakeTooling([
+        [{"tool_id": "time", "method": "get_current_time", "args": {}},
+         {"tool_id": "filesystem", "method": "write_file", "args": {}}],
+        [{"tool_id": "filesystem", "method": "write_file", "args": {}}],
+    ])
+
+    def call_tool(u, t, m, a):
+        if m == "write_file":
+            return {"status": "needs_pin", "tool_id": "filesystem",
+                    "method": "write_file", "required_tier": "write_destructive",
+                    "message": "..."}
+        return {"status": "ok", "result": ["12:00"]}
+
+    def router(convo, s, t, model):
+        return ("done", "M")
+
+    def process_output(reply):
+        tooling.advance(); return {"response": reply, "suppress": False}
+
+    final, meta, pin = _run(
+        username="switch", tooling=tooling, convo=[{"role": "user", "content": "x"}],
+        reply="r", raw_reply="r", route_meta="M0",
+        router=router, call_tool=call_tool, process_output=process_output,
+        clean_reply=lambda x: x)
+    assert final.count("needs your PIN") == 1      # note appears once despite 2 rounds
+    assert len(pin) == 1

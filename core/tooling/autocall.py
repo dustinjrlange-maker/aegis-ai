@@ -34,12 +34,15 @@ async def run_tool_loop(*, username, tooling, convo, reply, raw_reply, route_met
       route_meta: RouteMeta of the first call (updated as re-prompts route).
       router(convo, sensitivity, task_tag, model) -> (raw_reply, route_meta).
       call_tool(username, tool_id, method, args) -> service result dict.
-      process_output(reply) -> registry process_output dict (re-parses [TOOL:]).
+      process_output(reply) -> registry process_output dict. MUST reset the
+        tooling protocol's pending-calls/rejections each call (it does) — the
+        loop's termination depends on stale calls not carrying forward.
       clean_reply(raw) -> cleaned string.
 
     Returns (final_reply, route_meta, pin_notes).
     """
     pin_notes = []
+    _seen_pin = set()
     rounds = 0
     try:
         while tooling.get_pending_tool_calls() and rounds < max_rounds:
@@ -54,10 +57,14 @@ async def run_tool_loop(*, username, tooling, convo, reply, raw_reply, route_met
                         f"Tool result for {call['tool_id']}.{call['method']}: "
                         f"{_format_tool_result(res.get('result'))}")
                 elif status == "needs_pin":
-                    pin_notes.append(
-                        f"🔒 {res.get('method', call['method'])} on "
-                        f"{res.get('tool_id', call['tool_id'])} needs your PIN — "
-                        f"reply /tools pin <your vault PIN> to run it.")
+                    key = (res.get("tool_id", call["tool_id"]),
+                           res.get("method", call["method"]))
+                    if key not in _seen_pin:
+                        _seen_pin.add(key)
+                        pin_notes.append(
+                            f"🔒 {res.get('method', call['method'])} on "
+                            f"{res.get('tool_id', call['tool_id'])} needs your PIN — "
+                            f"reply /tools pin <your vault PIN> to run it.")
                 else:
                     result_msgs.append(
                         f"Tool {call['tool_id']}.{call['method']} failed: "
@@ -76,8 +83,8 @@ async def run_tool_loop(*, username, tooling, convo, reply, raw_reply, route_met
             out = process_output(reply)
             if not out.get("suppress"):
                 reply = out["response"]
-    except Exception as e:
-        logger.error("Tool autocall loop error: %s", e)
+    except Exception:
+        logger.exception("Tool autocall loop error")
         # fall through — `reply` holds the last good (or pre-loop) answer
     if pin_notes:
         reply = (reply + "\n\n" + "\n".join(pin_notes)).strip()
