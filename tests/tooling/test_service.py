@@ -78,6 +78,9 @@ def test_out_of_tier_write_soft_blocks(env):
     result = service.call_tool("switch", "filesystem", "write_file",
                                {"path": "C:/safe/a.txt", "content": "hi"})
     assert result["status"] == "needs_pin"
+    assert result["tool_id"] == "filesystem"
+    assert result["method"] == "write_file"
+    assert result["required_tier"] == "write_destructive"
     assert not any(c[2] == "write_file" for c in fake.calls)   # NOT executed
     from core.tooling import audit
     assert audit.recent("switch")[-1]["outcome"] == "denied"
