@@ -15,6 +15,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from core.llm import chat as router_chat
+from core.reply_shaping import build_filler_cleaner
 from core.config import CONFIG, get_path, PROJECT_ROOT as PROJ_ROOT, load_capabilities
 from core.memory.manager import MemoryManager
 from core.memory.character_memory import CharacterMemory
@@ -43,97 +44,6 @@ def load_core_directives():
     directives_path = get_path(CONFIG, "personality_prompt")
     with open(directives_path, "r", encoding="utf-8") as f:
         return f.read()
-
-
-def build_filler_cleaner(personality_pack):
-    """Build a response cleaner from the personality pack's filler phrases."""
-    filler_data = personality_pack.get("filler_phrases", [])
-    word_replacements = {}
-
-    if isinstance(filler_data, list):
-        phrases = filler_data
-    elif isinstance(filler_data, dict):
-        phrases = filler_data
-    else:
-        phrases = []
-
-    # If pack has structured filler data with word replacements
-    if isinstance(personality_pack.get("filler_phrases"), list):
-        phrases = personality_pack["filler_phrases"]
-    else:
-        # Load from pack — filler_phrases.json has {"phrases": [...], "word_replacements": {...}}
-        pack_data = personality_pack.get("filler_phrases", [])
-        if isinstance(pack_data, dict):
-            phrases = pack_data.get("phrases", [])
-            word_replacements = pack_data.get("word_replacements", {})
-        else:
-            phrases = pack_data if isinstance(pack_data, list) else []
-
-    def clean_reply(text):
-        """Post-process agent response using pack-specific filters."""
-        # Strip qwen3 thinking blocks (chain-of-thought reasoning)
-        text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL).strip()
-
-        # Strip emoji (qwen3 likes to add them, cp1252 console can't handle them)
-        text = re.sub(r'[\U00010000-\U0010ffff]', '', text)
-
-        # Normalize curly quotes
-        text = text.replace("\u2018", "'").replace("\u2019", "'")
-        text = text.replace("\u201c", '"').replace("\u201d", '"')
-
-        # Strip third-person narration
-        text = re.sub(r'\*[^*]+\*\s*', '', text)
-        text = re.sub(r'^[a-z].*?[,\.]\s*"', '"', text)
-        text = text.strip('"')
-
-        # Replace exclamation marks with periods
-        text = text.replace("!", ".")
-
-        # Strip filler phrases
-        for phrase in phrases:
-            base = phrase.rstrip(".,")
-            pattern = re.escape(base) + r'\b[.,]?\s*'
-            text = re.sub(pattern, "", text, flags=re.IGNORECASE)
-
-        # Replace words that leak chatbot tone
-        for word, replacement in word_replacements.items():
-            text = re.sub(rf'\b{word}\b', replacement, text, flags=re.IGNORECASE)
-
-        # Clean up whitespace
-        text = re.sub(r'  +', ' ', text)
-        text = re.sub(r'\n ', '\n', text)
-        text = text.strip()
-        text = re.sub(r'^\.\s*', '', text)
-        text = re.sub(r'\.\s*\.', '.', text)
-        text = text.strip()
-
-        # Hard sentence cap — models ignore "keep it short" instructions.
-        # Collapse to single line first, then cap at 3 sentences.
-        # Only allow multi-line for content with actual list markers (1. or -).
-        has_list = bool(re.search(r'(?m)^[\s]*(?:\d+\.|[-*])\s', text))
-        if not has_list:
-            # Collapse newlines to spaces for non-list content
-            text = re.sub(r'\s*\n\s*', ' ', text)
-            # Split on sentence boundaries and cap at 3
-            sentences = re.split(r'(?<=[.?])\s+', text)
-            sentences = [s for s in sentences if s.strip()]
-            if len(sentences) > 3:
-                sentences = sentences[:3]
-            # Drop trailing fragment if it's too short or doesn't end properly
-            # (e.g., "Or.." left over from a cut-off thought)
-            while sentences and (
-                len(sentences[-1].split()) <= 2
-                and not sentences[-1].rstrip('.').endswith(('?', '.'))
-            ):
-                sentences.pop()
-            if sentences:
-                text = ' '.join(sentences)
-                if not text.endswith(('.', '?')):
-                    text += '.'
-
-        return text.strip()
-
-    return clean_reply
 
 
 def _authenticate():
