@@ -130,3 +130,65 @@ class TestUserPreferences:
         create_user("mel", "Mel", "pass1234")
         prefs = load_user_preferences("mel")
         assert prefs == {}
+
+
+class TestLoginRateLimit:
+    @pytest.fixture(autouse=True)
+    def clean_lockouts(self):
+        from core.auth import _failed_logins
+        _failed_logins.clear()
+        yield
+        _failed_logins.clear()
+
+    def test_no_failures_no_lockout(self):
+        from core.auth import login_lockout_remaining
+        assert login_lockout_remaining("alice", now=1000.0) == 0
+
+    def test_under_threshold_no_lockout(self):
+        from core.auth import (
+            record_failed_login, login_lockout_remaining, LOGIN_MAX_ATTEMPTS,
+        )
+        for _ in range(LOGIN_MAX_ATTEMPTS - 1):
+            record_failed_login("alice", now=1000.0)
+        assert login_lockout_remaining("alice", now=1000.0) == 0
+
+    def test_lockout_at_threshold(self):
+        from core.auth import (
+            record_failed_login, login_lockout_remaining,
+            LOGIN_MAX_ATTEMPTS, LOGIN_LOCKOUT_SECONDS,
+        )
+        for _ in range(LOGIN_MAX_ATTEMPTS):
+            record_failed_login("alice", now=1000.0)
+        assert login_lockout_remaining("alice", now=1000.0) == LOGIN_LOCKOUT_SECONDS
+
+    def test_lockout_expires_and_counter_resets(self):
+        from core.auth import (
+            record_failed_login, login_lockout_remaining,
+            LOGIN_MAX_ATTEMPTS, LOGIN_LOCKOUT_SECONDS,
+        )
+        for _ in range(LOGIN_MAX_ATTEMPTS):
+            record_failed_login("alice", now=1000.0)
+        later = 1000.0 + LOGIN_LOCKOUT_SECONDS + 1
+        assert login_lockout_remaining("alice", now=later) == 0
+        # Fresh counter after expiry — one new failure doesn't re-lock
+        record_failed_login("alice", now=later)
+        assert login_lockout_remaining("alice", now=later) == 0
+
+    def test_clear_resets_counter(self):
+        from core.auth import (
+            record_failed_login, clear_failed_logins,
+            login_lockout_remaining, LOGIN_MAX_ATTEMPTS,
+        )
+        for _ in range(LOGIN_MAX_ATTEMPTS):
+            record_failed_login("alice", now=1000.0)
+        clear_failed_logins("alice")
+        assert login_lockout_remaining("alice", now=1000.0) == 0
+
+    def test_username_normalized(self):
+        from core.auth import (
+            record_failed_login, login_lockout_remaining,
+            LOGIN_MAX_ATTEMPTS, LOGIN_LOCKOUT_SECONDS,
+        )
+        for _ in range(LOGIN_MAX_ATTEMPTS):
+            record_failed_login("  ALICE ", now=1000.0)
+        assert login_lockout_remaining("alice", now=1000.0) == LOGIN_LOCKOUT_SECONDS
