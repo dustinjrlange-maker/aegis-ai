@@ -381,3 +381,40 @@ def test_injection_includes_approved_dirs(monkeypatch):
     p = tooling.ToolingProtocol(username="switch")
     inj = p.process_input("hi", {})["context_injection"]
     assert "use absolute paths under: C:/Users/dusti/Documents" in inj
+
+
+def test_parse_shorthand_without_tool_prefix(monkeypatch):
+    """qwen drops the TOOL: prefix under format drift — accept validated shorthand."""
+    import core.config
+    from core.protocols import tooling
+    monkeypatch.setattr(core.config, "CONFIG", {"tooling": {"autocall_enabled": True}})
+    _reg_installed(monkeypatch, ["filesystem"])
+    p = tooling.ToolingProtocol(username="switch")
+    out = p.process_output("[filesystem.read_file path=C:/x/a.txt]", {})
+    assert p.get_pending_tool_calls() == [{"tool_id": "filesystem", "method": "read_file",
+                                           "args": {"path": "C:/x/a.txt"}}]
+    assert "[filesystem" not in out["response"]        # stripped
+
+
+def test_parse_shorthand_nonvalidating_left_untouched(monkeypatch):
+    """Shorthand that isn't an installed tool+method is prose — leave it alone."""
+    import core.config
+    from core.protocols import tooling
+    monkeypatch.setattr(core.config, "CONFIG", {"tooling": {"autocall_enabled": True}})
+    _reg_installed(monkeypatch, ["filesystem"])
+    p = tooling.ToolingProtocol(username="switch")
+    out = p.process_output("See [example.com link] and [foo.bar x=1] for info.", {})
+    assert out["response"] == "See [example.com link] and [foo.bar x=1] for info."
+    assert p.get_pending_tool_calls() == []
+    assert p.get_rejections() == []                    # no false rejections from prose
+
+
+def test_parse_strict_and_shorthand_not_double_counted(monkeypatch):
+    """A strict [TOOL: x.y] also matches the shorthand pattern — count once."""
+    import core.config
+    from core.protocols import tooling
+    monkeypatch.setattr(core.config, "CONFIG", {"tooling": {"autocall_enabled": True}})
+    _reg_installed(monkeypatch, ["filesystem"])
+    p = tooling.ToolingProtocol(username="switch")
+    p.process_output("[TOOL: filesystem.read_file path=x]", {})
+    assert len(p.get_pending_tool_calls()) == 1

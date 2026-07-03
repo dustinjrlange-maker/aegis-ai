@@ -19,6 +19,13 @@ logger = logging.getLogger("aegis.protocols.tooling")
 # registered there anyway. Don't register a TOOL bracket handler or reorder these.
 _TOOL_RE = re.compile(r"\[TOOL:\s*([a-z0-9_-]+)\.([a-z0-9_-]+)\s*(.*?)\]", re.I)
 
+# Lenient fallback: the local 8B drops the "TOOL:" prefix under format drift and
+# emits e.g. [filesystem.read_file path=...]. Safe to accept because the REAL
+# gate is validation (installed tool + known method) — a shorthand bracket that
+# doesn't validate is left completely untouched (no strip, no rejection), so
+# ordinary bracketed prose can't false-positive into a tool call.
+_TOOL_SHORTHAND_RE = re.compile(r"\[([a-z0-9_-]+)\.([a-z0-9_-]+)\s*(.*?)\]", re.I)
+
 
 def _autocall_enabled():
     """Whether Pike may auto-call tools (Phase 4B). Default on."""
@@ -82,11 +89,16 @@ class ToolingProtocol(Protocol):
         if not _autocall_enabled():
             return {"response": response, "suppress": False, "append": ""}
         from core.tooling import registry
-        matches = list(_TOOL_RE.finditer(response))
-        if not matches:
+        strict = list(_TOOL_RE.finditer(response))
+        strict_spans = [m.span() for m in strict]
+        # Shorthand matches that don't overlap a strict match (a strict
+        # [TOOL: x.y] also matches the shorthand pattern — dedupe by span).
+        shorthand = [m for m in _TOOL_SHORTHAND_RE.finditer(response)
+                     if not any(s[0] <= m.start() < s[1] for s in strict_spans)]
+        if not strict and not shorthand:
             return {"response": response, "suppress": False, "append": ""}
         clean = response
-        for m in matches:
+        for m, is_strict in [(m, True) for m in strict] + [(m, False) for m in shorthand]:
             try:
                 tool_id = m.group(1).lower()
                 method = m.group(2).lower()
@@ -95,15 +107,23 @@ class ToolingProtocol(Protocol):
                 installed = registry.get(self.username, tool_id) is not None
                 known = bool(entry) and (method in entry.get("method_tiers", {})
                                          or method in entry.get("method_hints", {}))
-                if not installed or not known:
-                    self._rejections.append(f"{tool_id}.{method}")
-                else:
+                if installed and known:
                     args = self._parse_kv(raw.split(), split_commas=False)
                     self._pending_tool_calls.append(
                         {"tool_id": tool_id, "method": method, "args": args})
+                elif is_strict:
+                    # Explicit [TOOL:] that doesn't validate → rejection (nudge Pike).
+                    self._rejections.append(f"{tool_id}.{method}")
+                else:
+                    # Shorthand that doesn't validate is probably ordinary prose
+                    # (e.g. "[example.com link]") — leave it completely untouched.
+                    continue
             except Exception as e:
                 logger.warning("Failed to parse a [TOOL:] call: %s", e)
-                self._rejections.append(f"{m.group(1)}.{m.group(2)}")
+                if is_strict:
+                    self._rejections.append(f"{m.group(1)}.{m.group(2)}")
+                else:
+                    continue
             clean = clean.replace(m.group(0), "")
         clean = re.sub(r"\n{3,}", "\n\n", clean)
         clean = re.sub(r"[ \t]+([.?,!])", r"\1", clean)
