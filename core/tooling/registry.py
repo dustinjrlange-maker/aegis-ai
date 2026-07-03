@@ -4,10 +4,13 @@ Stored at data/users/<user>/mcp_tools/registry.json.
 """
 
 import json
+import logging
 from datetime import datetime
 from pathlib import Path
 
 from core.config import PROJECT_ROOT
+
+logger = logging.getLogger("aegis.tooling.registry")
 
 _DATA_ROOT = PROJECT_ROOT / "data" / "users"
 
@@ -21,7 +24,8 @@ def _load(username):
     if path.exists():
         try:
             return json.loads(path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, IOError):
+        except (json.JSONDecodeError, IOError) as e:
+            logger.warning("Could not read registry for '%s' (%s) — treating as empty", username, e)
             return {}
     return {}
 

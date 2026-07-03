@@ -41,3 +41,13 @@ def test_touch_updates_usage(reg):
 def test_users_are_isolated(reg):
     reg.install("alice", "time", "read_scoped", {})
     assert reg.get("bob", "time") is None
+
+
+def test_corrupt_registry_logs_and_returns_empty(reg, caplog):
+    import logging
+    path = reg._registry_path("switch")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("{ not valid json", encoding="utf-8")
+    with caplog.at_level(logging.WARNING):
+        assert reg.get("switch", "time") is None       # empty registry, no crash
+    assert "registry" in caplog.text.lower()
