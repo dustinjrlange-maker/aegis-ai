@@ -32,7 +32,29 @@ class ToolingProtocol(Protocol):
     # --- Protocol ABC ---
 
     def process_input(self, user_input, context):
-        return {"input": user_input, "context_injection": "",
+        """Inject the installed tools' methods so Pike can call them (Phase 4B)."""
+        empty = {"input": user_input, "context_injection": "",
+                 "intercept": False, "response": ""}
+        if not _autocall_enabled():
+            return empty
+        from core.tooling import registry
+        installed = registry.installed_ids(self.username)
+        if not installed:
+            return empty
+        lines = ["Available tools — emit [TOOL: tool.method key=value] on its own "
+                 "line to use one:"]
+        for tool_id in installed:
+            entry = catalog.get_entry(tool_id)
+            if not entry:
+                continue
+            for method, hint in entry.get("method_hints", {}).items():
+                lines.append(f"  {tool_id}.{method} {hint}")
+        if len(lines) == 1:            # installed tools had no hints
+            return empty
+        lines.append("Only call a tool when the request needs live data or an action "
+                     "you can't do from memory. After a tool runs you'll see its result "
+                     "and can answer or call another tool.")
+        return {"input": user_input, "context_injection": "\n".join(lines),
                 "intercept": False, "response": ""}
 
     def process_output(self, response, context):

@@ -22,3 +22,40 @@ def test_autocall_enabled_reads_config(monkeypatch):
     from core.protocols import tooling
     monkeypatch.setattr(core.config, "CONFIG", {"tooling": {"autocall_enabled": False}})
     assert tooling._autocall_enabled() is False
+
+
+def _install(monkeypatch, tool_ids):
+    """Point registry.installed_ids at a fixed list for the tooling protocol."""
+    from core.tooling import registry
+    monkeypatch.setattr(registry, "installed_ids", lambda u: list(tool_ids))
+
+
+def test_injection_lists_installed_tool_methods(monkeypatch):
+    import core.config
+    from core.protocols import tooling
+    monkeypatch.setattr(core.config, "CONFIG", {"tooling": {"autocall_enabled": True}})
+    _install(monkeypatch, ["filesystem"])
+    p = tooling.ToolingProtocol(username="switch")
+    out = p.process_input("hi", {})
+    inj = out["context_injection"]
+    assert "[TOOL:" in inj
+    assert "filesystem.list_directory path=<dir>" in inj
+    assert out["intercept"] is False
+
+
+def test_injection_empty_when_toggle_off(monkeypatch):
+    import core.config
+    from core.protocols import tooling
+    monkeypatch.setattr(core.config, "CONFIG", {"tooling": {"autocall_enabled": False}})
+    _install(monkeypatch, ["filesystem"])
+    p = tooling.ToolingProtocol(username="switch")
+    assert p.process_input("hi", {})["context_injection"] == ""
+
+
+def test_injection_empty_when_no_tools(monkeypatch):
+    import core.config
+    from core.protocols import tooling
+    monkeypatch.setattr(core.config, "CONFIG", {"tooling": {"autocall_enabled": True}})
+    _install(monkeypatch, [])
+    p = tooling.ToolingProtocol(username="switch")
+    assert p.process_input("hi", {})["context_injection"] == ""
