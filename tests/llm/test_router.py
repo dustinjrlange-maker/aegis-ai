@@ -28,6 +28,7 @@ def _cfg(monkeypatch, cloud_enabled, opt_in=()):
     c = C()
     c.cloud_enabled = cloud_enabled
     c.cloud_opt_in_features = tuple(opt_in)
+    c.cloud_model = "claude-opus-4-8"
     monkeypatch.setattr(router, "load_config", lambda: c)
 
 
@@ -130,3 +131,79 @@ def test_cloud_refusal_falls_back_to_local(monkeypatch, caplog):
     assert len(cloud.calls) == 1
     assert len(local.calls) == 1
     assert any("cloud call failed" in r.message for r in caplog.records)
+
+
+from core.llm.router import chat_with_meta, RouteMeta
+import core.llm.router as router_mod
+
+
+class _MetaFakeBackend:
+    def __init__(self, reply="ok", is_available=True, exc=None):
+        self._reply, self._available, self._exc = reply, is_available, exc
+
+    def available(self):
+        return self._available
+
+    def chat(self, messages, **kw):
+        if self._exc:
+            raise self._exc
+        return self._reply
+
+
+class _MetaCfg:
+    cloud_enabled = True
+    cloud_opt_in_features = ()
+    deep_mode = False
+    cloud_model = "claude-opus-4-8"
+
+
+class TestChatWithMeta:
+    def _patch(self, monkeypatch, local, cloud):
+        monkeypatch.setattr(router_mod, "load_config", lambda: _MetaCfg())
+        monkeypatch.setitem(router_mod._BACKENDS, "local", local)
+        monkeypatch.setitem(router_mod._BACKENDS, "cloud", cloud)
+
+    def test_cloud_pick_returns_cloud_meta(self, monkeypatch):
+        self._patch(monkeypatch, _MetaFakeBackend("local-ans"), _MetaFakeBackend("cloud-ans"))
+        content, meta = chat_with_meta(
+            [{"role": "user", "content": "x"}], sensitivity="personal", task="chat_task",
+        )
+        assert content == "cloud-ans"
+        assert meta.backend_used == "cloud"
+        assert meta.cloud_model == "claude-opus-4-8"
+
+    def test_local_pick_returns_local_meta(self, monkeypatch):
+        self._patch(monkeypatch, _MetaFakeBackend("local-ans"), _MetaFakeBackend("cloud-ans"))
+        content, meta = chat_with_meta(
+            [{"role": "user", "content": "x"}], sensitivity="personal", task="chat_casual",
+        )
+        assert content == "local-ans"
+        assert meta.backend_used == "local"
+        assert meta.decision_reason == "personal_local_default"
+
+    def test_cloud_failure_falls_back_with_local_meta(self, monkeypatch):
+        self._patch(monkeypatch, _MetaFakeBackend("local-ans"),
+                    _MetaFakeBackend(exc=RuntimeError("boom")))
+        content, meta = chat_with_meta(
+            [{"role": "user", "content": "x"}], sensitivity="personal", task="chat_task",
+        )
+        assert content == "local-ans"
+        assert meta.backend_used == "local"
+        assert meta.decision_reason == "cloud_failed_fallback"
+
+    def test_cloud_unavailable_falls_back_with_local_meta(self, monkeypatch):
+        self._patch(monkeypatch, _MetaFakeBackend("local-ans"),
+                    _MetaFakeBackend(is_available=False))
+        content, meta = chat_with_meta(
+            [{"role": "user", "content": "x"}], sensitivity="personal", task="chat_task",
+        )
+        assert content == "local-ans"
+        assert meta.backend_used == "local"
+        assert meta.decision_reason == "cloud_unavailable_fallback"
+
+    def test_plain_chat_still_returns_string(self, monkeypatch):
+        self._patch(monkeypatch, _MetaFakeBackend("local-ans"), _MetaFakeBackend("cloud-ans"))
+        out = router_mod.chat(
+            [{"role": "user", "content": "x"}], sensitivity="personal", task="chat_casual",
+        )
+        assert out == "local-ans"

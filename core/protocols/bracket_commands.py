@@ -121,8 +121,12 @@ class BracketCommandProtocol(Protocol):
             # Strip the tag from visible text
             clean = clean.replace(match.group(0), "")
 
-        # Clean up extra whitespace left by removed tags
-        clean = re.sub(r"\n{3,}", "\n\n", clean).strip()
+        # Clean up whitespace + orphaned punctuation left by removed tags
+        # (e.g. "Take your time. [REMEMBER: ...]." -> "Take your time. .")
+        clean = re.sub(r"\n{3,}", "\n\n", clean)
+        clean = re.sub(r"[ \t]+([.?,!])", r"\1", clean)
+        clean = re.sub(r"\.(?:[ \t]*\.)+", ".", clean)
+        clean = clean.strip()
 
         return {"response": clean, "suppress": False, "append": ""}
 

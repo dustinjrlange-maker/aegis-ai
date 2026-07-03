@@ -188,6 +188,10 @@ class CloudEnabledRequest(BaseModel):
     enabled: bool
 
 
+class CloudDeepModeRequest(BaseModel):
+    enabled: bool
+
+
 class CloudKeyRequest(BaseModel):
     key: str
 
@@ -1682,6 +1686,12 @@ async def get_cloud(user_id: str = Depends(require_user)):
 async def post_cloud_enabled(req: CloudEnabledRequest, user_id: str = Depends(require_user)):
     cloud_settings.set_cloud_enabled(req.enabled)
     return {"success": True, "cloud_enabled": req.enabled}
+
+
+@app.post("/api/cloud/deep")
+async def post_cloud_deep(req: CloudDeepModeRequest, user_id: str = Depends(require_user)):
+    cloud_settings.set_deep_mode(req.enabled)
+    return {"success": True, "deep_mode": req.enabled}
 
 
 @app.post("/api/cloud/key")

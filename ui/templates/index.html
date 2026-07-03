@@ -11534,15 +11534,24 @@ async function loadCloudSettings() {
 
 function renderCloudSettings(s) {
     var checked = s.cloud_enabled ? ' checked' : '';
+    var deepChecked = s.deep_mode ? ' checked' : '';
     var keyStatus = s.key_set ? '✓ key set' : 'no key';
     var html = '';
     html += '<div class="setting-row">';
     html += '<div class="setting-label">Cloud escalation';
-    html += '<div class="setting-desc">When on, general chat with Pike uses Anthropic Opus 4.8 for stronger reasoning. Your private data — email, journals, memory — always stays local.</div>';
+    html += '<div class="setting-desc">When on, task-shaped requests (drafts, analysis, planning) use Anthropic Opus 4.8. Conversation and emotional support stay local. Your private data — email, journals, memory — always stays local.</div>';
     html += '</div>';
     html += '<div class="setting-control">';
     html += '<label class="proto-toggle"><input type="checkbox" id="cloudEnabledToggle"' + checked + ' onchange="saveCloudEnabled(this.checked)"><span class="toggle-slider"></span></label>';
     html += '<span class="setting-saved" id="cloudEnabled-saved">SAVED</span>';
+    html += '</div></div>';
+    html += '<div class="setting-row">';
+    html += '<div class="setting-label">Deep Mode';
+    html += '<div class="setting-desc">Heavy emotional conversations may also use the cloud brain. Off = feelings never leave this machine.</div>';
+    html += '</div>';
+    html += '<div class="setting-control">';
+    html += '<label class="proto-toggle"><input type="checkbox" id="deepModeToggle"' + deepChecked + ' onchange="saveDeepMode(this.checked)"><span class="toggle-slider"></span></label>';
+    html += '<span class="setting-saved" id="deepMode-saved">SAVED</span>';
     html += '</div></div>';
     html += '<div class="vault-account-field"><label>API key</label><input type="password" id="cloudKeyInput" placeholder="sk-ant-..."></div>';
     html += '<button class="vault-btn" onclick="saveCloudKey()">SAVE KEY</button>';
@@ -11567,6 +11576,21 @@ async function saveCloudEnabled(enabled) {
             setTimeout(function() { savedEl.classList.remove('show'); }, 1500);
         }
     } catch (e) { console.error('Cloud toggle failed:', e); }
+}
+
+async function saveDeepMode(enabled) {
+    var savedEl = document.getElementById('deepMode-saved');
+    try {
+        const res = await authFetch(API + '/cloud/deep', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({enabled: enabled}),
+        });
+        const data = await res.json();
+        if (data.success && savedEl) {
+            savedEl.classList.add('show');
+            setTimeout(function() { savedEl.classList.remove('show'); }, 1500);
+        }
+    } catch (e) { console.error('Deep Mode toggle failed:', e); }
 }
 
 async function saveCloudKey() {

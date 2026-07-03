@@ -10,6 +10,7 @@ executes locally.
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 
 from core.llm import policy as _policy
 from core.llm.backends import CloudBackend, LocalBackend
@@ -20,23 +21,28 @@ logger = logging.getLogger(__name__)
 _BACKENDS = {"local": LocalBackend(), "cloud": CloudBackend()}
 
 
-def chat(messages, *, sensitivity, task=None, model=None, options=None, format=None) -> str:
-    """Route one LLM call and return the response content string.
+@dataclass(frozen=True)
+class RouteMeta:
+    """Which backend actually served one call (for the ☁ announcement)."""
+    backend_used: str        # "local" | "cloud"
+    decision_reason: str
+    cloud_model: str | None = None
 
-    sensitivity: "private" | "personal" | "public" (required — every site tags).
-    task: opt-in / intent tag, logged; inert for tier escalation this build.
-    model/options/format: passthrough to the backend (ollama semantics).
-    Config is re-read each call so the cloud toggle can change at runtime
-    without restart.
-    """
+
+def chat_with_meta(messages, *, sensitivity, task=None, model=None,
+                   options=None, format=None) -> tuple[str, RouteMeta]:
+    """Route one LLM call; return (content, RouteMeta). Meta reports the backend
+    that ACTUALLY answered — a cloud pick that falls back reports local."""
     cfg = load_config()
     decision = _policy.decide(sensitivity, cfg, task=task)
     backend = _BACKENDS[decision.backend]
+    reason = decision.reason
 
     if decision.backend == "cloud":
         if backend.available():
             try:
-                return backend.chat(messages, model=model, options=options, format=format)
+                content = backend.chat(messages, model=model, options=options, format=format)
+                return content, RouteMeta("cloud", reason, cfg.cloud_model)
             except Exception as e:
                 logger.warning(
                     "[llm-router] cloud call failed (%s: %s) sensitivity=%s task=%s "
@@ -45,6 +51,7 @@ def chat(messages, *, sensitivity, task=None, model=None, options=None, format=N
                     exc_info=True,
                 )
                 backend = _BACKENDS["local"]
+                reason = "cloud_failed_fallback"
         else:
             logger.info(
                 "[llm-router] cloud escalation preview: sensitivity=%s task=%s "
@@ -52,5 +59,21 @@ def chat(messages, *, sensitivity, task=None, model=None, options=None, format=N
                 sensitivity, task, decision.reason,
             )
             backend = _BACKENDS["local"]
+            reason = "cloud_unavailable_fallback"
 
-    return backend.chat(messages, model=model, options=options, format=format)
+    content = backend.chat(messages, model=model, options=options, format=format)
+    return content, RouteMeta("local", reason, None)
+
+
+def chat(messages, *, sensitivity, task=None, model=None, options=None, format=None) -> str:
+    """Route one LLM call and return the response content string.
+
+    sensitivity: "private" | "personal" | "public" (required — every site tags).
+    task: routing tag — for personal chat use chat_task / chat_emotional / chat_casual.
+    Config is re-read each call so toggles change at runtime without restart.
+    """
+    content, _meta = chat_with_meta(
+        messages, sensitivity=sensitivity, task=task,
+        model=model, options=options, format=format,
+    )
+    return content

@@ -5,13 +5,20 @@ Reusable async chat function shared by the web UI and Telegram bot.
 
 import asyncio
 import logging
+from datetime import datetime
 
-from core.llm import chat as router_chat
+from core.llm import chat_with_meta as router_chat_with_meta
+from core.llm.turn_classifier import classify, route_task_tag, inject_fact_memories
 from core.config import CONFIG, load_capabilities
 from core.voice import emotion
 from core.protocols.context_budget import budget_injections
 
 logger = logging.getLogger("aegis.chat_pipeline")
+
+_MODE_HINTS = {
+    "emotional": "[Response mode: emotional support — you may take up to 5-6 sentences. Stay specific to their words, no advice, no cheerleading, no roleplay.]",
+    "task": "[Response mode: task — give the complete, structured answer; take the length it needs.]",
+}
 
 
 async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
@@ -34,6 +41,22 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
         cmd_parts = user_input[1:].split(None, 1)
         cmd_name = cmd_parts[0].lower() if cmd_parts else ""
         cmd_args = cmd_parts[1] if len(cmd_parts) > 1 else ""
+        if cmd_name == "cloud" and not cmd_args:
+            payload = getattr(session, "last_cloud_payload", None)
+            if payload:
+                preview = (
+                    f"Last cloud call — {payload['model']} at {payload['at']}, "
+                    f"{payload['message_count']} messages sent.\n\n"
+                    f"Final message sent:\n{payload['last_user_message']}"
+                )
+            else:
+                preview = "No cloud calls this session."
+            return {
+                "agent_name": session.agent_name,
+                "response": preview,
+                "emotion": None,
+                "wellness_flag": False,
+            }
         handled, cmd_response = session.protocol_registry.handle_command(cmd_name, cmd_args)
         if handled:
             return {
@@ -89,8 +112,20 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
     emotion_result = emotion.detect_emotion(user_input)
     emotion_tag = emotion.format_emotion_tag(emotion_result)
 
-    # Memory search
-    relevant = session.memory.get_relevant_memories(user_input)
+    # Per-turn classification: drives routing (task tag) + reply shaping (mode)
+    turn = classify(
+        user_input,
+        emotion_label=(emotion_result or {}).get("label"),
+        emotion_score=(emotion_result or {}).get("score", 0.0),
+    )
+    task_tag = route_task_tag(turn)
+
+    # Memory search. Emotional turns skip the fact/task injection — the 8B
+    # fixates on injected details (task titles surfaced mid-grief in live
+    # testing). Character memories stay: Pike's own past informs presence.
+    relevant = ""
+    if inject_fact_memories(turn):
+        relevant = session.memory.get_relevant_memories(user_input)
     char_relevant = session.char_memory.get_relevant_memories(user_input)
 
     # Build augmented input
@@ -101,6 +136,9 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
         context_parts.append(char_relevant)
     if emotion_tag:
         context_parts.append(emotion_tag)
+    mode_hint = _MODE_HINTS.get(turn.mode)
+    if mode_hint:
+        context_parts.append(mode_hint)
     injections = proto_result.get("context_injections", [])
     if injections:
         logger.info("Protocol injections received: %d", len(injections))
@@ -136,14 +174,14 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
 
     try:
         # Run the (synchronous) router in a thread so we don't block the loop
-        reply_content = await asyncio.to_thread(
-            router_chat,
+        reply_content, route_meta = await asyncio.to_thread(
+            router_chat_with_meta,
             messages_to_send,
             sensitivity="personal",
-            task="chat",
+            task=task_tag,
             model=CONFIG["model"]["chat"],
         )
-        reply = session.clean_reply(reply_content)
+        reply = session.clean_reply(reply_content, mode=turn.mode)
 
         # Run through output protocols
         output_result = session.protocol_registry.process_output(reply, proto_context)
@@ -166,6 +204,17 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
 
         session.messages.append({"role": "assistant", "content": reply})
 
+        display_reply = reply
+        if route_meta.backend_used == "cloud":
+            display_reply = f"{reply}\n\n☁ cloud brain"
+            # RAM-only; overwritten each cloud call; never persisted.
+            session.last_cloud_payload = {
+                "model": route_meta.cloud_model,
+                "at": datetime.now().isoformat(timespec="seconds"),
+                "message_count": len(messages_to_send),
+                "last_user_message": messages_to_send[-1]["content"],
+            }
+
         # Auto-save transcript
         session.memory.periodic_save(session.messages)
 
@@ -178,7 +227,7 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
 
         return {
             "agent_name": session.agent_name,
-            "response": reply,
+            "response": display_reply,
             "emotion": emotion_result,
             "wellness_flag": bool(proto_result.get("context_injections")),
             "bracket_actions": bracket_actions,
