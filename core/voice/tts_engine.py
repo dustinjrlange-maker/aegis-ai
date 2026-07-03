@@ -24,6 +24,7 @@ if os.path.isdir(_ffmpeg_shared):
 _model = None
 _model_lock = threading.Lock()
 _speak_lock = threading.Lock()
+_synth_lock = threading.Lock()
 _speaking = False
 _current_stream = None
 
@@ -95,6 +96,39 @@ def _get_reference_path():
     )
 
 
+def synthesize(text):
+    """Synthesize speech to a float32 waveform.
+
+    Returns (wav, sample_rate) on success, or None on failure so callers can
+    fall back to text. Thread-safe: serializes concurrent model.tts calls via
+    _synth_lock (the XTTS model instance is not safe for concurrent use, and a
+    Telegram synth can collide with local playback).
+    """
+    try:
+        with _synth_lock:
+            model = _load_model()
+            ref_path = _get_reference_path()
+            config, _ = _get_config()
+            sample_rate = config["voice"]["tts"].get("sample_rate", 24000)
+            wav = model.tts(text=text, speaker_wav=ref_path, language="en")
+
+        if not isinstance(wav, np.ndarray):
+            wav = np.array(wav)
+        wav = wav.astype(np.float32)
+        if wav.size == 0:
+            return None
+        peak = max(abs(float(wav.max())), abs(float(wav.min())))
+        if peak > 1.0:
+            wav = wav / peak
+        return wav, sample_rate
+    except FileNotFoundError as e:
+        print(f"  [TTS: {e}]")
+        return None
+    except Exception as e:
+        print(f"  [TTS synthesis error: {e}]")
+        return None
+
+
 def speak(text, blocking=False):
     """
     Synthesize speech from text using the active voice pack and play it.
@@ -124,33 +158,15 @@ def _speak_impl(text):
         _speaking = True
         import sounddevice as sd
 
-        model = _load_model()
-        ref_path = _get_reference_path()
-        config, _ = _get_config()
-        sample_rate = config["voice"]["tts"].get("sample_rate", 24000)
-
-        # Synthesize audio
-        wav = model.tts(
-            text=text,
-            speaker_wav=ref_path,
-            language="en"
-        )
-
-        # Convert to numpy array if needed
-        if not isinstance(wav, np.ndarray):
-            wav = np.array(wav)
-
-        # Normalize to [-1, 1] float32
-        wav = wav.astype(np.float32)
-        if wav.max() > 1.0 or wav.min() < -1.0:
-            wav = wav / max(abs(wav.max()), abs(wav.min()))
+        result = synthesize(text)
+        if result is None:
+            return
+        wav, sample_rate = result
 
         # Play audio
         sd.play(wav, samplerate=sample_rate)
         sd.wait()
 
-    except FileNotFoundError as e:
-        print(f"  [TTS: {e}]")
     except Exception as e:
         print(f"  [TTS error — falling back to text only: {e}]")
     finally:
