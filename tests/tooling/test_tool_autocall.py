@@ -59,3 +59,67 @@ def test_injection_empty_when_no_tools(monkeypatch):
     _install(monkeypatch, [])
     p = tooling.ToolingProtocol(username="switch")
     assert p.process_input("hi", {})["context_injection"] == ""
+
+
+def _reg_installed(monkeypatch, installed_ids):
+    from core.tooling import registry
+    monkeypatch.setattr(registry, "get",
+                        lambda u, t: {"trust_tier": "read_broad"} if t in installed_ids else None)
+
+
+def test_parse_stashes_structured_call_and_strips(monkeypatch):
+    import core.config
+    from core.protocols import tooling
+    monkeypatch.setattr(core.config, "CONFIG", {"tooling": {"autocall_enabled": True}})
+    _reg_installed(monkeypatch, ["filesystem"])
+    p = tooling.ToolingProtocol(username="switch")
+    out = p.process_output("Let me check. [TOOL: filesystem.list_directory path=C:/x]", {})
+    assert "[TOOL:" not in out["response"]
+    calls = p.get_pending_tool_calls()
+    assert calls == [{"tool_id": "filesystem", "method": "list_directory",
+                      "args": {"path": "C:/x"}}]
+    assert p.get_rejections() == []
+
+
+def test_parse_rejects_uninstalled_tool(monkeypatch):
+    import core.config
+    from core.protocols import tooling
+    monkeypatch.setattr(core.config, "CONFIG", {"tooling": {"autocall_enabled": True}})
+    _reg_installed(monkeypatch, [])                      # nothing installed
+    p = tooling.ToolingProtocol(username="switch")
+    p.process_output("[TOOL: filesystem.read_file path=x]", {})
+    assert p.get_pending_tool_calls() == []
+    assert p.get_rejections() == ["filesystem.read_file"]
+
+
+def test_parse_rejects_unknown_method(monkeypatch):
+    import core.config
+    from core.protocols import tooling
+    monkeypatch.setattr(core.config, "CONFIG", {"tooling": {"autocall_enabled": True}})
+    _reg_installed(monkeypatch, ["filesystem"])
+    p = tooling.ToolingProtocol(username="switch")
+    p.process_output("[TOOL: filesystem.teleport path=x]", {})
+    assert p.get_pending_tool_calls() == []
+    assert p.get_rejections() == ["filesystem.teleport"]
+
+
+def test_parse_ignores_non_tool_brackets(monkeypatch):
+    import core.config
+    from core.protocols import tooling
+    monkeypatch.setattr(core.config, "CONFIG", {"tooling": {"autocall_enabled": True}})
+    _reg_installed(monkeypatch, ["filesystem"])
+    p = tooling.ToolingProtocol(username="switch")
+    out = p.process_output("Sure. [REMEMBER: milk]", {})
+    assert out["response"] == "Sure. [REMEMBER: milk]"   # untouched
+    assert p.get_pending_tool_calls() == []
+
+
+def test_parse_noop_when_toggle_off(monkeypatch):
+    import core.config
+    from core.protocols import tooling
+    monkeypatch.setattr(core.config, "CONFIG", {"tooling": {"autocall_enabled": False}})
+    _reg_installed(monkeypatch, ["filesystem"])
+    p = tooling.ToolingProtocol(username="switch")
+    out = p.process_output("[TOOL: filesystem.list_directory path=x]", {})
+    assert out["response"] == "[TOOL: filesystem.list_directory path=x]"   # left intact
+    assert p.get_pending_tool_calls() == []

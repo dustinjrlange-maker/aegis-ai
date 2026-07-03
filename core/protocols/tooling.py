@@ -5,11 +5,16 @@ Pike does not auto-call tools yet (that's Phase 4B).
 """
 
 import logging
+import re
 
 from core.protocols.base import Protocol
 from core.tooling import catalog, service, wishlist
 
 logger = logging.getLogger("aegis.protocols.tooling")
+
+
+# [TOOL: tool_id.method key=value ...]
+_TOOL_RE = re.compile(r"\[TOOL:\s*([a-z_]+)\.([a-z_]+)\s*(.*?)\]", re.I)
 
 
 def _autocall_enabled():
@@ -28,6 +33,8 @@ class ToolingProtocol(Protocol):
             priority=Protocol.PRIORITY_NORMAL,
         )
         self.username = username
+        self._pending_tool_calls = []
+        self._rejections = []
 
     # --- Protocol ABC ---
 
@@ -58,7 +65,44 @@ class ToolingProtocol(Protocol):
                 "intercept": False, "response": ""}
 
     def process_output(self, response, context):
-        return {"response": response, "suppress": False, "append": ""}
+        """Parse [TOOL: tool.method args] from Pike's output; stash + strip.
+        Does NOT execute — the chat pipeline runs pending calls off the loop."""
+        self._pending_tool_calls = []
+        self._rejections = []
+        if not _autocall_enabled():
+            return {"response": response, "suppress": False, "append": ""}
+        from core.tooling import registry
+        matches = list(_TOOL_RE.finditer(response))
+        if not matches:
+            return {"response": response, "suppress": False, "append": ""}
+        clean = response
+        for m in matches:
+            tool_id = m.group(1).lower()
+            method = m.group(2).lower()
+            raw = m.group(3).strip()
+            entry = catalog.get_entry(tool_id)
+            installed = registry.get(self.username, tool_id) is not None
+            known = bool(entry) and (method in entry.get("method_tiers", {})
+                                     or method in entry.get("method_hints", {}))
+            if not installed or not known:
+                self._rejections.append(f"{tool_id}.{method}")
+            else:
+                args = self._parse_kv(raw.split(), split_commas=False)
+                self._pending_tool_calls.append(
+                    {"tool_id": tool_id, "method": method, "args": args})
+            clean = clean.replace(m.group(0), "")
+        clean = re.sub(r"\n{3,}", "\n\n", clean)
+        clean = re.sub(r"[ \t]+([.?,!])", r"\1", clean)
+        clean = clean.strip()
+        return {"response": clean, "suppress": False, "append": ""}
+
+    def get_pending_tool_calls(self):
+        """Structured [TOOL:] calls parsed from the most recent output."""
+        return list(self._pending_tool_calls)
+
+    def get_rejections(self):
+        """`tool.method` strings that were emitted but aren't available."""
+        return list(self._rejections)
 
     def get_commands(self):
         return [{"command": "tools",
