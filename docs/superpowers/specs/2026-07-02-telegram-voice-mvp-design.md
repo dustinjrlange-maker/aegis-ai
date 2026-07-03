@@ -41,6 +41,12 @@ Three small additions; everything else is reused:
    reference wav, `model.tts`, normalize). `_speak_impl` is refactored to call
    `synthesize()` then play — no behavior change to local playback. Returns `None` on
    failure (missing reference, model error) so callers can fall back to text.
+   **Synthesis lock:** `synthesize()` acquires a dedicated `_synth_lock` around the
+   `model.tts` call — the XTTS model instance is not safe for concurrent calls, and two
+   quick voice notes (or a Telegram synth colliding with local playback) would otherwise
+   run `model.tts` concurrently on the 8GB card. `_speak_impl` gets this protection for
+   free by calling `synthesize()`; its existing `_speak_lock` continues to guard playback
+   only.
 
 2. **`core/voice/audio_io.py` — new module**
    - `wav_to_ogg(wav, sample_rate, out_path) -> Path`: pipe the raw float32 PCM samples
@@ -49,6 +55,11 @@ Three small additions; everything else is reused:
      OGG/Opus (Telegram voice-note format). ffmpeg is already present on the box
      (torchcodec dependency). No new Python dependency. Raises on non-zero exit; callers
      catch and degrade to text.
+   - **ffmpeg resolution is self-contained:** today ffmpeg resolves partly because
+     `tts_engine.py` prepends the WinGet shared-build dir to `PATH` at import time.
+     `audio_io` must not depend on that side effect (tests import it standalone): it
+     resolves ffmpeg itself via `shutil.which("ffmpeg")` with the known WinGet shared
+     dir as an explicit fallback.
 
 3. **`core/voice/stt_engine.py` — `transcribe_file(path) -> str | None`**
    faster-whisper decodes OGG/Opus natively via PyAV, so no manual resample is needed.
@@ -62,6 +73,9 @@ All Telegram wiring (voice handler, reply delivery, play-voice callback) stays i
 
 ```
 voice note
+  → auth gates: is_allowed(tg_id) + get_user_mapping(tg_id)   (mirrors text handler
+    exactly — voice must not be an auth bypass)
+  → duration gate: voice.duration > 300s → friendly rejection, no download
   → download to temp .ogg
   → stt_engine.transcribe_file()  →  heard_text
   → process_chat(session_manager, username, heard_text)  →  reply_text
@@ -72,9 +86,10 @@ voice note
       reply_text length > voice_char_cap:
           sent = bot.send_message("heard: <heard_text>\n\n<reply_text>",
                                    reply_markup=[🔊 Play voice])
-          stash[sent.message_id] = reply_text
-          on button tap (callback "tts:<message_id>"):
-              synthesize(reply_text) → wav_to_ogg → bot.send_voice(...)
+          stash[(chat_id, sent.message_id)] = reply_text
+          on button tap (callback "tts:<chat_id>:<message_id>"):
+              answer() immediately → pop stash → RECORD_VOICE action
+              → synthesize(reply_text) → wav_to_ogg → bot.send_voice(...)
 ```
 
 ## Key Details
@@ -84,19 +99,35 @@ STT and TTS are blocking, GPU-bound calls. The Telegram bot shares the FastAPI e
 loop, so a blocking call would freeze the whole server. Every `transcribe_file`,
 `synthesize`, and `wav_to_ogg` call in the handlers is wrapped in
 `await asyncio.to_thread(...)`. While working, the handler shows the
-`ChatAction.RECORD_VOICE` indicator.
+`ChatAction.RECORD_VOICE` indicator. Concurrent synthesis requests serialize on
+`_synth_lock` inside `synthesize()` (see Architecture #1).
+
+### Auth + input gates on the voice handler
+The voice handler mirrors the text handler's gates exactly: `is_allowed(tg_id)` first,
+then `get_user_mapping(tg_id)` (unpaired → pairing instructions). Without this, voice
+notes would bypass authorization entirely. Additionally, incoming voice notes with
+`voice.duration > 300` seconds are rejected with a friendly message **before download**,
+so a stray 20-minute recording can't pin Whisper/the GPU.
 
 ### Play-voice button
-- The text reply is stored in a bounded in-memory dict keyed by the **sent message's
-  `message_id`**.
-- Inline keyboard button carries `callback_data = "tts:<message_id>"` (well under
-  Telegram's 64-byte limit).
-- A `CallbackQueryHandler` (pattern `^tts:`) looks up the stashed text, synthesizes, and
-  sends the voice note. It answers the callback query (removes the "loading" spinner) and
-  may edit the button to a disabled/"sent" state.
+- The text reply is stored in a bounded in-memory dict keyed by
+  **`(chat_id, message_id)`** — Telegram `message_id`s are per-chat, not global, so
+  keying by `message_id` alone could collide across chats and leak one user's reply to
+  another.
+- Inline keyboard button carries `callback_data = "tts:<chat_id>:<message_id>"` (still
+  well under Telegram's 64-byte limit).
+- A `CallbackQueryHandler` (pattern `^tts:`) processes taps in this **strict order**:
+  1. `answer()` the callback query **immediately** — Telegram callback queries time out
+     in ~15s while XTTS synthesis can take 20–40s; answering late leaves the user with a
+     stuck spinner and Telegram may redeliver the callback.
+  2. **Pop** the stash entry (not just read) — a second tap finds nothing and gets the
+     expiry message instead of queuing a duplicate synthesis. Also remove the inline
+     keyboard from the message (`edit_message_reply_markup`).
+  3. Show `RECORD_VOICE` chat action, then synthesize → `wav_to_ogg` → `send_voice`,
+     all via `asyncio.to_thread`.
 - The dict is capped (~50 entries) with LRU eviction (`collections.OrderedDict`,
-  `move_to_end` + `popitem(last=False)`). If a token is evicted before tapping, the
-  callback replies "that reply expired — send the voice note again."
+  `move_to_end` + `popitem(last=False)`). If a token is evicted (or already consumed)
+  before tapping, the callback replies "that reply expired — send the voice note again."
 
 ### Config
 New block in `core/config/core_config.json` under `voice`:
@@ -134,9 +165,16 @@ No GPU or model loads in tests (CLAUDE.md rule — skip model-dependent paths):
   - reply ≤ cap → `send_voice` invoked, text sent.
   - reply > cap → no `send_voice`; inline keyboard attached; text stashed under
     `message_id`.
-- Play-voice callback: stashed token → `send_voice` invoked; missing/evicted token →
-  expiry message, no crash.
+- Play-voice callback: stashed token → `answer()` called before synthesis, entry popped,
+  `send_voice` invoked; missing/evicted token → expiry message, no crash; **second tap on
+  the same button → expiry message, no duplicate synthesis**.
+- Stash keying: entries under `(chat_id, message_id)` — same `message_id` in two chats
+  does not collide.
 - Token-store bounding and LRU eviction.
+- Auth gates: unauthorized `tg_id` and unpaired user get the same rejections as the text
+  handler; voice note with `duration > 300` rejected without download.
+- `synthesize()` serializes on `_synth_lock` (two threads, mocked model, assert no
+  concurrent entry).
 - `transcribe_file` / `synthesize` happy paths that require a loaded model are marked
   `@pytest.mark.skip`.
 
