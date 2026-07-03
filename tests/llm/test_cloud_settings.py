@@ -47,7 +47,7 @@ def test_get_cloud_status_shape(tmp_path, monkeypatch):
     monkeypatch.setattr(cfgmod, "_KEY_FILE", tmp_path / "nokey")
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     st = cs.get_cloud_status()
-    assert set(st.keys()) == {"cloud_enabled", "key_set", "cloud_model"}
+    assert set(st.keys()) == {"cloud_enabled", "key_set", "cloud_model", "deep_mode"}
     assert st["cloud_enabled"] is False
     assert st["key_set"] is False
     assert st["cloud_model"] == "claude-opus-4-8"
@@ -129,6 +129,31 @@ def test_test_cloud_key_generic_error_passes_message(tmp_path, monkeypatch):
                         lambda: _RaisingBackend(RuntimeError("something odd")))
     out = cs.test_cloud_key()
     assert out["ok"] is False and "something odd" in out["error"]
+
+
+def test_deep_mode_defaults_false(tmp_path, monkeypatch):
+    monkeypatch.setattr(cfgmod, "_OVERRIDE_PATH", tmp_path / "none.json")
+    monkeypatch.setattr(cfgmod, "_KEY_FILE", tmp_path / "nokey")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    assert cfgmod.load_config().deep_mode is False
+    assert cs.get_cloud_status()["deep_mode"] is False
+
+
+def test_set_deep_mode_writes_and_preserves(tmp_path, monkeypatch):
+    override = tmp_path / "llm_router.json"
+    override.write_text(json.dumps({"cloud_enabled": True}), encoding="utf-8")
+    monkeypatch.setattr(cfgmod, "_OVERRIDE_PATH", override)
+    monkeypatch.setattr(cfgmod, "_KEY_FILE", tmp_path / "nokey")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    cs.set_deep_mode(True)
+    data = json.loads(override.read_text(encoding="utf-8"))
+    assert data["deep_mode"] is True
+    assert data["cloud_enabled"] is True   # not clobbered
+    assert cfgmod.load_config().deep_mode is True
+
+    cs.set_deep_mode(False)
+    assert cfgmod.load_config().deep_mode is False
 
 
 def test_friendly_error_redacts_key_token():

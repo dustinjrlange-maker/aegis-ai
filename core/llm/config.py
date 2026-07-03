@@ -23,6 +23,7 @@ class RouterConfig:
     cloud_opt_in_features: tuple = field(default_factory=tuple)
     cloud_model: str = "claude-opus-4-8"
     cloud_max_tokens: int = 2048
+    deep_mode: bool = False
 
 
 def load_config():
@@ -35,6 +36,7 @@ def load_config():
     opt_in = list(defaults.get("cloud_opt_in_features", []))
     cloud_model = str(defaults.get("cloud_model", "claude-opus-4-8"))
     cloud_max_tokens = int(defaults.get("cloud_max_tokens", 2048))
+    deep_mode = bool(defaults.get("deep_mode", False))
 
     if _OVERRIDE_PATH.exists():
         try:
@@ -47,6 +49,8 @@ def load_config():
                 cloud_model = str(data["cloud_model"])
             if "cloud_max_tokens" in data:
                 cloud_max_tokens = int(data["cloud_max_tokens"])
+            if "deep_mode" in data:
+                deep_mode = bool(data["deep_mode"])
         except Exception:
             logger.exception("Bad %s — using config defaults", _OVERRIDE_PATH)
 
@@ -55,6 +59,7 @@ def load_config():
         cloud_opt_in_features=tuple(opt_in),
         cloud_model=cloud_model,
         cloud_max_tokens=cloud_max_tokens,
+        deep_mode=deep_mode,
     )
 
 

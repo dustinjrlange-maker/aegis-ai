@@ -26,11 +26,12 @@ def get_cloud_status() -> dict:
         "cloud_enabled": cfg.cloud_enabled,
         "key_set": _cfg.resolve_api_key() is not None,
         "cloud_model": cfg.cloud_model,
+        "deep_mode": cfg.deep_mode,
     }
 
 
-def set_cloud_enabled(enabled: bool) -> None:
-    """Read-modify-write data/llm_router.json, updating only cloud_enabled and
+def _write_override_key(key: str, value) -> None:
+    """Read-modify-write data/llm_router.json, updating only `key` and
     preserving every other key. A missing/corrupt file starts from {}."""
     path = _cfg._OVERRIDE_PATH
     data = {}
@@ -41,9 +42,19 @@ def set_cloud_enabled(enabled: bool) -> None:
                 data = loaded
         except Exception:
             logger.exception("Corrupt %s — starting fresh", path)
-    data["cloud_enabled"] = bool(enabled)
+    data[key] = value
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
+def set_cloud_enabled(enabled: bool) -> None:
+    """Toggle cloud escalation (merge-safe write to data/llm_router.json)."""
+    _write_override_key("cloud_enabled", bool(enabled))
+
+
+def set_deep_mode(enabled: bool) -> None:
+    """Toggle Deep Mode — emotional turns become cloud-eligible (default off)."""
+    _write_override_key("deep_mode", bool(enabled))
 
 
 def set_api_key(key: str) -> None:
