@@ -118,3 +118,19 @@ def test_concurrent_calls_from_threads(monkeypatch):
     for t in threads: t.join()
     assert not errors and len(results) == 8
     mgr.shutdown()
+
+
+def test_stop_then_call_raises(monkeypatch):
+    mgr, _ = _patched_manager(monkeypatch)
+    mgr.ensure_started("u", "echo", "cmd", [], timeout=5)
+    mgr.stop("u", "echo")
+    with pytest.raises(RuntimeError, match="not running"):
+        mgr.call("u", "echo", "x", {}, timeout=2)
+    mgr.shutdown()
+
+
+def test_double_shutdown_is_safe(monkeypatch):
+    mgr, _ = _patched_manager(monkeypatch)
+    mgr.ensure_started("u", "echo", "cmd", [], timeout=5)
+    mgr.shutdown()
+    mgr.shutdown()  # must not raise

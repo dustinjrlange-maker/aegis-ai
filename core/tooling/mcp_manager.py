@@ -30,6 +30,7 @@ class _ServerHandle:
         self.ready = threading.Event()     # set once session is up OR task died
         self.error = None                  # failure reason if task died
         self.task = None
+        self.dead = False                  # set synchronously once task exits/fails
 
 
 class MCPManager:
@@ -106,6 +107,7 @@ class MCPManager:
             handle.error = str(e)
             logger.warning("MCP server task died: %s", e)
         finally:
+            handle.dead = True  # mark not-live so ensure_started can respawn
             handle.ready.set()  # unblock any spawn waiter
             if handle.queue is not None:
                 while not handle.queue.empty():
@@ -123,17 +125,20 @@ class MCPManager:
         self._ensure_loop()
         key = (username, tool_id)
         with self._lock:
-            handle = self._servers.get(key)
-            if handle is not None and handle.task is not None and not handle.task.done():
-                return
-            handle = _ServerHandle()
-            self._servers[key] = handle
+            existing = self._servers.get(key)
+            if existing is not None and not existing.dead:
+                handle = existing          # someone already started it; wait below
+                new = False
+            else:
+                handle = _ServerHandle()
+                self._servers[key] = handle
+                new = True
 
-            def _spawn():
-                handle.task = self._loop.create_task(
-                    self._server_task(handle, command, args, env)
-                )
-            self._loop.call_soon_threadsafe(_spawn)
+                def _spawn():
+                    handle.task = self._loop.create_task(
+                        self._server_task(handle, command, args, env)
+                    )
+                self._loop.call_soon_threadsafe(_spawn)
 
         if not handle.ready.wait(timeout):
             handle.error = handle.error or "spawn timeout"
@@ -142,9 +147,15 @@ class MCPManager:
             raise RuntimeError(f"{tool_id}: {handle.error}")
 
     def call(self, username, tool_id, method, arguments=None, timeout=CALL_TIMEOUT):
-        """Invoke a tool method. Returns list of text payloads. Raises on error."""
+        """Invoke a tool method. Returns list of text payloads. Raises on error.
+
+        Requests to one server are serviced serially by its single task, and the
+        ``timeout`` clock starts at submission — so a call can time out while
+        still queued behind earlier calls. Callers under contention should size
+        timeouts accordingly.
+        """
         handle = self._servers.get((username, tool_id))
-        if handle is None or handle.task is None or handle.task.done():
+        if handle is None or handle.dead or handle.queue is None:
             raise RuntimeError(f"{tool_id}: server not running")
         fut = concurrent.futures.Future()
         self._loop.call_soon_threadsafe(
@@ -158,7 +169,7 @@ class MCPManager:
 
     def is_running(self, username, tool_id):
         handle = self._servers.get((username, tool_id))
-        return handle is not None and handle.task is not None and not handle.task.done()
+        return handle is not None and not handle.dead and handle.queue is not None
 
     def stop(self, username, tool_id):
         """Stop one server gracefully."""
@@ -169,14 +180,31 @@ class MCPManager:
 
     def shutdown(self):
         """Stop all servers and the manager loop. Safe to call repeatedly."""
-        for key in list(self._servers):
-            self.stop(*key)
         with self._lock:
-            if self._loop is not None and self._loop.is_running():
-                self._loop.call_soon_threadsafe(self._loop.stop)
-                self._thread.join(timeout=5)
+            loop = self._loop
+            thread = self._thread
+            handles = list(self._servers.values())
+            self._servers.clear()
             self._loop = None
             self._thread = None
+        if loop is None or not loop.is_running():
+            return
+
+        async def _drain():
+            for h in handles:
+                if h.queue is not None:
+                    h.queue.put_nowait(_STOP)
+            tasks = [h.task for h in handles if h.task is not None]
+            if tasks:
+                await asyncio.gather(*tasks, return_exceptions=True)
+
+        try:
+            asyncio.run_coroutine_threadsafe(_drain(), loop).result(timeout=10)
+        except Exception as e:
+            logger.warning("MCP manager drain failed: %s", e)
+        loop.call_soon_threadsafe(loop.stop)
+        if thread is not None:
+            thread.join(timeout=5)
 
 
 MANAGER = MCPManager()
