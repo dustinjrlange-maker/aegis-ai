@@ -100,5 +100,9 @@
         "cloud_opt_in_features": [],
         "cloud_model": "claude-opus-4-8",
         "cloud_max_tokens": 2048
+    },
+
+    "tooling": {
+        "wishlist_path": ""
     }
 }
