@@ -39,3 +39,18 @@ def set_cloud_enabled(enabled: bool) -> None:
     data["cloud_enabled"] = bool(enabled)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
+def set_api_key(key: str) -> None:
+    """Write the API key to data/anthropic_key (trimmed). A blank key DELETES
+    the file. The key is never returned or logged."""
+    key = (key or "").strip()
+    path = _cfg._KEY_FILE
+    if not key:
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            pass
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(key, encoding="utf-8")

@@ -51,3 +51,34 @@ def test_get_cloud_status_shape(tmp_path, monkeypatch):
     assert st["cloud_enabled"] is False
     assert st["key_set"] is False
     assert st["cloud_model"] == "claude-opus-4-8"
+
+
+def test_set_api_key_writes_and_status_reports_set_without_value(tmp_path, monkeypatch):
+    key_file = tmp_path / "anthropic_key"
+    monkeypatch.setattr(cfgmod, "_KEY_FILE", key_file)
+    monkeypatch.setattr(cfgmod, "_OVERRIDE_PATH", tmp_path / "none.json")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    cs.set_api_key("  sk-secret-123  ")
+    assert key_file.read_text(encoding="utf-8") == "sk-secret-123"  # trimmed
+
+    st = cs.get_cloud_status()
+    assert st["key_set"] is True
+    assert "sk-secret-123" not in json.dumps(st)   # value never exposed
+
+
+def test_set_api_key_blank_removes_file(tmp_path, monkeypatch):
+    key_file = tmp_path / "anthropic_key"
+    key_file.write_text("sk-old", encoding="utf-8")
+    monkeypatch.setattr(cfgmod, "_KEY_FILE", key_file)
+    monkeypatch.setattr(cfgmod, "_OVERRIDE_PATH", tmp_path / "none.json")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    cs.set_api_key("")
+    assert not key_file.exists()
+    assert cs.get_cloud_status()["key_set"] is False
+
+
+def test_set_api_key_blank_when_no_file_is_noop(tmp_path, monkeypatch):
+    monkeypatch.setattr(cfgmod, "_KEY_FILE", tmp_path / "anthropic_key")
+    cs.set_api_key("")  # must not raise
