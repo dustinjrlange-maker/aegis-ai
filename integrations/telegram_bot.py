@@ -3,15 +3,21 @@ Telegram Integration — Bot Handlers & Lifecycle
 Runs as a background polling task inside the FastAPI server process.
 """
 
+import asyncio
 import logging
+import secrets
+import tempfile
+from collections import OrderedDict
+from pathlib import Path
 from typing import Callable
 
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import ChatAction
 from telegram.ext import (
     Application,
     CommandHandler,
     MessageHandler,
+    CallbackQueryHandler,
     ContextTypes,
     filters,
 )
@@ -25,11 +31,131 @@ from integrations.telegram_config import (
     remove_user_mapping,
 )
 from core.auth import verify_user
+from core.voice import stt_engine, tts_engine, audio_io
 
 logger = logging.getLogger("aegis.telegram.bot")
 
 # Max Telegram message length
 TG_MAX_LENGTH = 4096
+
+
+def get_voice_settings():
+    """Read Telegram voice settings from core config, with safe defaults."""
+    from core.config import CONFIG
+    voice = CONFIG.get("voice", {})
+    tg = voice.get("telegram", {})
+    return {
+        "voice_replies": tg.get("voice_replies", True),
+        "voice_char_cap": tg.get("voice_char_cap", 600),
+        "max_duration": tg.get("max_duration", 300),
+        "tts_enabled": voice.get("tts", {}).get("enabled", False),
+        "stt_enabled": voice.get("stt", {}).get("enabled", False),
+    }
+
+
+# Bounded store for long-reply text awaiting an opt-in "Play voice" tap.
+# token -> (chat_id, reply_text). LRU-evicted at _PENDING_MAX entries.
+_PENDING_VOICE = OrderedDict()
+_PENDING_MAX = 50
+
+
+def _stash_voice(token, chat_id, text):
+    """Store reply text keyed by a random token; evict oldest past the cap."""
+    _PENDING_VOICE[token] = (chat_id, text)
+    _PENDING_VOICE.move_to_end(token)
+    while len(_PENDING_VOICE) > _PENDING_MAX:
+        _PENDING_VOICE.popitem(last=False)
+
+
+def _pop_voice(token):
+    """Remove and return (chat_id, text) for a token, or None if absent."""
+    return _PENDING_VOICE.pop(token, None)
+
+
+async def _synthesize_and_send(bot, chat_id, text):
+    """Synthesize text to OGG and send it as a Telegram voice note.
+
+    Runs blocking TTS/ffmpeg work off the event loop via asyncio.to_thread.
+    Returns True on success, False on any failure (caller has already sent the
+    text, so a failure degrades silently to text-only).
+    """
+    tmp_dir = Path(tempfile.gettempdir()) / "aegis_voice"
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+    ogg_path = tmp_dir / f"out_{secrets.token_urlsafe(6)}.ogg"
+    try:
+        result = await asyncio.to_thread(tts_engine.synthesize, text)
+        if result is None:
+            return False
+        wav, sample_rate = result
+        await asyncio.to_thread(audio_io.wav_to_ogg, wav, sample_rate, ogg_path)
+        with open(ogg_path, "rb") as fh:
+            await bot.send_voice(chat_id=chat_id, voice=fh)
+        return True
+    except Exception as e:
+        logger.warning("Voice synthesis/send failed: %s", e)
+        return False
+    finally:
+        try:
+            ogg_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+
+async def _deliver_voice_reply(update, context, heard, reply, settings):
+    """Deliver a chat reply to a voice note as voice + text, honoring the cap."""
+    text_out = f"heard: {heard}\n\n{reply}"
+
+    # Voice off (feature disabled or TTS disabled) -> text only.
+    if not settings["voice_replies"] or not settings["tts_enabled"]:
+        for chunk in _split_message(text_out):
+            await update.message.reply_text(chunk)
+        return
+
+    if len(reply) <= settings["voice_char_cap"]:
+        # Short reply: auto voice note + full text.
+        await _synthesize_and_send(context.bot, update.effective_chat.id, reply)
+        for chunk in _split_message(text_out):
+            await update.message.reply_text(chunk)
+    else:
+        # Long reply: text now, opt-in Play-voice button on the last chunk.
+        chunks = _split_message(text_out)
+        for chunk in chunks[:-1]:
+            await update.message.reply_text(chunk)
+        token = secrets.token_urlsafe(8)
+        _stash_voice(token, update.effective_chat.id, reply)
+        await update.message.reply_text(
+            chunks[-1],
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("🔊 Play voice", callback_data=f"tts:{token}")]]
+            ),
+        )
+
+
+async def on_play_voice(update, context):
+    """Handle a 🔊 Play voice button tap."""
+    query = update.callback_query
+    # Answer immediately — callback queries time out (~15s) while XTTS can take 20-40s.
+    await query.answer()
+
+    data = query.data or ""
+    token = data.split(":", 1)[1] if ":" in data else ""
+    entry = _pop_voice(token)  # pop so a second tap can't re-trigger synthesis
+
+    # Remove the button regardless (spent or expired).
+    try:
+        await query.edit_message_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+
+    if entry is None:
+        await query.message.reply_text("That reply expired — send the voice note again.")
+        return
+
+    chat_id, text = entry
+    await context.bot.send_chat_action(chat_id=chat_id, action=ChatAction.RECORD_VOICE)
+    ok = await _synthesize_and_send(context.bot, chat_id, text)
+    if not ok:
+        await query.message.reply_text("Sorry — I couldn't generate the voice for that one.")
 
 
 def _split_message(text: str) -> list[str]:
@@ -158,6 +284,63 @@ def _build_handlers(session_manager, chat_fn: Callable):
 
         await _route_message(update, username, update.message.text, chat_fn)
 
+    async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle voice notes — transcribe, chat, reply with voice + text."""
+        tg_id = update.effective_user.id
+
+        if not is_allowed(tg_id):
+            await update.message.reply_text("Your Telegram account is not authorized.")
+            return
+
+        username = get_user_mapping(tg_id)
+        if not username:
+            await update.message.reply_text(
+                "You need to link your account first. Send /start for instructions."
+            )
+            return
+
+        settings = get_voice_settings()
+        if not settings["stt_enabled"]:
+            await update.message.reply_text("Voice input is turned off right now.")
+            return
+
+        voice = update.message.voice
+        if voice and voice.duration and voice.duration > settings["max_duration"]:
+            await update.message.reply_text(
+                f"That voice note is too long (max {settings['max_duration'] // 60} min). "
+                "Send a shorter one?"
+            )
+            return
+
+        await update.effective_chat.send_action(ChatAction.RECORD_VOICE)
+
+        tmp_dir = Path(tempfile.gettempdir()) / "aegis_voice"
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        ogg_path = tmp_dir / f"in_{tg_id}_{update.message.message_id}.ogg"
+        heard = None
+        try:
+            tg_file = await context.bot.get_file(voice.file_id)
+            await tg_file.download_to_drive(str(ogg_path))
+            heard = await asyncio.to_thread(stt_engine.transcribe_file, ogg_path)
+        except Exception as e:
+            logger.warning("Voice download/transcribe failed: %s", e)
+            await update.message.reply_text("I couldn't process that voice note — try again?")
+            return
+        finally:
+            try:
+                ogg_path.unlink(missing_ok=True)
+            except Exception:
+                pass
+
+        if not heard:
+            await update.message.reply_text("I couldn't make out any speech — try again?")
+            return
+
+        result = await chat_fn(session_manager, username, heard)
+        reply = result.get("response", "") or "(No response)"
+
+        await _deliver_voice_reply(update, context, heard, reply, settings)
+
     async def _route_message(update: Update, username: str, text: str, chat_fn: Callable):
         """Send a message through the Aegis pipeline and reply."""
         # Show typing indicator while LLM generates
@@ -173,7 +356,7 @@ def _build_handlers(session_manager, chat_fn: Callable):
         for chunk in _split_message(reply):
             await update.message.reply_text(chunk)
 
-    return cmd_start, cmd_pair, cmd_unpair, handle_command, handle_message
+    return cmd_start, cmd_pair, cmd_unpair, handle_command, handle_message, handle_voice
 
 
 async def start_telegram_bot(session_manager, chat_fn: Callable):
@@ -191,7 +374,7 @@ async def start_telegram_bot(session_manager, chat_fn: Callable):
         logger.warning("Telegram enabled but no bot token set.")
         return None
 
-    cmd_start, cmd_pair, cmd_unpair, handle_command, handle_message = _build_handlers(
+    cmd_start, cmd_pair, cmd_unpair, handle_command, handle_message, handle_voice = _build_handlers(
         session_manager, chat_fn
     )
 
@@ -203,8 +386,12 @@ async def start_telegram_bot(session_manager, chat_fn: Callable):
     app.add_handler(CommandHandler("unpair", cmd_unpair))
     # Catch-all for any other /command — forward to Aegis
     app.add_handler(MessageHandler(filters.COMMAND, handle_command))
+    # Voice notes — transcribe + voice reply
+    app.add_handler(MessageHandler(filters.VOICE, handle_voice))
     # Regular text messages
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    # Play-voice button taps
+    app.add_handler(CallbackQueryHandler(on_play_voice, pattern=r"^tts:"))
 
     # Initialize and start polling (non-blocking, shares event loop)
     await app.initialize()
