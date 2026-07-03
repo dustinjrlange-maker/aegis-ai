@@ -29,3 +29,46 @@ def test_corrupt_override_falls_back_to_defaults(tmp_path, monkeypatch):
     cfg = load_config()  # must not raise
     assert cfg.cloud_enabled is False
     assert cfg.cloud_opt_in_features == ()
+
+
+def test_cloud_model_and_tokens_load_from_defaults():
+    cfg = load_config()
+    assert cfg.cloud_model == "claude-opus-4-8"
+    assert cfg.cloud_max_tokens == 2048
+
+
+def test_cloud_model_and_tokens_override(tmp_path, monkeypatch):
+    override = tmp_path / "llm_router.json"
+    override.write_text(json.dumps(
+        {"cloud_model": "claude-sonnet-4-6", "cloud_max_tokens": 512}
+    ), encoding="utf-8")
+    monkeypatch.setattr(cfgmod, "_OVERRIDE_PATH", override)
+    cfg = load_config()
+    assert cfg.cloud_model == "claude-sonnet-4-6"
+    assert cfg.cloud_max_tokens == 512
+
+
+def test_resolve_api_key_prefers_env(monkeypatch, tmp_path):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-env")
+    monkeypatch.setattr(cfgmod, "_KEY_FILE", tmp_path / "anthropic_key")
+    assert cfgmod.resolve_api_key() == "sk-env"
+
+
+def test_resolve_api_key_falls_back_to_file(monkeypatch, tmp_path):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    key_file = tmp_path / "anthropic_key"
+    key_file.write_text("  sk-file\n", encoding="utf-8")
+    monkeypatch.setattr(cfgmod, "_KEY_FILE", key_file)
+    assert cfgmod.resolve_api_key() == "sk-file"  # trimmed
+
+
+def test_resolve_api_key_none_when_absent(monkeypatch, tmp_path):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setattr(cfgmod, "_KEY_FILE", tmp_path / "nope")
+    assert cfgmod.resolve_api_key() is None
+
+
+def test_resolve_api_key_blank_env_falls_through(monkeypatch, tmp_path):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "   ")
+    monkeypatch.setattr(cfgmod, "_KEY_FILE", tmp_path / "nope")
+    assert cfgmod.resolve_api_key() is None

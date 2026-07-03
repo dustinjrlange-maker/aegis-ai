@@ -10,7 +10,7 @@ character, voice, and visual theming are loaded from pluggable "packs."
 
 - **Python**: 3.12.10 (do NOT use features beyond 3.12)
 - **GPU**: NVIDIA RTX 2070 (8GB VRAM), CUDA 12.6
-- **LLM**: Ollama (qwen3:8b) — do NOT add OpenAI/Anthropic API calls
+- **LLM**: Ollama (qwen3:8b) local-first. Cloud (Anthropic Claude API) is opt-in and gated — every LLM call must go through the `core/llm` router seam, and the ONLY provider call lives in `core/llm/backends.py`. Do NOT add provider API calls anywhere else.
 - **TTS**: Coqui XTTS-v2 via `coqui-tts` (IDIAP fork, NOT the `TTS` package)
 - **STT**: Faster-Whisper
 - **Vector DB**: ChromaDB
@@ -195,7 +195,7 @@ paths at import time. Never hardcode absolute paths.
 
 ### What NOT To Do
 
-- Do NOT add cloud API calls (OpenAI, Anthropic, etc.) — this is local-only
+- Do NOT call cloud provider APIs directly — route through `core/llm` (the only provider call is in `core/llm/backends.py`). Local stays the default; cloud is opt-in and gated.
 - Do NOT modify `core/personality/core_directives.txt` — those are immutable
 - Do NOT put character/IP content in `core/` — it goes in `packs/`
 - Do NOT store user data in version-controlled directories
