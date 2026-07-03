@@ -200,9 +200,19 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
             def _tool_process_output(r):
                 return session.protocol_registry.process_output(r, proto_context)
 
+            # Slim synthesis context: the 8B fixates on injected details (facts,
+            # session context — same failure documented for emotional turns), so
+            # the re-prompt gets ONLY a minimal persona line + the user's question.
+            # The tool result is appended by the loop itself.
+            slim_convo = [
+                {"role": "system", "content": (
+                    f"You are {session.agent_name}. Answer the user's question "
+                    "using the tool results provided. Be direct and concise.")},
+                {"role": "user", "content": user_input},
+            ]
             reply, route_meta, _pin_notes = await run_tool_loop(
                 username=user_id, tooling=tooling_proto,
-                convo=list(messages_to_send), reply=reply, raw_reply=reply_content,
+                convo=slim_convo, reply=reply, raw_reply=reply_content,
                 route_meta=route_meta,
                 router=_tool_router, call_tool=tool_service.call_tool,
                 process_output=_tool_process_output,

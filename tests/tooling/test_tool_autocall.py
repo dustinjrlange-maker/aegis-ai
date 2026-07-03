@@ -203,7 +203,7 @@ def test_loop_ok_reprompts_and_synthesizes():
     assert len(routed) == 1
     # the re-prompt convo carries Pike's own call + the tool result
     assert any(m["role"] == "assistant" and "[TOOL: x]" in m["content"] for m in routed[0])
-    assert any(m["role"] == "system" and "a.txt" in m["content"] for m in routed[0])
+    assert any(m["role"] == "user" and "a.txt" in m["content"] for m in routed[0])
 
 
 def test_loop_needs_pin_appends_note_no_reprompt():
@@ -249,7 +249,7 @@ def test_loop_error_is_fed_back():
         router=router, call_tool=call_tool, process_output=process_output,
         clean_reply=lambda x: x)
     assert len(routed) == 1
-    assert any(m["role"] == "system" and "failed: boom" in m["content"] for m in routed[0])
+    assert any(m["role"] == "user" and "failed: boom" in m["content"] for m in routed[0])
     assert final == "sorry, that failed"
 
 
@@ -362,10 +362,11 @@ def test_loop_reprompt_has_answer_framing():
         reply="checking", raw_reply="checking", route_meta="M0",
         router=router, call_tool=call_tool, process_output=process_output,
         clean_reply=lambda x: x)
-    sysmsg = [m for m in routed[0] if m["role"] == "system"][0]["content"]
-    assert "answer the user's question now" in sysmsg
-    assert "Do NOT call the same tool again" in sysmsg
-    assert "3:44 PM" in sysmsg                                 # result still present
+    resultmsg = [m for m in routed[0] if m["role"] == "user"
+                 and "[Tool results" in m["content"]][0]["content"]
+    assert "answer my original question now" in resultmsg
+    assert "Do NOT call the same tool again" in resultmsg
+    assert "3:44 PM" in resultmsg                                 # result still present
 
 
 def test_injection_includes_approved_dirs(monkeypatch):

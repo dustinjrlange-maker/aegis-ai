@@ -91,14 +91,18 @@ async def run_tool_loop(*, username, tooling, convo, reply, raw_reply, route_met
                 result_msgs.append(f"(You tried {rej}, which isn't an available tool.)")
             if not result_msgs:            # only needs_pin this round → nothing to synthesize
                 break
+            # Results ride in a USER-role message: small local models attend to
+            # a trailing user turn far more reliably than a mid-dialogue system
+            # message (off-distribution for their chat templates).
             tool_ctx = (
-                "Results of the tool call(s) you just made are below. Use them to "
-                "answer the user's question now, in your own words. Do NOT call the "
-                "same tool again unless you genuinely need different information.\n\n"
-                + "\n".join(result_msgs))
+                "[Tool results — not from the human]\n"
+                + "\n".join(result_msgs)
+                + "\n\nUse these results to answer my original question now, in "
+                "your own words. Do NOT call the same tool again unless you "
+                "genuinely need different information.")
             convo = convo + [
                 {"role": "assistant", "content": raw_reply},
-                {"role": "system", "content": tool_ctx},
+                {"role": "user", "content": tool_ctx},
             ]
             raw_reply, route_meta = await asyncio.to_thread(
                 router, convo, sensitivity, task_tag, model)
