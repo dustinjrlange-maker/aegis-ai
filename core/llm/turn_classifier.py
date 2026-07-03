@@ -15,9 +15,28 @@ import re
 from dataclasses import dataclass
 
 EMOTION_VETO_LABELS = ("sadness", "fear", "anger")
-EMOTION_VETO_THRESHOLD = 0.75  # tuning-session knob
+EMOTION_VETO_THRESHOLD = 0.45  # tuning-session knob — real grief scores ~0.45-0.6
 MIN_TASK_WORDS = 4
 NEGATOR_WINDOW = 12  # chars before a phrase to scan for a negator
+
+# High-precision first-person distress markers. The distilbert emotion model is
+# unreliable on real messages (grief scored 0.47; "I'm a wreck" scored joy 0.82),
+# so this lexicon triggers emotional mode INDEPENDENTLY of the model. Kept
+# first-person and specific to avoid false-firing on task/casual chat.
+_DISTRESS_PHRASES = (
+    "i'm a wreck", "im a wreck", "i am a wreck",
+    "can't shake", "cant shake",
+    "crushing me", "falling apart", "breaking down",
+    "overwhelmed", "can't cope", "cant cope", "can't take it", "cant take it",
+    "hopeless", "worthless", "empty inside",
+    "miss him", "miss her", "miss them",
+    "losing him", "losing her", "lost him", "lost her",
+    "grieving", "depressed", "panic attack", "panicking",
+    "so alone", "so lonely", "feel alone",
+    "want to cry", "feel like crying",
+    "hurts so much", "it hurts so",
+    "giving up",
+)
 
 _FORCE_CLOUD = ("think harder", "think hard", "big brain", "best answer", "use the cloud")
 _FORCE_LOCAL = ("just you", "keep it local", "no cloud", "keep it simple")
@@ -49,9 +68,19 @@ def _matches_override(lowered: str, phrases) -> bool:
     return False
 
 
+def _has_distress(lowered: str) -> bool:
+    """True if the text contains an explicit first-person distress marker."""
+    return any(phrase in lowered for phrase in _DISTRESS_PHRASES)
+
+
 def classify(text: str, emotion_label: str | None = None,
              emotion_score: float = 0.0) -> TurnClass:
-    """Classify one user turn. Overrides set route only; veto beats task."""
+    """Classify one user turn. Overrides set route only; emotional beats task.
+
+    Emotional mode fires on EITHER a distress-lexicon hit (independent of the
+    flaky emotion model) OR a model veto (a veto-label above threshold). Both
+    beat task detection, so a heartfelt "help me figure this out" stays home.
+    """
     lowered = (text or "").lower()
 
     route = "auto"
@@ -60,6 +89,8 @@ def classify(text: str, emotion_label: str | None = None,
     elif _matches_override(lowered, _FORCE_LOCAL):
         route = "force_local"
 
+    if _has_distress(lowered):
+        return TurnClass("emotional", route, "distress_lexicon")
     if emotion_label in EMOTION_VETO_LABELS and emotion_score >= EMOTION_VETO_THRESHOLD:
         return TurnClass("emotional", route, f"emotion_veto:{emotion_label}")
 

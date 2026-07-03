@@ -74,7 +74,8 @@ def build_filler_cleaner(personality_pack):
         text = re.sub(r'\n ', '\n', text)
         text = text.strip()
         text = re.sub(r'^\.\s*', '', text)
-        text = re.sub(r'\.\s*\.', '.', text)
+        text = re.sub(r'\s+([.?,])', r'\1', text)    # no space before . ? ,
+        text = re.sub(r'\.(?:\s*\.)+', '.', text)     # collapse ".." / "..." / ". ." -> "."
         text = text.strip()
 
         # Mode-aware length budget. Models ignore "keep it short" instructions,
@@ -98,6 +99,10 @@ def build_filler_cleaner(personality_pack):
                     text = ' '.join(sentences)
                     if not text.endswith(('.', '?')):
                         text += '.'
+
+        # Final punctuation normalize (the join above can re-introduce " ." / "..")
+        text = re.sub(r'\s+([.?,])', r'\1', text)
+        text = re.sub(r'\.(?:\s*\.)+', '.', text)
         return text.strip()
 
     return clean_reply

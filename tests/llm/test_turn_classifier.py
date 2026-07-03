@@ -40,7 +40,7 @@ class TestEmotionalVeto:
     def test_below_threshold_is_not_emotional(self):
         tc = classify(
             "that movie made me feel sad I guess",
-            emotion_label="sadness", emotion_score=0.5,
+            emotion_label="sadness", emotion_score=0.3,
         )
         assert tc.mode != "emotional"
 
@@ -53,6 +53,32 @@ class TestEmotionalVeto:
 
     def test_no_emotion_result_defaults_fine(self):
         assert classify("night pike").mode == "casual"
+
+
+class TestDistressLexicon:
+    """Distress phrases trip emotional mode independent of the flaky model."""
+
+    def test_wreck_beats_joy_misclassification_and_task(self):
+        # The exact Stage-6 failure: model called this joy:0.82 and it has a task
+        # verb ("figure out") — the lexicon must still route it emotional.
+        tc = classify(
+            "I'm a wreck about the paperwork, can you help me figure out what to do",
+            emotion_label="joy", emotion_score=0.82,
+        )
+        assert tc.mode == "emotional"
+
+    def test_crushing_me_without_emotion_result(self):
+        assert classify("work is really crushing me lately").mode == "emotional"
+
+    def test_cant_shake_it_is_emotional(self):
+        tc = classify(
+            "I keep thinking about my dad and I can't shake it",
+            emotion_label="sadness", emotion_score=0.47,
+        )
+        assert tc.mode == "emotional"
+
+    def test_distress_does_not_fire_on_plain_task(self):
+        assert classify("help me draft a blurb for a materials company").mode == "task"
 
 
 class TestTaskDetection:

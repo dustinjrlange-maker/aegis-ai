@@ -11,6 +11,25 @@ def test_budgets_table():
     assert MODE_SENTENCE_BUDGETS == {"casual": 3, "emotional": 6, "task": None}
 
 
+def test_trailing_space_period_artifact_removed():
+    assert _cleaner()("Night. .") == "Night."
+
+
+def test_double_period_collapsed():
+    assert ".." not in _cleaner()("Thinking about your dad.. those thoughts")
+
+
+def test_ellipsis_collapsed_to_single_period():
+    out = _cleaner()("well... okay then")
+    assert ".." not in out
+
+
+def test_no_space_before_period_in_emotional():
+    out = _cleaner()("I'm right here. Just know that. ", mode="emotional")
+    assert not out.endswith(" .")
+    assert ".." not in out
+
+
 def test_casual_caps_at_three_sentences():
     out = _cleaner()(
         "This is one. This is two. This is three. This is four. This is five."
