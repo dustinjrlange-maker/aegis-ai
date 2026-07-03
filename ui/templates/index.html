@@ -11400,9 +11400,16 @@ function renderSettings(settings) {
     html += '<div id="featureTogglesArea"><div class="task-empty">Loading...</div></div>';
     html += '</div>';
 
+    // Cloud Brain (loaded async)
+    html += '<div class="settings-section">';
+    html += '<div class="settings-section-title">Cloud Brain</div>';
+    html += '<div id="cloudBrainArea"><div class="task-empty">Loading...</div></div>';
+    html += '</div>';
+
     container.innerHTML = html;
     enumerateSettingsDevices();
     loadFeatureToggles();
+    loadCloudSettings();
 }
 
 function settingToggle(section, key, label, desc, value) {
@@ -11509,6 +11516,96 @@ async function toggleFeature(name, enabled) {
     } catch (e) {
         console.error('Feature toggle failed:', e);
     }
+}
+
+// ========== CLOUD BRAIN SETTINGS ==========
+
+async function loadCloudSettings() {
+    var area = document.getElementById('cloudBrainArea');
+    if (!area) return;
+    try {
+        const res = await authFetch(API + '/cloud');
+        const s = await res.json();
+        area.innerHTML = renderCloudSettings(s);
+    } catch (e) {
+        area.innerHTML = '<div class="task-empty">Cloud settings unavailable</div>';
+    }
+}
+
+function renderCloudSettings(s) {
+    var checked = s.cloud_enabled ? ' checked' : '';
+    var keyStatus = s.key_set ? '✓ key set' : 'no key';
+    var html = '';
+    html += '<div class="setting-row">';
+    html += '<div class="setting-label">Cloud escalation';
+    html += '<div class="setting-desc">When on, general chat with Pike uses Anthropic Opus 4.8 for stronger reasoning. Your private data — email, journals, memory — always stays local.</div>';
+    html += '</div>';
+    html += '<div class="setting-control">';
+    html += '<label class="proto-toggle"><input type="checkbox" id="cloudEnabledToggle"' + checked + ' onchange="saveCloudEnabled(this.checked)"><span class="toggle-slider"></span></label>';
+    html += '<span class="setting-saved" id="cloudEnabled-saved">SAVED</span>';
+    html += '</div></div>';
+    html += '<div class="vault-account-field"><label>API key</label><input type="password" id="cloudKeyInput" placeholder="sk-ant-..."></div>';
+    html += '<button class="vault-btn" onclick="saveCloudKey()">SAVE KEY</button>';
+    html += '<button class="vault-btn" onclick="testCloudKey()">TEST</button>';
+    html += '<button class="vault-btn danger" onclick="removeCloudKey()">REMOVE KEY</button>';
+    html += '<span id="cloudKeyMsg" style="margin-left:8px;font-size:12px">' + keyStatus + '</span>';
+    html += '<div class="setting-row"><div class="setting-label">Cloud model<div class="setting-desc">Model used when cloud escalation is on.</div></div>';
+    html += '<div class="setting-control"><span style="font-size:12px;color:var(--lcars-text)">' + escapeHtml(s.cloud_model || '') + '</span></div></div>';
+    return html;
+}
+
+async function saveCloudEnabled(enabled) {
+    var savedEl = document.getElementById('cloudEnabled-saved');
+    try {
+        const res = await authFetch(API + '/cloud/enabled', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({enabled: enabled}),
+        });
+        const data = await res.json();
+        if (data.success && savedEl) {
+            savedEl.classList.add('show');
+            setTimeout(function() { savedEl.classList.remove('show'); }, 1500);
+        }
+    } catch (e) { console.error('Cloud toggle failed:', e); }
+}
+
+async function saveCloudKey() {
+    var input = document.getElementById('cloudKeyInput');
+    var msg = document.getElementById('cloudKeyMsg');
+    var key = input ? input.value : '';
+    if (!key.trim()) { if (msg) msg.textContent = 'enter a key first'; return; }
+    try {
+        const res = await authFetch(API + '/cloud/key', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({key: key}),
+        });
+        const data = await res.json();
+        if (input) input.value = '';  // never keep the key in the DOM
+        if (msg) msg.textContent = data.key_set ? '✓ key set' : 'no key';
+    } catch (e) { if (msg) msg.textContent = 'save failed'; }
+}
+
+async function testCloudKey() {
+    var msg = document.getElementById('cloudKeyMsg');
+    if (msg) msg.textContent = 'testing…';
+    try {
+        const res = await authFetch(API + '/cloud/test', {method: 'POST'});
+        const data = await res.json();
+        if (msg) msg.textContent = data.ok ? '✓ works' : ('✗ ' + (data.error || 'failed'));
+    } catch (e) { if (msg) msg.textContent = '✗ test failed'; }
+}
+
+async function removeCloudKey() {
+    var msg = document.getElementById('cloudKeyMsg');
+    try {
+        const res = await authFetch(API + '/cloud/key', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({key: ''}),
+        });
+        const data = await res.json();
+        var input = document.getElementById('cloudKeyInput'); if (input) input.value = '';
+        if (msg) msg.textContent = data.key_set ? '✓ key set' : 'no key';
+    } catch (e) { if (msg) msg.textContent = 'remove failed'; }
 }
 
 // ========== DEVICE INPUT SETTINGS ==========

@@ -49,6 +49,7 @@ from core.memory.personal_log import (
 )
 from core.feature_toggles import load_feature_toggles, save_feature_toggles
 from core.memory.news_service import NewsService
+from core.llm import cloud_settings
 from server.chat_pipeline import process_chat
 
 
@@ -169,6 +170,14 @@ class SettingsUpdateRequest(BaseModel):
     section: str
     key: str
     value: object
+
+
+class CloudEnabledRequest(BaseModel):
+    enabled: bool
+
+
+class CloudKeyRequest(BaseModel):
+    key: str
 
 
 class RegisterRequest(BaseModel):
@@ -1636,6 +1645,30 @@ async def update_settings(req: SettingsUpdateRequest, user_id: str = Depends(req
         logger.warning(f"Could not persist setting to config: {e}")
 
     return {"success": True, "section": req.section, "key": req.key, "value": typed_value}
+
+
+# --- Cloud Settings Routes ---
+
+@app.get("/api/cloud")
+async def get_cloud(user_id: str = Depends(require_user)):
+    return cloud_settings.get_cloud_status()
+
+
+@app.post("/api/cloud/enabled")
+async def post_cloud_enabled(req: CloudEnabledRequest, user_id: str = Depends(require_user)):
+    cloud_settings.set_cloud_enabled(req.enabled)
+    return {"success": True, "cloud_enabled": req.enabled}
+
+
+@app.post("/api/cloud/key")
+async def post_cloud_key(req: CloudKeyRequest, user_id: str = Depends(require_user)):
+    cloud_settings.set_api_key(req.key)
+    return {"success": True, "key_set": cloud_settings.get_cloud_status()["key_set"]}
+
+
+@app.post("/api/cloud/test")
+async def post_cloud_test(user_id: str = Depends(require_user)):
+    return cloud_settings.test_cloud_key()
 
 
 # --- Feature Toggle Routes ---
