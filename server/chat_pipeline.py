@@ -8,28 +8,17 @@ import logging
 from datetime import datetime
 
 from core.llm import chat_with_meta as router_chat_with_meta
-from core.llm.turn_classifier import classify
+from core.llm.turn_classifier import classify, route_task_tag
 from core.config import CONFIG, load_capabilities
 from core.voice import emotion
 from core.protocols.context_budget import budget_injections
 
 logger = logging.getLogger("aegis.chat_pipeline")
 
-_TASK_TAGS = {"casual": "chat_casual", "emotional": "chat_emotional", "task": "chat_task"}
-
 _MODE_HINTS = {
     "emotional": "[Response mode: emotional support — you may take up to 5-6 sentences. Stay specific to their words, no advice, no cheerleading, no roleplay.]",
     "task": "[Response mode: task — give the complete, structured answer; take the length it needs.]",
 }
-
-
-def route_task_tag(turn) -> str:
-    """Map a TurnClass to the router task tag. Explicit user override wins."""
-    if turn.route == "force_local":
-        return "chat_casual"
-    if turn.route == "force_cloud":
-        return "chat_task"
-    return _TASK_TAGS[turn.mode]
 
 
 async def process_chat(session_manager, user_id: str, user_input: str) -> dict:

@@ -6,7 +6,6 @@ Loads core directives, active personality/voice/theme packs, and
 character memories to create a complete agent experience.
 """
 
-import re
 import sys
 from pathlib import Path
 
@@ -15,8 +14,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from core.llm import chat_with_meta as router_chat_with_meta
-from core.llm.turn_classifier import classify
-from server.chat_pipeline import route_task_tag
+from core.llm.turn_classifier import classify, route_task_tag
 from core.reply_shaping import build_filler_cleaner
 from core.config import CONFIG, get_path, PROJECT_ROOT as PROJ_ROOT, load_capabilities
 from core.memory.manager import MemoryManager
@@ -316,11 +314,15 @@ def run():
 
             reply = output_result["response"]
 
+            # Marker is for the console display only — history + TTS keep the
+            # clean reply. ASCII marker here (not the ☁ glyph) because the
+            # console can be a cp1252 stream that can't encode U+2601.
+            display_reply = reply
             if route_meta.backend_used == "cloud":
-                reply = f"{reply}\n\n☁ cloud brain"
+                display_reply = f"{reply}\n\n[cloud brain]"
 
             print()
-            print(f"{agent_name}: {reply}")
+            print(f"{agent_name}: {display_reply}")
             print()
 
             if tts_engine.is_enabled():

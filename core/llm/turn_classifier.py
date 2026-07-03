@@ -17,6 +17,7 @@ from dataclasses import dataclass
 EMOTION_VETO_LABELS = ("sadness", "fear", "anger")
 EMOTION_VETO_THRESHOLD = 0.75  # tuning-session knob
 MIN_TASK_WORDS = 4
+NEGATOR_WINDOW = 12  # chars before a phrase to scan for a negator
 
 _FORCE_CLOUD = ("think harder", "think hard", "big brain", "best answer", "use the cloud")
 _FORCE_LOCAL = ("just you", "keep it local", "no cloud", "keep it simple")
@@ -41,7 +42,7 @@ def _matches_override(lowered: str, phrases) -> bool:
     """True if any phrase occurs NOT preceded by a negator (send-guard lesson)."""
     for phrase in phrases:
         for m in re.finditer(re.escape(phrase), lowered):
-            window = lowered[max(0, m.start() - 12):m.start()]
+            window = lowered[max(0, m.start() - NEGATOR_WINDOW):m.start()]
             if any(neg in window for neg in _NEGATORS):
                 continue
             return True
@@ -66,3 +67,23 @@ def classify(text: str, emotion_label: str | None = None,
         return TurnClass("task", route, "task_pattern")
 
     return TurnClass("casual", route, "default")
+
+
+# --- Routing tag mapping (consumed by policy.decide via the chat pipeline) ---
+
+_TASK_TAGS = {"casual": "chat_casual", "emotional": "chat_emotional", "task": "chat_task"}
+
+
+def route_task_tag(turn: TurnClass) -> str:
+    """Map a TurnClass to the router task tag consumed by policy.decide().
+
+    Explicit overrides win, with ONE privacy exception: an emotional turn under
+    force_cloud maps to chat_emotional (not chat_task), so Deep Mode still gates
+    whether feelings may leave the machine. Deep Mode off => feelings stay local
+    even if the user said "think harder".
+    """
+    if turn.route == "force_local":
+        return "chat_casual"
+    if turn.route == "force_cloud":
+        return "chat_emotional" if turn.mode == "emotional" else "chat_task"
+    return _TASK_TAGS[turn.mode]
