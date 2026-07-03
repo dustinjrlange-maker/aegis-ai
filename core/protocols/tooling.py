@@ -12,6 +12,12 @@ from core.tooling import catalog, service, wishlist
 logger = logging.getLogger("aegis.protocols.tooling")
 
 
+def _autocall_enabled():
+    """Whether Pike may auto-call tools (Phase 4B). Default on."""
+    from core.config import CONFIG
+    return CONFIG.get("tooling", {}).get("autocall_enabled", True)
+
+
 class ToolingProtocol(Protocol):
     """Manual tool management via /tools commands."""
 

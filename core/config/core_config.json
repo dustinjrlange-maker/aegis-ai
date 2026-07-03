@@ -103,6 +103,7 @@
     },
 
     "tooling": {
-        "wishlist_path": ""
+        "wishlist_path": "",
+        "autocall_enabled": true
     }
 }
