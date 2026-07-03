@@ -134,3 +134,42 @@ def test_double_shutdown_is_safe(monkeypatch):
     mgr.ensure_started("u", "echo", "cmd", [], timeout=5)
     mgr.shutdown()
     mgr.shutdown()  # must not raise
+
+
+def test_same_key_callers_share_one_session(monkeypatch):
+    """Two ensure_started calls for the SAME (user, tool) spawn only one server."""
+    from core.tooling.mcp_manager import MCPManager
+    mgr = MCPManager()
+    sessions = []
+
+    @asynccontextmanager
+    async def fake_open(self, command, args, env):
+        s = FakeSession()
+        sessions.append(s)
+        yield s
+
+    monkeypatch.setattr(MCPManager, "_open_session", fake_open)
+    mgr.ensure_started("u", "fs", "cmd", [], timeout=5)
+    mgr.ensure_started("u", "fs", "cmd", [], timeout=5)   # same key -> no 2nd spawn
+    assert len(sessions) == 1
+    mgr.shutdown()
+
+
+def test_respawn_after_death(monkeypatch):
+    """After a server stops (dead), a later ensure_started spawns a fresh one."""
+    from core.tooling.mcp_manager import MCPManager
+    mgr = MCPManager()
+    sessions = []
+
+    @asynccontextmanager
+    async def fake_open(self, command, args, env):
+        s = FakeSession()
+        sessions.append(s)
+        yield s
+
+    monkeypatch.setattr(MCPManager, "_open_session", fake_open)
+    mgr.ensure_started("u", "fs", "cmd", [], timeout=5)
+    mgr.shutdown()                                        # marks handle dead
+    mgr.ensure_started("u", "fs", "cmd", [], timeout=5)   # dead -> respawn
+    assert len(sessions) == 2
+    mgr.shutdown()

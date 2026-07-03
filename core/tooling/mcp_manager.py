@@ -128,11 +128,9 @@ class MCPManager:
             existing = self._servers.get(key)
             if existing is not None and not existing.dead:
                 handle = existing          # someone already started it; wait below
-                new = False
             else:
                 handle = _ServerHandle()
                 self._servers[key] = handle
-                new = True
 
                 def _spawn():
                     handle.task = self._loop.create_task(
