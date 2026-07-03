@@ -145,7 +145,7 @@ class ToolingProtocol(Protocol):
             if split_commas and "," in v:
                 out[k] = [p for p in v.split(",") if p]
             elif split_commas:
-                out[k] = [v]
+                out[k] = [v] if v else []
             else:
                 out[k] = v
         return out

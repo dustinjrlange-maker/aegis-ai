@@ -80,6 +80,14 @@ def test_tools_pin_redacted(proto, caplog):
     assert "done" in reply
 
 
+def test_parse_kv_empty_value_yields_empty_list(proto):
+    p, _ = proto
+    assert p._parse_kv(["approved_dirs="], split_commas=True) == {"approved_dirs": []}
+    assert p._parse_kv(["approved_dirs=,"], split_commas=True) == {"approved_dirs": []}
+    assert p._parse_kv(["approved_dirs=C:/a"], split_commas=True) == {"approved_dirs": ["C:/a"]}
+    assert p._parse_kv(["tz=UTC"], split_commas=False) == {"tz": "UTC"}   # unchanged for call args
+
+
 def test_tools_help_on_unknown(proto):
     p, _ = proto
     reply = p.cmd_tools("bogus")
