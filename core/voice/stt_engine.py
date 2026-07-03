@@ -145,6 +145,25 @@ def transcribe(audio):
     return text if text else None
 
 
+def transcribe_file(path):
+    """Transcribe an audio file (any ffmpeg-decodable format) via faster-whisper.
+
+    faster-whisper decodes the file natively (PyAV), so OGG/Opus voice notes need
+    no manual resample. Returns the transcribed text, or None if no speech.
+    """
+    model = _load_model()
+
+    segments, info = model.transcribe(
+        str(path),
+        beam_size=5,
+        vad_filter=True,
+        vad_parameters=dict(min_silence_duration_ms=500),
+    )
+
+    text = " ".join(segment.text.strip() for segment in segments).strip()
+    return text if text else None
+
+
 def listen_and_transcribe():
     """
     Full pipeline: record from mic and transcribe.

@@ -55,6 +55,11 @@
             "compute_type": "float16",
             "silence_timeout": 2.0,
             "input_mode": "text"
+        },
+        "telegram": {
+            "voice_replies": true,
+            "voice_char_cap": 600,
+            "max_duration": 300
         }
     },
 
