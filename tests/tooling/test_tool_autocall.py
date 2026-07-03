@@ -366,3 +366,17 @@ def test_loop_reprompt_has_answer_framing():
     assert "answer the user's question now" in sysmsg
     assert "Do NOT call the same tool again" in sysmsg
     assert "3:44 PM" in sysmsg                                 # result still present
+
+
+def test_injection_includes_approved_dirs(monkeypatch):
+    """Filesystem's approved dirs are surfaced so Pike uses real paths."""
+    import core.config
+    from core.protocols import tooling
+    from core.tooling import registry
+    monkeypatch.setattr(core.config, "CONFIG", {"tooling": {"autocall_enabled": True}})
+    monkeypatch.setattr(registry, "installed_ids", lambda u: ["filesystem"])
+    monkeypatch.setattr(registry, "get", lambda u, t: {
+        "config": {"approved_dirs": ["C:/Users/dusti/Documents"]}} if t == "filesystem" else None)
+    p = tooling.ToolingProtocol(username="switch")
+    inj = p.process_input("hi", {})["context_injection"]
+    assert "use absolute paths under: C:/Users/dusti/Documents" in inj

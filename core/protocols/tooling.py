@@ -59,6 +59,13 @@ class ToolingProtocol(Protocol):
                 continue
             for method, hint in entry.get("method_hints", {}).items():
                 lines.append(f"  {tool_id}.{method} {hint}")
+            # Surface config constraints (e.g. filesystem's approved dirs) so Pike
+            # uses real absolute paths instead of guessing ~/… or /home/user/….
+            reg_entry = registry.get(self.username, tool_id)
+            approved = (reg_entry or {}).get("config", {}).get("approved_dirs")
+            if approved:
+                lines.append(f"    for {tool_id}, use absolute paths under: "
+                             f"{', '.join(approved)}")
         if len(lines) == 1:            # installed tools had no hints
             return empty
         lines.append("Only call a tool when the request needs live data or an action "
