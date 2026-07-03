@@ -110,10 +110,11 @@ notes would bypass authorization entirely. Additionally, incoming voice notes wi
 so a stray 20-minute recording can't pin Whisper/the GPU.
 
 ### Play-voice button
-- The text reply is stored in a bounded in-memory dict keyed by
-  **`(chat_id, message_id)`** — Telegram `message_id`s are per-chat, not global, so
-  keying by `message_id` alone could collide across chats and leak one user's reply to
-  another.
+- The text reply is stored in a bounded in-memory dict. **Implementation refinement (see
+  plan):** keyed by a **random token** (`secrets.token_urlsafe`) with `chat_id` stored in
+  the value, rather than `(chat_id, message_id)`. A token is globally unique (no cross-chat
+  collision — the original concern) and needs no post-send `edit_reply_markup` round-trip,
+  since `callback_data` must be fixed at send time before a `message_id` exists.
 - Inline keyboard button carries `callback_data = "tts:<chat_id>:<message_id>"` (still
   well under Telegram's 64-byte limit).
 - A `CallbackQueryHandler` (pattern `^tts:`) processes taps in this **strict order**:
