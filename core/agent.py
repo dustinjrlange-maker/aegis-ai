@@ -14,7 +14,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from core.llm import chat_with_meta as router_chat_with_meta
-from core.llm.turn_classifier import classify, route_task_tag
+from core.llm.turn_classifier import classify, route_task_tag, inject_fact_memories
 from core.reply_shaping import build_filler_cleaner
 from core.config import CONFIG, get_path, PROJECT_ROOT as PROJ_ROOT, load_capabilities
 from core.memory.manager import MemoryManager
@@ -255,12 +255,21 @@ def run():
                 tts_engine.speak(proto_result["response"])
             continue
 
-        # Detect emotion
+        # Detect emotion + classify the turn (drives routing, shaping, injection)
         emotion_result = emotion.detect_emotion(user_input)
         emotion_tag = emotion.format_emotion_tag(emotion_result)
+        turn = classify(
+            user_input,
+            emotion_label=(emotion_result or {}).get("label"),
+            emotion_score=(emotion_result or {}).get("score", 0.0),
+        )
 
-        # Search for relevant memories (both personal and character)
-        relevant = memory.get_relevant_memories(user_input)
+        # Search for relevant memories. Emotional turns skip the fact/task
+        # injection — the 8B fixates on injected details (task titles surfaced
+        # mid-grief in live testing). Character memories stay.
+        relevant = ""
+        if inject_fact_memories(turn):
+            relevant = memory.get_relevant_memories(user_input)
         char_relevant = char_memory.get_relevant_memories(user_input)
 
         # Build augmented input
@@ -292,11 +301,6 @@ def run():
         messages_to_send = messages[:-1] + [{"role": "user", "content": augmented_input}]
 
         try:
-            turn = classify(
-                user_input,
-                emotion_label=(emotion_result or {}).get("label"),
-                emotion_score=(emotion_result or {}).get("score", 0.0),
-            )
             reply_content, route_meta = router_chat_with_meta(
                 messages_to_send,
                 sensitivity="personal",

@@ -8,7 +8,7 @@ import logging
 from datetime import datetime
 
 from core.llm import chat_with_meta as router_chat_with_meta
-from core.llm.turn_classifier import classify, route_task_tag
+from core.llm.turn_classifier import classify, route_task_tag, inject_fact_memories
 from core.config import CONFIG, load_capabilities
 from core.voice import emotion
 from core.protocols.context_budget import budget_injections
@@ -120,8 +120,12 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
     )
     task_tag = route_task_tag(turn)
 
-    # Memory search
-    relevant = session.memory.get_relevant_memories(user_input)
+    # Memory search. Emotional turns skip the fact/task injection — the 8B
+    # fixates on injected details (task titles surfaced mid-grief in live
+    # testing). Character memories stay: Pike's own past informs presence.
+    relevant = ""
+    if inject_fact_memories(turn):
+        relevant = session.memory.get_relevant_memories(user_input)
     char_relevant = session.char_memory.get_relevant_memories(user_input)
 
     # Build augmented input

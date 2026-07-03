@@ -118,3 +118,13 @@ def route_task_tag(turn: TurnClass) -> str:
     if turn.route == "force_cloud":
         return "chat_emotional" if turn.mode == "emotional" else "chat_task"
     return _TASK_TAGS[turn.mode]
+
+
+def inject_fact_memories(turn: TurnClass) -> bool:
+    """Whether this turn should receive the fact/task memory injection.
+
+    Emotional turns get presence, not the to-do list: the local 8B fixates on
+    injected details, and live testing had task facts surfacing mid-grief.
+    Curated emotional continuity is the Wave-6 memory work, not raw injection.
+    """
+    return turn.mode != "emotional"
