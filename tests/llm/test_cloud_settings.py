@@ -82,3 +82,50 @@ def test_set_api_key_blank_removes_file(tmp_path, monkeypatch):
 def test_set_api_key_blank_when_no_file_is_noop(tmp_path, monkeypatch):
     monkeypatch.setattr(cfgmod, "_KEY_FILE", tmp_path / "anthropic_key")
     cs.set_api_key("")  # must not raise
+
+
+class _OKBackend:
+    def chat(self, messages, **kw):
+        return "pong"
+
+
+class _RaisingBackend:
+    def __init__(self, exc):
+        self._exc = exc
+
+    def chat(self, messages, **kw):
+        raise self._exc
+
+
+def test_test_cloud_key_no_key(tmp_path, monkeypatch):
+    monkeypatch.setattr(cfgmod, "_KEY_FILE", tmp_path / "nokey")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setattr(cs, "CloudBackend", lambda: (_ for _ in ()).throw(AssertionError("should not construct")))
+    assert cs.test_cloud_key() == {"ok": False, "error": "No API key set"}
+
+
+def test_test_cloud_key_ok(tmp_path, monkeypatch):
+    kf = tmp_path / "anthropic_key"; kf.write_text("sk-x", encoding="utf-8")
+    monkeypatch.setattr(cfgmod, "_KEY_FILE", kf)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setattr(cs, "CloudBackend", _OKBackend)
+    assert cs.test_cloud_key() == {"ok": True}
+
+
+def test_test_cloud_key_auth_error_maps_to_rejected(tmp_path, monkeypatch):
+    kf = tmp_path / "anthropic_key"; kf.write_text("sk-bad", encoding="utf-8")
+    monkeypatch.setattr(cfgmod, "_KEY_FILE", kf)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setattr(cs, "CloudBackend",
+                        lambda: _RaisingBackend(Exception("authentication_error: invalid x-api-key")))
+    assert cs.test_cloud_key() == {"ok": False, "error": "Key rejected"}
+
+
+def test_test_cloud_key_generic_error_passes_message(tmp_path, monkeypatch):
+    kf = tmp_path / "anthropic_key"; kf.write_text("sk-x", encoding="utf-8")
+    monkeypatch.setattr(cfgmod, "_KEY_FILE", kf)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setattr(cs, "CloudBackend",
+                        lambda: _RaisingBackend(RuntimeError("something odd")))
+    out = cs.test_cloud_key()
+    assert out["ok"] is False and "something odd" in out["error"]

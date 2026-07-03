@@ -10,6 +10,7 @@ import json
 import logging
 
 from core.llm import config as _cfg
+from core.llm.backends import CloudBackend
 
 logger = logging.getLogger(__name__)
 
@@ -54,3 +55,29 @@ def set_api_key(key: str) -> None:
         return
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(key, encoding="utf-8")
+
+
+def _friendly_error(e: Exception) -> str:
+    """Map a cloud failure to a short, key-safe message for the UI."""
+    text = f"{type(e).__name__}: {e}".lower()
+    if "authentication" in text or "invalid x-api-key" in text or "401" in text:
+        return "Key rejected"
+    if "connection" in text or "network" in text or "timeout" in text:
+        return "Couldn't reach Anthropic (network)"
+    if "rate" in text and "limit" in text:
+        return "Rate limited — try again shortly"
+    return str(e) or type(e).__name__
+
+
+def test_cloud_key() -> dict:
+    """Validate the current key with one tiny real Claude call.
+    Returns {'ok': True} or {'ok': False, 'error': <friendly str>}. Never the key."""
+    if _cfg.resolve_api_key() is None:
+        return {"ok": False, "error": "No API key set"}
+    try:
+        out = CloudBackend().chat([{"role": "user", "content": "ping"}])
+    except Exception as e:  # any failure -> friendly message, never fatal
+        return {"ok": False, "error": _friendly_error(e)}
+    if isinstance(out, str) and out.strip():
+        return {"ok": True}
+    return {"ok": False, "error": "Empty response"}
