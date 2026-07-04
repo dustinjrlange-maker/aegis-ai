@@ -152,6 +152,7 @@ def test_parse_rejects_hyphenated_unknown_tool(monkeypatch):
 
 
 import asyncio
+import re
 
 
 class _FakeTooling:
@@ -444,3 +445,55 @@ def test_parse_shorthand_own_line_still_executes(monkeypatch):
     p.process_output("Sure:\n  [filesystem.read_file path=C:/x/a.txt]", {})
     assert p.get_pending_tool_calls() == [{"tool_id": "filesystem", "method": "read_file",
                                            "args": {"path": "C:/x/a.txt"}}]
+
+
+def test_loop_chains_list_then_read_using_first_result(monkeypatch):
+    """CHAINED call: list_directory → read_file, where round 2's path is DERIVED
+    from round 1's listing. Drives the REAL ToolingProtocol parse (not scripted
+    rounds), so the data dependency flows list→result→convo→router→[TOOL:]→read.
+    This is the Wave 2 gap the other multi-round tests don't cover (their calls
+    are independent/identical)."""
+    import core.config
+    from core.protocols import tooling as tooling_mod
+    monkeypatch.setattr(core.config, "CONFIG", {"tooling": {"autocall_enabled": True}})
+    _reg_installed(monkeypatch, ["filesystem"])
+    p = tooling_mod.ToolingProtocol(username="switch")
+
+    calls = []
+
+    def call_tool(u, t, m, a):
+        calls.append((t, m, dict(a)))
+        if m == "list_directory":
+            return {"status": "ok", "result": ["notes.txt", "todo.txt"]}
+        if m == "read_file":
+            return {"status": "ok", "result": [f"contents of {a['path']}: buy milk"]}
+        return {"status": "error", "message": "unexpected method"}
+
+    def router(convo, s, t, model):
+        # Decide the next step purely from the trailing tool-result message —
+        # this is what proves the chain: the read path must come from the listing.
+        last_user = [m for m in convo if m["role"] == "user"][-1]["content"]
+        if "filesystem.read_file" in last_user:          # round 2: we have contents
+            return ("Your notes say to buy milk.", "META_FINAL")
+        fname = re.search(r"([\w.-]+\.txt)", last_user).group(1)   # first listed file
+        return (f"Reading it. [TOOL: filesystem.read_file path={fname}]", "META_READ")
+
+    # Prime round 1 off Pike's first reply (real parse → pending list_directory).
+    raw_reply = "Let me look. [TOOL: filesystem.list_directory path=C:/notes]"
+    p.process_output(raw_reply, {})
+    assert p.get_pending_tool_calls() == [
+        {"tool_id": "filesystem", "method": "list_directory", "args": {"path": "C:/notes"}}]
+
+    final, meta, pin = _run(
+        username="switch", tooling=p, convo=[{"role": "user", "content": "what's in my notes?"}],
+        reply="Let me look.", raw_reply=raw_reply, route_meta="META0",
+        router=router, call_tool=call_tool,
+        process_output=lambda r: p.process_output(r, {}), clean_reply=lambda x: x)
+
+    # The chain: call 2 is read_file whose path was extracted from call 1's listing.
+    assert calls == [
+        ("filesystem", "list_directory", {"path": "C:/notes"}),
+        ("filesystem", "read_file", {"path": "notes.txt"}),
+    ]
+    assert final == "Your notes say to buy milk."
+    assert meta == "META_FINAL" and pin == []
