@@ -217,7 +217,11 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
                 router=_tool_router, call_tool=tool_service.call_tool,
                 process_output=_tool_process_output,
                 clean_reply=lambda rc: session.clean_reply(rc, mode=turn.mode),
-                sensitivity="personal", task_tag=task_tag,
+                # Tool-synthesis rounds carry tool RESULTS — i.e. file contents.
+                # Pin them to "private" so those never leave the machine, even
+                # with cloud on. (Revisit under the "best of both" build if
+                # cloud-eligible tool synthesis is ever wanted.)
+                sensitivity="private", task_tag=task_tag,
                 model=CONFIG["model"]["chat"])
 
         # Extract bracket command actions (if any were executed during output processing)

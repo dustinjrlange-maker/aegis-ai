@@ -8,6 +8,7 @@ chat pipeline wires in the real implementations.
 
 import asyncio
 import logging
+import re
 
 logger = logging.getLogger("aegis.tooling.autocall")
 
@@ -100,8 +101,13 @@ async def run_tool_loop(*, username, tooling, convo, reply, raw_reply, route_met
                 + "\n\nUse these results to answer my original question now, in "
                 "your own words. Do NOT call the same tool again unless you "
                 "genuinely need different information.")
+            # Keep Pike's [TOOL:] tag so he sees his own call, but drop the
+            # qwen3 <think> block — it's exactly the noise the slim convo exists
+            # to keep out of the synthesis context.
+            assistant_turn = re.sub(r"<think>.*?</think>", "", raw_reply,
+                                    flags=re.DOTALL).strip()
             convo = convo + [
-                {"role": "assistant", "content": raw_reply},
+                {"role": "assistant", "content": assistant_turn},
                 {"role": "user", "content": tool_ctx},
             ]
             raw_reply, route_meta = await asyncio.to_thread(

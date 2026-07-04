@@ -20,11 +20,16 @@ logger = logging.getLogger("aegis.protocols.tooling")
 _TOOL_RE = re.compile(r"\[TOOL:\s*([a-z0-9_-]+)\.([a-z0-9_-]+)\s*(.*?)\]", re.I)
 
 # Lenient fallback: the local 8B drops the "TOOL:" prefix under format drift and
-# emits e.g. [filesystem.read_file path=...]. Safe to accept because the REAL
-# gate is validation (installed tool + known method) — a shorthand bracket that
-# doesn't validate is left completely untouched (no strip, no rejection), so
-# ordinary bracketed prose can't false-positive into a tool call.
-_TOOL_SHORTHAND_RE = re.compile(r"\[([a-z0-9_-]+)\.([a-z0-9_-]+)\s*(.*?)\]", re.I)
+# emits e.g. [filesystem.read_file path=...]. Two guards keep this safe:
+#   1. own-line anchor (MULTILINE ^[ \t]*) — a bracket embedded in prose or in
+#      echoed FILE CONTENTS won't fire; only a bracket Pike places at the start
+#      of a line (as the injected instruction directs) is considered. This is
+#      the prompt-injection guard — a read file containing "[filesystem.read_file
+#      path=...]" mid-text can't auto-execute.
+#   2. validation (installed tool + known method) still gates acceptance; a
+#      shorthand that doesn't validate is left completely untouched.
+_TOOL_SHORTHAND_RE = re.compile(
+    r"(?m)^[ \t]*\[([a-z0-9_-]+)\.([a-z0-9_-]+)\s*(.*?)\]", re.I)
 
 
 def _autocall_enabled():
@@ -91,8 +96,10 @@ class ToolingProtocol(Protocol):
         from core.tooling import registry
         strict = list(_TOOL_RE.finditer(response))
         strict_spans = [m.span() for m in strict]
-        # Shorthand matches that don't overlap a strict match (a strict
-        # [TOOL: x.y] also matches the shorthand pattern — dedupe by span).
+        # Shorthand matches that don't overlap a strict match. (A real "[TOOL: …]"
+        # is NOT matched by the shorthand pattern — "TOOL" is followed by ':' not
+        # '.' — so this dedupe only guards the nested-bracket-args edge case,
+        # e.g. [TOOL: x.y path=[a.b]] whose inner [a.b] would match shorthand.)
         shorthand = [m for m in _TOOL_SHORTHAND_RE.finditer(response)
                      if not any(s[0] <= m.start() < s[1] for s in strict_spans)]
         if not strict and not shorthand:
