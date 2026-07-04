@@ -72,3 +72,22 @@ def test_resolve_api_key_blank_env_falls_through(monkeypatch, tmp_path):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "   ")
     monkeypatch.setattr(cfgmod, "_KEY_FILE", tmp_path / "nope")
     assert cfgmod.resolve_api_key() is None
+
+
+def test_trouble_flags_default_off(tmp_path, monkeypatch):
+    import core.llm.config as cfgmod
+    monkeypatch.setattr(cfgmod, "_OVERRIDE_PATH", tmp_path / "llm_router.json")
+    cfg = cfgmod.load_config()
+    assert cfg.cloud_trouble_escalation is False
+    assert cfg.trouble_private_consent is True
+
+
+def test_trouble_flags_load_from_override(tmp_path, monkeypatch):
+    import json, core.llm.config as cfgmod
+    p = tmp_path / "llm_router.json"
+    p.write_text(json.dumps({"cloud_trouble_escalation": True,
+                             "trouble_private_consent": False}), encoding="utf-8")
+    monkeypatch.setattr(cfgmod, "_OVERRIDE_PATH", p)
+    cfg = cfgmod.load_config()
+    assert cfg.cloud_trouble_escalation is True
+    assert cfg.trouble_private_consent is False

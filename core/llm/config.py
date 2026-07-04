@@ -24,6 +24,8 @@ class RouterConfig:
     cloud_model: str = "claude-opus-4-8"
     cloud_max_tokens: int = 2048
     deep_mode: bool = False
+    cloud_trouble_escalation: bool = False
+    trouble_private_consent: bool = True
 
 
 def load_config():
@@ -37,6 +39,8 @@ def load_config():
     cloud_model = str(defaults.get("cloud_model", "claude-opus-4-8"))
     cloud_max_tokens = int(defaults.get("cloud_max_tokens", 2048))
     deep_mode = bool(defaults.get("deep_mode", False))
+    cloud_trouble_escalation = bool(defaults.get("cloud_trouble_escalation", False))
+    trouble_private_consent = bool(defaults.get("trouble_private_consent", True))
 
     if _OVERRIDE_PATH.exists():
         try:
@@ -51,6 +55,10 @@ def load_config():
                 cloud_max_tokens = int(data["cloud_max_tokens"])
             if "deep_mode" in data:
                 deep_mode = bool(data["deep_mode"])
+            if "cloud_trouble_escalation" in data:
+                cloud_trouble_escalation = bool(data["cloud_trouble_escalation"])
+            if "trouble_private_consent" in data:
+                trouble_private_consent = bool(data["trouble_private_consent"])
         except Exception:
             logger.exception("Bad %s — using config defaults", _OVERRIDE_PATH)
 
@@ -60,6 +68,8 @@ def load_config():
         cloud_model=cloud_model,
         cloud_max_tokens=cloud_max_tokens,
         deep_mode=deep_mode,
+        cloud_trouble_escalation=cloud_trouble_escalation,
+        trouble_private_consent=trouble_private_consent,
     )
 
 
