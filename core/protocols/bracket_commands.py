@@ -47,7 +47,7 @@ class BracketCommandProtocol(Protocol):
         # Per-command guidance — explicit examples beat a bare list for small models.
         guidance = {
             "ADD_TASK": "[ADD_TASK: short task title] — REQUIRED when the user asks you to add, create, make, set, or schedule a task, or asks you to remind them about something. Use the user's exact subject as the title.",
-            "ADD_EVENT": "[ADD_EVENT: YYYY-MM-DD | title] — when the user mentions an appointment or event on a specific date.",
+            "ADD_EVENT": "[ADD_EVENT: <date> | HH:MM-HH:MM | title] — when the user mentions an appointment or event. For <date>, copy the user's own day wording (today, tomorrow, wednesday, next friday) OR use YYYY-MM-DD — do NOT convert a weekday into a number yourself, the system computes the real date. Saved to the user's Google Calendar. Include the time range in 24-hour form when the user gives one (e.g. [ADD_EVENT: wednesday | 18:00-20:00 | podcast recording]); omit the time segment for all-day events (e.g. [ADD_EVENT: tomorrow | dentist]).",
             "COMPLETE_TASK": (
                 "[COMPLETE_TASK: #N or task title] — use when the user has FINISHED or DONE a task. "
                 "Trigger words: done, finished, completed, complete, wrapped up, checked off, knocked out. "
@@ -128,7 +128,25 @@ class BracketCommandProtocol(Protocol):
         clean = re.sub(r"\.(?:[ \t]*\.)+", ".", clean)
         clean = clean.strip()
 
-        return {"response": clean, "suppress": False, "append": ""}
+        # If stripping the tag(s) left only stray punctuation (the whole reply
+        # was a bracket), drop it — the confirmation below carries the info.
+        if clean and not re.search(r"[A-Za-z0-9]", clean):
+            clean = ""
+
+        # Surface the ACTUAL handler results as an authoritative confirmation,
+        # so the user sees what really happened rather than only the model's
+        # (possibly wrong) prediction. This is what makes "added to Google"
+        # trustworthy and gives a real reply when the turn was all-bracket.
+        conf_lines = []
+        for action in self._pending_actions:
+            result = action.get("result")
+            if not result or result == "OK":
+                continue
+            marker = "⚠" if result.startswith("Error") else "✓"
+            conf_lines.append(f"{marker} {result}")
+        append = "\n".join(conf_lines)
+
+        return {"response": clean, "suppress": False, "append": append}
 
     def get_pending_actions(self) -> list[dict]:
         """Return actions executed in the most recent process_output call."""

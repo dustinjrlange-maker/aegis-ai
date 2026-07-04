@@ -135,10 +135,25 @@ class OperationsProtocol(Protocol):
             self.TASK_FILE = PROJECT_ROOT / "data" / "tasks.json"
             self.RECURRING_FILE = PROJECT_ROOT / "data" / "recurring.json"
         self._event_manager = event_manager
+        self._session = None   # UserSession back-ref, set by session.py
         self._tasks = []
         self._recurring = []
         self._load_tasks()
         self._load_recurring()
+
+    def attach_session(self, session):
+        """Give the protocol a UserSession back-ref (for Google creds)."""
+        self._session = session
+
+    def _google_creds(self):
+        """Best-effort fetch of Google credentials via the session registry."""
+        if not self._session:
+            return None
+        try:
+            gp = self._session.protocol_registry.get("google")
+            return gp._get_creds() if gp else None
+        except Exception:
+            return None
 
     def _load_tasks(self):
         """Load tasks from disk, backfilling new schema defaults."""
@@ -551,14 +566,18 @@ class OperationsProtocol(Protocol):
                     parsed_time = self._parse_natural_time(time_text) if time_text else None
 
                     if title and parsed_date and len(title) > 2:
-                        event = self._event_manager.add_event(
-                            title=title, date=parsed_date,
-                            time_start=parsed_time,
+                        from core.protocols.google_tools import create_event_or_local
+                        outcome = create_event_or_local(
+                            self._google_creds(), self._event_manager,
+                            title, parsed_date, time_start=parsed_time,
                         )
                         time_info = f" at {parsed_time}" if parsed_time else ""
+                        where = ("your Google Calendar"
+                                 if outcome["source"] == "google"
+                                 else "the local calendar")
                         injection_parts.append(
-                            f"[System: Event created: '{event['title']}' on {parsed_date}{time_info}. "
-                            f"Briefly acknowledge in your response. "
+                            f"[System: Event created: '{title}' on {parsed_date}{time_info} "
+                            f"in {where}. Briefly acknowledge in your response. "
                             f"Do NOT emit [SCHEDULE_EVENT:] OR [ADD_TASK:] — "
                             f"the event is already saved. Do not duplicate it as a task.]"
                         )

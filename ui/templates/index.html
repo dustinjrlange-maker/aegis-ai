@@ -1731,6 +1731,14 @@
             font-family: var(--font-display);
         }
         .cal-event-delete:hover { color: var(--lcars-warning); }
+        .cal-event-edit {
+            font-size: 10px;
+            color: var(--lcars-grey-2);
+            cursor: pointer;
+            font-family: var(--font-display);
+            margin-left: 6px;
+        }
+        .cal-event-edit:hover { color: var(--lcars-blue, #4a9eff); }
 
         .cal-event-form {
             display: flex;
@@ -6731,7 +6739,7 @@
         <div id="calAddForm" style="display:none">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
                 <button class="panel-back-btn" onclick="calHideAddForm()">BACK</button>
-                <span style="font-family:var(--font-display);font-size:14px;text-transform:uppercase;letter-spacing:1px">New Event</span>
+                <span id="calFormTitle" style="font-family:var(--font-display);font-size:14px;text-transform:uppercase;letter-spacing:1px">New Event</span>
             </div>
             <div class="cal-event-form">
                 <input type="text" id="calEventTitle" placeholder="Event title">
@@ -6770,7 +6778,7 @@
                     <input type="checkbox" id="calEventGoogle"> Save to Google Calendar
                 </label>
                 <div id="calConflictWarning" style="display:none;font-size:11px;color:var(--lcars-orange);padding:4px 0"></div>
-                <button onclick="calAddEvent()">CREATE</button>
+                <button id="calFormSubmit" onclick="calAddEvent()">CREATE</button>
             </div>
         </div>
     </div>
@@ -10543,11 +10551,13 @@ function calShowDay(dateStr) {
             '<span class="cal-cat-badge cat-' + cat + '">' + cat + '</span>' : '';
         var recurIcon = ev._is_recurring_instance ? '<span class="cal-recurring-icon">&#x21BB;</span>' : '';
         // Google events get edit/delete too now
-        var deleteBtn = '<span class="cal-event-delete" onclick="calDeleteEvent(\'' + ev.id + '\',' + (ev.source === 'google') + ')">DEL</span>';
+        var isG = ev.source === 'google';
+        var editBtn = '<span class="cal-event-edit" onclick="calShowEditForm(\'' + ev.id + '\',' + isG + ')">EDIT</span>';
+        var deleteBtn = '<span class="cal-event-delete" onclick="calDeleteEvent(\'' + ev.id + '\',' + isG + ')">DEL</span>';
         return '<div class="cal-event-item">' +
             '<span class="cal-event-time">' + escapeHtml(timeStr) + '</span>' +
             '<span class="cal-event-title">' + escapeHtml(ev.title) + '</span>' +
-            recurIcon + catBadge + source + deleteBtn +
+            recurIcon + catBadge + source + editBtn + deleteBtn +
         '</div>';
     }).join('');
 }
@@ -10562,7 +10572,13 @@ function calCloseDay() {
     }
 }
 
+// null = add mode; {event_id, isGoogle} = editing an existing event
+var _calEditing = null;
+
 function calShowAddForm() {
+    _calEditing = null;
+    document.getElementById('calFormTitle').textContent = 'New Event';
+    document.getElementById('calFormSubmit').textContent = 'CREATE';
     document.getElementById('calDayView').style.display = 'none';
     document.getElementById('calAddForm').style.display = '';
     document.getElementById('calEventDate').value = _calSelectedDay || '';
@@ -10577,6 +10593,37 @@ function calShowAddForm() {
     document.getElementById('calEventReminder').value = '0';
     document.getElementById('calEventAllDay').checked = false;
     document.getElementById('calEventGoogle').checked = false;
+    document.getElementById('calConflictWarning').style.display = 'none';
+}
+
+function calShowEditForm(eventId, isGoogle) {
+    var pool = isGoogle ? _calGoogleEvents : _calLocalEvents;
+    var ev = pool.filter(function(e) { return e.id === eventId; })[0];
+    if (!ev) { showToast('Event not found'); return; }
+    if (ev._is_recurring_instance) {
+        showToast('Edit the recurring series from its source, not a single occurrence');
+        return;
+    }
+    _calEditing = { event_id: eventId, isGoogle: isGoogle };
+    document.getElementById('calFormTitle').textContent = 'Edit Event';
+    document.getElementById('calFormSubmit').textContent = 'SAVE';
+    document.getElementById('calDayView').style.display = 'none';
+    document.getElementById('calAddForm').style.display = '';
+    document.getElementById('calEventDate').value = ev.date || _calSelectedDay || '';
+    document.getElementById('calEventTitle').value = ev.title || '';
+    document.getElementById('calEventStart').value = ev.all_day ? '' : (ev.time_start || '');
+    document.getElementById('calEventEnd').value = ev.all_day ? '' : (ev.time_end || '');
+    document.getElementById('calEventDesc').value = ev.description || '';
+    document.getElementById('calEventCategory').value = ev.category || 'general';
+    // Repeat/reminder are local-only concepts; reset for the edit form.
+    document.getElementById('calEventRepeat').value = ev.repeat_type || 'none';
+    document.getElementById('calEventRepeatUntil').value = ev.repeat_until || '';
+    document.getElementById('calEventRepeatUntil').style.display =
+        (ev.repeat_type && ev.repeat_type !== 'none') ? '' : 'none';
+    document.getElementById('calEventReminder').value = String(ev.reminder_minutes || 0);
+    document.getElementById('calEventAllDay').checked = !!ev.all_day;
+    // Google source is fixed for an existing event; hide the toggle's effect.
+    document.getElementById('calEventGoogle').checked = !!isGoogle;
     document.getElementById('calConflictWarning').style.display = 'none';
 }
 
@@ -10631,6 +10678,7 @@ async function calCheckGoogleStatus() {
 }
 
 function calHideAddForm() {
+    _calEditing = null;
     document.getElementById('calAddForm').style.display = 'none';
     if (_calSelectedDay) {
         document.getElementById('calDayView').style.display = '';
@@ -10644,6 +10692,8 @@ function calHideAddForm() {
 }
 
 async function calAddEvent() {
+    if (_calEditing) { return calSaveEdit(); }
+
     var title = document.getElementById('calEventTitle').value.trim();
     var date = document.getElementById('calEventDate').value;
     if (!title || !date) { showToast('Title and date are required'); return; }
@@ -10688,6 +10738,56 @@ async function calAddEvent() {
         else calHideAddForm();
     } catch (e) {
         showToast('Failed to create event');
+    }
+}
+
+async function calSaveEdit() {
+    var title = document.getElementById('calEventTitle').value.trim();
+    var date = document.getElementById('calEventDate').value;
+    if (!title || !date) { showToast('Title and date are required'); return; }
+
+    var allDay = document.getElementById('calEventAllDay').checked;
+    var timeStart = allDay ? null : (document.getElementById('calEventStart').value || null);
+    var timeEnd = allDay ? null : (document.getElementById('calEventEnd').value || null);
+    var isGoogle = _calEditing.isGoogle;
+
+    var body = {
+        action: 'update',
+        event_id: _calEditing.event_id,
+        title: title,
+        date: date,
+        time_start: timeStart,
+        time_end: timeEnd,
+        description: document.getElementById('calEventDesc').value || '',
+    };
+    if (!isGoogle) {
+        body.all_day = allDay;
+        body.category = document.getElementById('calEventCategory').value || 'general';
+        body.repeat_type = document.getElementById('calEventRepeat').value || 'none';
+        body.repeat_until = document.getElementById('calEventRepeatUntil').value || null;
+        body.reminder_minutes = parseInt(document.getElementById('calEventReminder').value) || 0;
+    }
+
+    var endpoint = isGoogle ? '/calendar/google' : '/events';
+    try {
+        var res = await authFetch(API + endpoint, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body),
+        });
+        var data = await res.json();
+        if (data && data.error) { showToast(data.error); return; }
+        if (data && data.success === false) {
+            showToast('Failed to update event' + (data.error ? ': ' + data.error : ''));
+            return;
+        }
+        showToast(isGoogle ? 'Google event updated' : 'Event updated');
+        _calEditing = null;
+        await calRender();
+        if (_calSelectedDay) calShowDay(_calSelectedDay);
+        else calHideAddForm();
+    } catch (e) {
+        showToast('Failed to update event');
     }
 }
 

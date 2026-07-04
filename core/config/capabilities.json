@@ -14,14 +14,15 @@
         "Fetch and report current real-time news headlines (your system fetches them automatically when asked)",
         "Read and send Gmail (when connected)",
         "View and create Google Calendar events (when connected)",
-        "Create calendar events using [ADD_EVENT: YYYY-MM-DD | title]"
+        "Create calendar events using [ADD_EVENT: <date> | HH:MM-HH:MM | title] where <date> is the user's day words (tomorrow, wednesday, next friday) or YYYY-MM-DD; time range optional (24-hour) — saved to Google Calendar when connected"
     ],
     "cannot_do": [
         "Make phone calls, video calls, or join meetings",
         "Send texts or messages outside this chat",
         "Run, compile, or test code",
         "Access files on companion's computer",
-        "Initiate contact — companion must come to you"
+        "Initiate contact — companion must come to you",
+        "Edit, reschedule, move, or delete an existing calendar event from chat — you can only CREATE new events. If the user wants to change or remove an event, tell them to use the EDIT or DEL button on that event in the calendar app. Never claim you have adjusted, corrected, moved, or deleted an existing event."
     ],
     "on_missing_feature": "If asked to do something you cannot, say so directly. If it sounds useful, mention it could be built as a future feature. Never pretend or imply you have capabilities you lack."
 }

@@ -81,7 +81,12 @@ class UserSession:
         capabilities_prompt = load_capabilities()
         char_context = self.char_memory.get_core_context()
         session_context = self.memory.build_session_context()
-        full_prompt = "\n\n".join([p for p in [system_prompt, capabilities_prompt, char_context, session_context] if p])
+        _now = datetime.now()
+        date_context = (
+            f"CURRENT DATE: {_now.strftime('%A, %B %d, %Y')} ({_now.strftime('%Y-%m-%d')}). "
+            "Use this to resolve relative days the user mentions (today, tomorrow, a weekday name)."
+        )
+        full_prompt = "\n\n".join([p for p in [system_prompt, capabilities_prompt, date_context, char_context, session_context] if p])
 
         # Conversation state
         self.messages = [{"role": "system", "content": full_prompt}]
@@ -112,6 +117,10 @@ class UserSession:
         email_ops = EmailOpsProtocol()
         email_ops.attach_session(self)
         self.protocol_registry.register(email_ops)
+
+        # Operations' NLP event detection routes to Google Calendar when
+        # connected — give it a session back-ref for the creds lookup.
+        self.protocol_registry.get("operations").attach_session(self)
 
         # Phase 10 managers
         self.mood_manager = MoodManager(user_data_dir)
@@ -289,21 +298,65 @@ class UserSession:
                 best = t
         return best if best_score >= 0.5 else None
 
+    _TIME_RANGE_RE = re.compile(
+        r"^\s*(\d{1,2})(?::(\d{2}))?\s*-\s*(\d{1,2})(?::(\d{2}))?\s*$"
+    )
+
+    def _parse_time_range(self, text):
+        """Parse ``HH:MM-HH:MM`` (or ``H-H``) into 24h (start, end) strings.
+
+        Returns ``(None, None)`` if the text is not a recognizable range.
+        """
+        m = self._TIME_RANGE_RE.match(text or "")
+        if not m:
+            return None, None
+        sh, sm, eh, em = m.group(1), m.group(2) or "00", m.group(3), m.group(4) or "00"
+        try:
+            sh_i, eh_i = int(sh), int(eh)
+        except ValueError:
+            return None, None
+        if not (0 <= sh_i <= 23 and 0 <= eh_i <= 23):
+            return None, None
+        return f"{sh_i:02d}:{sm}", f"{eh_i:02d}:{em}"
+
     def _handle_add_event(self, arg: str) -> str:
-        """Create a local event from bracket command: YYYY-MM-DD | title.
+        """Create an event from a bracket command.
+
+        Format: ``YYYY-MM-DD | title`` (all-day) or
+        ``YYYY-MM-DD | HH:MM-HH:MM | title`` (timed). Events go to Google
+        Calendar when the account is connected (they then sync back into the
+        Aegis calendar view); otherwise they fall back to the local store.
 
         Dedupes against tasks created in the same turn: if Pike just emitted
         an [ADD_TASK:] for the same intent, the [ADD_EVENT:] is suppressed.
         The 8B model tends to interpret "have brunch today" as both
         task-worthy AND event-worthy and emit both brackets.
         """
-        parts = arg.split("|", 1)
-        if len(parts) != 2:
+        segments = [s.strip() for s in arg.split("|")]
+        if len(segments) < 2:
             return "Invalid format. Use: YYYY-MM-DD | title"
-        date_str = parts[0].strip()
-        title = parts[1].strip()
+        date_str = segments[0]
+        time_start = time_end = None
+        title_segments = segments[1:]
+        if len(segments) >= 3:
+            ts, te = self._parse_time_range(segments[1])
+            if ts:
+                time_start, time_end = ts, te
+                title_segments = segments[2:]
+        title = "|".join(title_segments).strip()
         if not title:
             return "Event title is empty"
+        # Resolve the date deterministically. qwen3:8b is unreliable at date
+        # arithmetic (it put "Wednesday" on the wrong day), so accept the
+        # user's day words ("wednesday", "next friday", "tomorrow") and
+        # compute the real date in code via the operations parser.
+        if not re.match(r"^\d{4}-\d{2}-\d{2}$", date_str):
+            ops = self.protocol_registry.get("operations")
+            resolved = ops._parse_natural_date(date_str.lower().strip()) if ops else None
+            if not resolved:
+                return ("Invalid date. Use YYYY-MM-DD or a day like "
+                        "'wednesday' / 'next friday'.")
+            date_str = resolved
 
         # Per-turn dedup vs. just-created task
         ops = self.protocol_registry.get("operations")
@@ -329,8 +382,22 @@ class UserSession:
                     )
                     return f"Event skipped — already created as task '{task['text']}'"
 
-        event = self.event_manager.add_event(title=title, date=date_str)
-        return f"Event '{event['title']}' created on {event['date']}"
+        google_proto = self.protocol_registry.get("google")
+        creds = google_proto._get_creds() if google_proto else None
+        from core.protocols.google_tools import create_event_or_local
+        outcome = create_event_or_local(
+            creds, self.event_manager, title, date_str,
+            time_start=time_start, time_end=time_end,
+        )
+
+        when = date_str
+        if time_start and time_end:
+            when = f"{date_str} {time_start}-{time_end}"
+        elif time_start:
+            when = f"{date_str} {time_start}"
+        if outcome["source"] == "google":
+            return f"Event '{title}' added to your Google Calendar on {when}"
+        return f"Event '{title}' created on {when} (local — Google Calendar not connected)"
 
     def _handle_add_mood(self, arg: str) -> str:
         """Log mood from bracket command: happy, calm | feeling good."""

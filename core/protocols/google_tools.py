@@ -726,6 +726,26 @@ def calendar_next_event(creds):
         return None
 
 
+def _rfc3339_local(dt_str):
+    """Attach the machine's local UTC offset to a naive ``YYYY-MM-DDTHH:MM:SS``
+    string, yielding an RFC3339 timestamp Google Calendar accepts (e.g.
+    ``2026-07-07T18:00:00-07:00``).
+
+    The Google Calendar API rejects a ``dateTime`` that carries neither an
+    offset nor a ``timeZone`` field ("Missing time zone definition"). Aegis
+    runs on the user's own machine, so the local timezone is the user's
+    intended timezone. Returns the input unchanged if it is not a parseable
+    naive datetime (e.g. an all-day date, or a value that already has an
+    offset).
+    """
+    from datetime import datetime
+    try:
+        dt = datetime.strptime(dt_str, "%Y-%m-%dT%H:%M:%S")
+    except (ValueError, TypeError):
+        return dt_str
+    return dt.astimezone().isoformat()
+
+
 def calendar_create(creds, summary, start, end, description=""):
     """Create a new calendar event.
 
@@ -754,8 +774,8 @@ def calendar_create(creds, summary, start, end, description=""):
             event_body["start"] = {"date": start}
             event_body["end"] = {"date": end}
         else:
-            event_body["start"] = {"dateTime": start}
-            event_body["end"] = {"dateTime": end}
+            event_body["start"] = {"dateTime": _rfc3339_local(start)}
+            event_body["end"] = {"dateTime": _rfc3339_local(end)}
 
         result = service.events().insert(
             calendarId="primary",
@@ -770,6 +790,60 @@ def calendar_create(creds, summary, start, end, description=""):
     except Exception as e:
         logger.warning("Could not create calendar event: %s", e)
         return {"success": False, "error": str(e)}
+
+
+def create_event_or_local(creds, event_manager, title, date,
+                          time_start=None, time_end=None, description=""):
+    """Create an event on Google Calendar when connected, else fall back to
+    the local event store.
+
+    Centralizes the "chat-created events belong on Google Calendar" rule so
+    every chat path (the [ADD_EVENT] bracket handler and the NLP event
+    detector) behaves identically. Google-written events sync back into the
+    Aegis calendar view, so no local copy is kept when the write succeeds.
+
+    Returns ``{source, success, message, link}`` where ``source`` is
+    ``"google"`` or ``"local"``.
+    """
+    if creds:
+        if time_start:
+            start = f"{date}T{time_start}:00"
+            if time_end:
+                end = f"{date}T{time_end}:00"
+            else:
+                from datetime import datetime as _dt, timedelta as _td
+                try:
+                    end = (_dt.strptime(start, "%Y-%m-%dT%H:%M:%S")
+                           + _td(hours=1)).strftime("%Y-%m-%dT%H:%M:%S")
+                except ValueError:
+                    end = start
+        else:
+            start = date
+            end = date
+        result = calendar_create(creds, title, start, end, description=description)
+        if result.get("success"):
+            return {
+                "source": "google",
+                "success": True,
+                "message": f"'{title}' added to your Google Calendar",
+                "link": result.get("link", ""),
+            }
+        logger.warning(
+            "Google Calendar create failed (%s); falling back to local store",
+            result.get("error"),
+        )
+
+    event = event_manager.add_event(
+        title=title, date=date, time_start=time_start,
+        time_end=time_end, description=description,
+    )
+    return {
+        "source": "local",
+        "success": True,
+        "message": f"'{event['title']}' saved to the local calendar",
+        "link": "",
+        "event": event,
+    }
 
 
 def calendar_update(creds, event_id, **kwargs):
@@ -793,11 +867,11 @@ def calendar_update(creds, event_id, **kwargs):
         if "start" in kwargs:
             start_val = kwargs["start"]
             is_date = len(start_val) <= 10
-            existing["start"] = {"date": start_val} if is_date else {"dateTime": start_val}
+            existing["start"] = {"date": start_val} if is_date else {"dateTime": _rfc3339_local(start_val)}
         if "end" in kwargs:
             end_val = kwargs["end"]
             is_date = len(end_val) <= 10
-            existing["end"] = {"date": end_val} if is_date else {"dateTime": end_val}
+            existing["end"] = {"date": end_val} if is_date else {"dateTime": _rfc3339_local(end_val)}
 
         result = service.events().update(
             calendarId="primary",
