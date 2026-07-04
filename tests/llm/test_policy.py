@@ -1,4 +1,6 @@
 # tests/llm/test_policy.py
+from dataclasses import dataclass
+
 import pytest
 from core.llm.policy import decide, RouteDecision, VALID_SENSITIVITIES
 
@@ -96,9 +98,6 @@ class TestPersonalTaskGating:
 # ---------------------------------------------------------------------------
 # Trouble escalation tests (Task 3)
 # ---------------------------------------------------------------------------
-from dataclasses import dataclass, field
-
-
 @dataclass
 class _TroubleCfg:
     """Minimal cfg stand-in that includes trouble-escalation flags."""
@@ -106,7 +105,6 @@ class _TroubleCfg:
     cloud_opt_in_features: tuple = ()
     deep_mode: bool = False
     cloud_trouble_escalation: bool = False
-    trouble_private_consent: bool = True
 
 
 def test_trouble_escalates_personal_even_with_cloud_disabled():
@@ -132,3 +130,16 @@ def test_no_trouble_falls_through_to_existing_policy():
     cfg = _TroubleCfg(cloud_enabled=False, cloud_trouble_escalation=True)
     d = decide("personal", cfg, task="chat_casual", trouble=False)
     assert d.backend == "local"
+
+
+def test_offline_beats_trouble_escalation():
+    cfg = _TroubleCfg(cloud_enabled=False, cloud_trouble_escalation=True)
+    d = decide("personal", cfg, task="chat_casual", trouble=True, offline=True)
+    assert d.backend == "local"
+    assert d.reason == "offline"
+
+
+def test_trouble_escalates_public_tier():
+    cfg = _TroubleCfg(cloud_enabled=False, cloud_trouble_escalation=True)
+    d = decide("public", cfg, task="chat_casual", trouble=True)
+    assert d.backend == "cloud"
