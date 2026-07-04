@@ -91,3 +91,44 @@ class TestPersonalTaskGating:
     def test_private_tier_unchanged(self):
         d = decide("private", _Cfg(), task="draft")
         assert (d.backend, d.reason) == ("local", "private_local_default")
+
+
+# ---------------------------------------------------------------------------
+# Trouble escalation tests (Task 3)
+# ---------------------------------------------------------------------------
+from dataclasses import dataclass, field
+
+
+@dataclass
+class _TroubleCfg:
+    """Minimal cfg stand-in that includes trouble-escalation flags."""
+    cloud_enabled: bool = False
+    cloud_opt_in_features: tuple = ()
+    deep_mode: bool = False
+    cloud_trouble_escalation: bool = False
+    trouble_private_consent: bool = True
+
+
+def test_trouble_escalates_personal_even_with_cloud_disabled():
+    cfg = _TroubleCfg(cloud_enabled=False, cloud_trouble_escalation=True)
+    d = decide("personal", cfg, task="chat_casual", trouble=True)
+    assert d.backend == "cloud"
+    assert d.reason == "trouble_escalation"
+
+
+def test_trouble_ignored_when_feature_off():
+    cfg = _TroubleCfg(cloud_enabled=False, cloud_trouble_escalation=False)
+    d = decide("personal", cfg, task="chat_casual", trouble=True)
+    assert d.backend == "local"
+
+
+def test_trouble_never_escalates_private_sensitivity():
+    cfg = _TroubleCfg(cloud_enabled=False, cloud_trouble_escalation=True)
+    d = decide("private", cfg, task="chat_casual", trouble=True)
+    assert d.backend == "local"
+
+
+def test_no_trouble_falls_through_to_existing_policy():
+    cfg = _TroubleCfg(cloud_enabled=False, cloud_trouble_escalation=True)
+    d = decide("personal", cfg, task="chat_casual", trouble=False)
+    assert d.backend == "local"
