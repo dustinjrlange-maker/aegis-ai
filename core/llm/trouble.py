@@ -33,6 +33,9 @@ _AFFIRMING = (
     "thanks", "thank you", "perfect", "great", "good", "nice", "correct",
     "exactly", "got it", "makes sense", "that works", "love it",
 )
+# Negation cues. A negated affirming word ("not correct") is a correction, not
+# praise, so the affirming guard must not fire when a negation is present.
+_NEGATION = re.compile(r"\b(?:not|no|never|isn't|isnt|wasn't|wasnt|don't|dont)\b")
 
 
 @dataclass(frozen=True)
@@ -60,7 +63,12 @@ def detect_trouble(user_message: str, streak: int) -> TroubleResult:
     # without a keyword. Short + follows a prior correction.
     # But affirming words preempt — "thanks, perfect" resets even from high streak.
     if streak >= 1 and len(lowered.split()) <= 5:
-        if not any(a in lowered for a in _AFFIRMING):
+        # Whole-word match so "goodbye" doesn't count as "good"; and a negated
+        # affirming word ("not correct") is a correction, not praise.
+        affirming = not _NEGATION.search(lowered) and any(
+            re.search(r"\b" + re.escape(a) + r"\b", lowered) for a in _AFFIRMING
+        )
+        if not affirming:
             return TroubleResult(True, "correction_streak", streak + 1)
     return TroubleResult(False, "no_trouble", 0)
 
@@ -83,7 +91,7 @@ _PRIVATE_LEXICON = {
 }
 
 
-def detect_private_content(user_message: str):
+def detect_private_content(user_message: str) -> tuple[bool, str]:
     """Return (is_private, reason). Reason names the category (e.g. 'financial')."""
     lowered = (user_message or "").lower()
     for reason, phrases in _PRIVATE_LEXICON.items():

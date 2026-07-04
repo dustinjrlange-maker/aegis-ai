@@ -33,6 +33,24 @@ def test_non_correction_resets_streak():
     assert r.new_streak == 0
 
 
+def test_correction_substring_of_affirming_still_trips():
+    # "correct" is a substring inside "not correct"; whole-word affirming guard
+    # must not treat this pushback as an affirmation.
+    r = detect_trouble("still not correct", streak=1)
+    assert r.is_trouble is True
+    assert r.new_streak == 2
+
+
+def test_short_pushback_escalates_but_affirming_does_not():
+    pushback = detect_trouble("still not it", streak=1)
+    assert pushback.is_trouble is True
+    assert pushback.new_streak == 2
+
+    affirming = detect_trouble("that's correct", streak=1)
+    assert affirming.is_trouble is False
+    assert affirming.new_streak == 0
+
+
 @pytest.mark.parametrize("msg,reason_kw", [
     ("my bank account number is 12345", "financial"),
     ("here's my credit card", "financial"),
