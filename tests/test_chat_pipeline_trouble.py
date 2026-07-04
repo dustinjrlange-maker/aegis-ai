@@ -1,7 +1,7 @@
 import asyncio
 
 import server.chat_pipeline as cp
-from server.chat_pipeline import evaluate_escalation
+from server.chat_pipeline import evaluate_escalation, payload_has_private_content
 
 
 class _Cfg:
@@ -10,24 +10,14 @@ class _Cfg:
         self.trouble_private_consent = consent
 
 
-def test_non_private_trouble_escalates():
+# --- evaluate_escalation is now TROUBLE-ONLY (no private-content decision) ---
+
+
+def test_trouble_escalates():
     out = evaluate_escalation("no that's wrong", streak=0,
                               cfg=_Cfg(True, True), key_present=True)
     assert out.action == "escalate"
     assert out.new_streak == 1
-
-
-def test_private_trouble_with_consent_prompts():
-    out = evaluate_escalation("no, my bank account number is wrong", streak=0,
-                              cfg=_Cfg(True, True), key_present=True)
-    assert out.action == "consent"
-    assert "financial" in out.reason
-
-
-def test_private_trouble_without_consent_escalates():
-    out = evaluate_escalation("no, my bank account is wrong", streak=0,
-                              cfg=_Cfg(True, False), key_present=True)
-    assert out.action == "escalate"
 
 
 def test_no_key_stays_local():
@@ -42,31 +32,43 @@ def test_feature_off_stays_local():
     assert out.action == "local"
 
 
-# --- Private content in PRIOR history must gate escalation (cross-turn leak) ---
+def test_no_trouble_stays_local():
+    out = evaluate_escalation("what time is it", streak=0,
+                              cfg=_Cfg(True, True), key_present=True)
+    assert out.action == "local"
 
 
-def test_history_private_with_consent_prompts():
-    # Current message is a clean correction (not private), but a prior turn was.
-    out = evaluate_escalation("no that's wrong", streak=0,
-                              cfg=_Cfg(True, True), key_present=True,
-                              history_texts=["my bank account number is 1234"])
-    assert out.action == "consent"
-    assert out.reason == "financial"
+# --- payload_has_private_content scans the full assembled payload ---
 
 
-def test_history_private_without_consent_escalates():
-    out = evaluate_escalation("no that's wrong", streak=0,
-                              cfg=_Cfg(True, False), key_present=True,
-                              history_texts=["my bank account number is 1234"])
-    assert out.action == "escalate"
+def test_payload_finds_private_in_middle_message():
+    payload = [
+        {"role": "system", "content": "you are Pike"},
+        {"role": "user", "content": "hello there"},
+        {"role": "system", "content": "Relevant memory:\nmy bank account number is 1234"},
+        {"role": "user", "content": "no that's wrong"},
+    ]
+    is_priv, reason = payload_has_private_content(payload)
+    assert is_priv is True
+    assert reason == "financial"
 
 
-def test_clean_history_clean_correction_escalates():
-    # No private content anywhere → normal escalation (unchanged behavior).
-    out = evaluate_escalation("no that's wrong", streak=0,
-                              cfg=_Cfg(True, True), key_present=True,
-                              history_texts=["what time is it", "it is noon"])
-    assert out.action == "escalate"
+def test_payload_all_clean_returns_false():
+    payload = [
+        {"role": "system", "content": "you are Pike"},
+        {"role": "user", "content": "what time is it"},
+        {"role": "assistant", "content": "it is noon"},
+    ]
+    is_priv, reason = payload_has_private_content(payload)
+    assert is_priv is False
+    assert reason == ""
+
+
+def test_payload_ignores_non_string_content():
+    # Multimodal / structured content must not crash the scan.
+    payload = [{"role": "user", "content": [{"type": "image"}]},
+               {"role": "user", "content": "hi"}]
+    assert payload_has_private_content(payload) == (False, "")
 
 
 # --- Integration: prove the wiring through process_chat, not just the helper ---
@@ -201,3 +203,28 @@ def test_prior_turn_private_content_blocks_silent_escalation(monkeypatch):
     asyncio.run(cp.process_chat(mgr, "u", "yes"))
     assert len(calls) == 2
     assert calls[1]["trouble"] is True
+
+
+def test_injected_memory_private_content_blocks_escalation(monkeypatch):
+    """Memory vector: retrieved memories are assembled INTO the payload after the
+    trouble decision. A clean correction turn that pulls a private stored fact
+    must be gated on that assembled payload — the router must NOT be called."""
+    calls = []
+    _install_stubs(monkeypatch, calls)
+    session = _FakeSession()
+    # Vector-store returns a private stored fact for this turn's retrieval.
+    session.memory.get_relevant_memories = (
+        lambda text: "stored fact: user's bank account number is 1234")
+    mgr = _FakeManager(session)
+
+    # Clean correction (not private itself), consent ON, feature on. The private
+    # data enters ONLY via the injected memory → gate must still fire.
+    out = asyncio.run(cp.process_chat(mgr, "u", "no that's wrong"))
+    assert "⚠" in out["response"]
+    assert calls == []                       # router NOT called — memory did not leak
+    assert session._pending_escalation is not None
+
+    # Affirmative consent → now the escalated cloud call proceeds.
+    asyncio.run(cp.process_chat(mgr, "u", "yes"))
+    assert len(calls) == 1
+    assert calls[0]["trouble"] is True

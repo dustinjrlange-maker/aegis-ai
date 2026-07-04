@@ -24,33 +24,40 @@ logger = logging.getLogger("aegis.chat_pipeline")
 
 @dataclass(frozen=True)
 class EscalationPlan:
-    action: str      # "local" | "escalate" | "consent"
+    action: str      # "local" | "escalate"
     new_streak: int
     reason: str
 
 
-def evaluate_escalation(user_message, *, streak, cfg, key_present,
-                        history_texts=()) -> EscalationPlan:
-    """Decide how a chat turn should route under trouble mode. Pure — no I/O.
+def evaluate_escalation(user_message, *, streak, cfg, key_present) -> EscalationPlan:
+    """Trouble-only routing decision under escalate-on-trouble mode. Pure — no I/O.
 
-    Trouble detection runs on `user_message` only (is the user correcting NOW?).
-    The private-content check covers the WHOLE outgoing payload — the current
-    message AND every prior turn in `history_texts` — because an escalated cloud
-    call ships the full conversation history, not just the current turn. Gating
-    on the current turn alone would leak private data from earlier turns.
+    Decides ONLY whether the local model appears to be failing this turn (the
+    user is correcting Pike NOW) and escalation is enabled. It does NOT decide
+    the private-content gate: that check runs later, over the ACTUAL assembled
+    outgoing payload (retrieved memories + uploaded file text + context
+    injections + history + current message) via `payload_has_private_content`,
+    because those are assembled after this call and would otherwise reach the
+    cloud unscanned.
+
+    Returns action "escalate" (trouble + feature on + key present) or "local".
     """
     t = detect_trouble(user_message, streak)
     if not (cfg.cloud_trouble_escalation and key_present and t.is_trouble):
         return EscalationPlan("local", t.new_streak, t.reason)
-    is_private, priv_reason = False, ""
-    for text in (user_message, *history_texts):
-        p, reason = detect_private_content(text)
-        if p:
-            is_private, priv_reason = True, reason
-            break
-    if is_private and cfg.trouble_private_consent:
-        return EscalationPlan("consent", t.new_streak, priv_reason)
-    return EscalationPlan("escalate", t.new_streak, priv_reason or t.reason)
+    return EscalationPlan("escalate", t.new_streak, t.reason)
+
+
+def payload_has_private_content(messages) -> tuple[bool, str]:
+    """Scan every string-content message in an outgoing payload for private
+    content. Returns (True, reason) on the first hit, else (False, "")."""
+    for m in messages:
+        content = m.get("content")
+        if isinstance(content, str):
+            is_priv, reason = detect_private_content(content)
+            if is_priv:
+                return True, reason
+    return False, ""
 
 _MODE_HINTS = {
     "emotional": "[Response mode: emotional support — you may take up to 5-6 sentences. Stay specific to their words, no advice, no cheerleading, no roleplay.]",
@@ -175,30 +182,14 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
     )
     task_tag = route_task_tag(turn)
 
-    # Escalate-on-trouble: decide whether this turn should route to cloud, and
-    # gate any private-content escalation behind an explicit consent prompt.
+    # Escalate-on-trouble: decide (trouble-only) whether this turn wants cloud.
+    # The private-content gate is deferred until the payload is assembled below.
     _rcfg = _load_router_config()
-    # Private-content gate must cover the ENTIRE outgoing payload, not just the
-    # current turn: an escalated cloud call ships the full history. session.messages
-    # here holds only PRIOR turns (the current user turn is appended below).
-    _history_texts = [m["content"] for m in session.messages
-                      if m.get("role") in ("user", "assistant")]
     _plan = evaluate_escalation(
         user_input, streak=getattr(session, "_correction_streak", 0),
-        cfg=_rcfg, key_present=_resolve_key() is not None,
-        history_texts=_history_texts)
+        cfg=_rcfg, key_present=_resolve_key() is not None)
     session._correction_streak = _plan.new_streak
-    if _plan.action == "consent" and not _force_trouble_cloud:
-        session._pending_escalation = {"message": user_input, "ts": datetime.now()}
-        return {
-            "agent_name": session.agent_name,
-            "response": (f"⚠ I'm struggling with this, and it looks like it involves "
-                         f"private info ({_plan.reason}). I can get better help from the cloud, "
-                         f"but that sends it to Anthropic. Reply “yes, use cloud” to allow "
-                         f"it just this once — otherwise I'll keep trying locally."),
-            "emotion": emotion_result, "wellness_flag": False, "bracket_actions": [],
-        }
-    _trouble_cloud = _force_trouble_cloud or (_plan.action == "escalate")
+    _wants_cloud = _force_trouble_cloud or (_plan.action == "escalate")
 
     # Memory search. Emotional turns skip the fact/task injection — the 8B
     # fixates on injected details (task titles surfaced mid-grief in live
@@ -245,6 +236,28 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
         context_system_msg = {"role": "system", "content": context_block}
         logger.info("Context injection (%d chars): %s", len(context_block), context_block[:300])
 
+    # Private-content gate on the ACTUAL outgoing payload. Retrieved memories,
+    # uploaded file text, and context injections are all assembled above — so we
+    # scan the exact preview of what would be sent (NOT just the bare user turn)
+    # before escalating. If it's private, bail to a consent prompt. This runs
+    # BEFORE appending the current turn so a consent-bail never persists/dupes it.
+    if _wants_cloud and not _force_trouble_cloud and _rcfg.trouble_private_consent:
+        _preview = list(session.messages)            # prior turns (incl system[0])
+        if context_system_msg:
+            _preview = _preview + [context_system_msg]
+        _preview = _preview + [{"role": "user", "content": augmented}]
+        _priv, _reason = payload_has_private_content(_preview)
+        if _priv:
+            session._pending_escalation = {"message": user_input, "ts": datetime.now()}
+            return {
+                "agent_name": session.agent_name,
+                "response": (f"⚠ I'm struggling with this, and it looks like it involves "
+                             f"private info ({_reason}). I can get better help from the cloud, "
+                             f"but that sends it to Anthropic. Reply “yes, use cloud” to allow "
+                             f"it just this once — otherwise I'll keep trying locally."),
+                "emotion": emotion_result, "wellness_flag": False, "bracket_actions": [],
+            }
+
     # Add to history
     session.messages.append({"role": "user", "content": user_input})
     messages_to_send = list(session.messages[:-1])
@@ -260,7 +273,7 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
             sensitivity="personal",
             task=task_tag,
             model=CONFIG["model"]["chat"],
-            trouble=_trouble_cloud,
+            trouble=_wants_cloud,
         )
         reply = session.clean_reply(reply_content, mode=turn.mode)
 
