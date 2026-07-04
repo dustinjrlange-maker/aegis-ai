@@ -98,7 +98,11 @@ def call_tool(username, tool_id, method, arguments):
     if decision == "needs_pin":
         trust.stash_pending(username, tool_id, method, arguments)
         audit.log(username, tool_id, method, arguments, "denied", 0)
-        return {"status": "needs_pin", "message": (
+        return {"status": "needs_pin",
+                "tool_id": tool_id,
+                "method": method,
+                "required_tier": trust.required_tier(cat_entry, method),
+                "message": (
             f"'{method}' is a {trust.required_tier(cat_entry, method)} operation — "
             f"outside {tool_id}'s granted tier ({reg_entry['trust_tier']}). "
             f"Confirm once with: /tools pin <your vault PIN> (expires in "

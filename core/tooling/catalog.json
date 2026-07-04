@@ -5,6 +5,7 @@
     "launch": {"command": "python", "args": ["-m", "mcp_server_time"]},
     "default_tier": "read_scoped",
     "method_tiers": {},
+    "method_hints": {"get_current_time": "timezone=<IANA tz, e.g. America/Vancouver>"},
     "config_fields": [],
     "author": "MCP community (Anthropic reference server)",
     "source": "https://pypi.org/project/mcp-server-time/"
@@ -19,6 +20,11 @@
       "edit_file": "write_destructive",
       "move_file": "write_destructive",
       "create_directory": "write_destructive"
+    },
+    "method_hints": {
+      "list_directory": "path=<dir>",
+      "read_file": "path=<file>",
+      "write_file": "path=<file> content=<text>"
     },
     "config_fields": ["approved_dirs"],
     "author": "Anthropic (official MCP server)",

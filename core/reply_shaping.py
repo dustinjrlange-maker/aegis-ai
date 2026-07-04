@@ -51,8 +51,11 @@ def build_filler_cleaner(personality_pack):
         text = text.replace("‘", "'").replace("’", "'")
         text = text.replace("“", '"').replace("”", '"')
 
-        # Strip third-person narration
-        text = re.sub(r'\*[^*]+\*\s*', '', text)
+        # Strip third-person narration (*smiles warmly*) — but NOT markdown
+        # bold: **hi** contains the inner match *hi*, and stripping it turned
+        # correct answers into "**" (live 4B smoke, 2026-07-03). Lookarounds
+        # restrict the match to single-asterisk pairs.
+        text = re.sub(r'(?<!\*)\*[^*\n]+\*(?!\*)\s*', '', text)
         text = re.sub(r'^[a-z].*?[,\.]\s*"', '"', text)
         text = text.strip('"')
 

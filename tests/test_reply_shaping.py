@@ -96,3 +96,15 @@ def test_session_still_wires_up():
     # core/agent.py must still export build_filler_cleaner (core/session.py imports it)
     from core.agent import build_filler_cleaner as from_agent
     assert from_agent is build_filler_cleaner
+
+
+def test_markdown_bold_survives_narration_strip():
+    """**bold** must not be eaten by the *narration* stripper (4B live-smoke bug:
+    'contains the text: **hi**' was mangled to 'contains the text: **')."""
+    from core.reply_shaping import build_filler_cleaner
+    clean = build_filler_cleaner({})
+    out = clean("The file contains the text: **hi**. Done.", mode="task")
+    assert "**hi**" in out
+    # narration is still stripped
+    out2 = clean("*smiles warmly* Understood.", mode="task")
+    assert "smiles" not in out2 and "Understood" in out2

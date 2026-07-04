@@ -5,11 +5,37 @@ Pike does not auto-call tools yet (that's Phase 4B).
 """
 
 import logging
+import re
 
 from core.protocols.base import Protocol
 from core.tooling import catalog, service, wishlist
 
 logger = logging.getLogger("aegis.protocols.tooling")
+
+
+# [TOOL: tool_id.method key=value ...]   (validated against the catalog below)
+# NOTE: tooling runs process_output at priority 50, ABOVE bracket_commands (49),
+# so it strips [TOOL:] before bracket_commands sees it; and no "TOOL" handler is
+# registered there anyway. Don't register a TOOL bracket handler or reorder these.
+_TOOL_RE = re.compile(r"\[TOOL:\s*([a-z0-9_-]+)\.([a-z0-9_-]+)\s*(.*?)\]", re.I)
+
+# Lenient fallback: the local 8B drops the "TOOL:" prefix under format drift and
+# emits e.g. [filesystem.read_file path=...]. Two guards keep this safe:
+#   1. own-line anchor (MULTILINE ^[ \t]*) — a bracket embedded in prose or in
+#      echoed FILE CONTENTS won't fire; only a bracket Pike places at the start
+#      of a line (as the injected instruction directs) is considered. This is
+#      the prompt-injection guard — a read file containing "[filesystem.read_file
+#      path=...]" mid-text can't auto-execute.
+#   2. validation (installed tool + known method) still gates acceptance; a
+#      shorthand that doesn't validate is left completely untouched.
+_TOOL_SHORTHAND_RE = re.compile(
+    r"(?m)^[ \t]*\[([a-z0-9_-]+)\.([a-z0-9_-]+)\s*(.*?)\]", re.I)
+
+
+def _autocall_enabled():
+    """Whether Pike may auto-call tools (Phase 4B). Default on."""
+    from core.config import CONFIG
+    return CONFIG.get("tooling", {}).get("autocall_enabled", True)
 
 
 class ToolingProtocol(Protocol):
@@ -22,15 +48,103 @@ class ToolingProtocol(Protocol):
             priority=Protocol.PRIORITY_NORMAL,
         )
         self.username = username
+        self._pending_tool_calls = []
+        self._rejections = []
 
     # --- Protocol ABC ---
 
     def process_input(self, user_input, context):
-        return {"input": user_input, "context_injection": "",
+        """Inject the installed tools' methods so Pike can call them (Phase 4B)."""
+        empty = {"input": user_input, "context_injection": "",
+                 "intercept": False, "response": ""}
+        if not _autocall_enabled():
+            return empty
+        from core.tooling import registry
+        installed = registry.installed_ids(self.username)
+        if not installed:
+            return empty
+        lines = ["Available tools — emit [TOOL: tool.method key=value] on its own "
+                 "line to use one:"]
+        for tool_id in installed:
+            entry = catalog.get_entry(tool_id)
+            if not entry:
+                continue
+            for method, hint in entry.get("method_hints", {}).items():
+                lines.append(f"  {tool_id}.{method} {hint}")
+            # Surface config constraints (e.g. filesystem's approved dirs) so Pike
+            # uses real absolute paths instead of guessing ~/… or /home/user/….
+            reg_entry = registry.get(self.username, tool_id)
+            approved = (reg_entry or {}).get("config", {}).get("approved_dirs")
+            if approved:
+                lines.append(f"    for {tool_id}, use absolute paths under: "
+                             f"{', '.join(approved)}")
+        if len(lines) == 1:            # installed tools had no hints
+            return empty
+        lines.append("Only call a tool when the request needs live data or an action "
+                     "you can't do from memory. After a tool runs you'll see its result "
+                     "and can answer or call another tool.")
+        return {"input": user_input, "context_injection": "\n".join(lines),
                 "intercept": False, "response": ""}
 
     def process_output(self, response, context):
-        return {"response": response, "suppress": False, "append": ""}
+        """Parse [TOOL: tool.method args] from Pike's output; stash + strip.
+        Does NOT execute — the chat pipeline runs pending calls off the loop."""
+        self._pending_tool_calls = []
+        self._rejections = []
+        if not _autocall_enabled():
+            return {"response": response, "suppress": False, "append": ""}
+        from core.tooling import registry
+        strict = list(_TOOL_RE.finditer(response))
+        strict_spans = [m.span() for m in strict]
+        # Shorthand matches that don't overlap a strict match. (A real "[TOOL: …]"
+        # is NOT matched by the shorthand pattern — "TOOL" is followed by ':' not
+        # '.' — so this dedupe only guards the nested-bracket-args edge case,
+        # e.g. [TOOL: x.y path=[a.b]] whose inner [a.b] would match shorthand.)
+        shorthand = [m for m in _TOOL_SHORTHAND_RE.finditer(response)
+                     if not any(s[0] <= m.start() < s[1] for s in strict_spans)]
+        if not strict and not shorthand:
+            return {"response": response, "suppress": False, "append": ""}
+        clean = response
+        for m, is_strict in [(m, True) for m in strict] + [(m, False) for m in shorthand]:
+            try:
+                tool_id = m.group(1).lower()
+                method = m.group(2).lower()
+                raw = m.group(3).strip()
+                entry = catalog.get_entry(tool_id)
+                installed = registry.get(self.username, tool_id) is not None
+                known = bool(entry) and (method in entry.get("method_tiers", {})
+                                         or method in entry.get("method_hints", {}))
+                if installed and known:
+                    args = self._parse_kv(raw.split(), split_commas=False)
+                    self._pending_tool_calls.append(
+                        {"tool_id": tool_id, "method": method, "args": args})
+                elif is_strict:
+                    # Explicit [TOOL:] that doesn't validate → rejection (nudge Pike).
+                    self._rejections.append(f"{tool_id}.{method}")
+                else:
+                    # Shorthand that doesn't validate is probably ordinary prose
+                    # (e.g. "[example.com link]") — leave it completely untouched.
+                    continue
+            except Exception as e:
+                logger.warning("Failed to parse a [TOOL:] call: %s", e)
+                if is_strict:
+                    self._rejections.append(f"{m.group(1)}.{m.group(2)}")
+                else:
+                    continue
+            clean = clean.replace(m.group(0), "")
+        clean = re.sub(r"\n{3,}", "\n\n", clean)
+        clean = re.sub(r"[ \t]+([.?,!])", r"\1", clean)
+        clean = re.sub(r"\.(?:[ \t]*\.)+", ".", clean)   # collapse ".." left by a stripped tag
+        clean = clean.strip()
+        return {"response": clean, "suppress": False, "append": ""}
+
+    def get_pending_tool_calls(self):
+        """Structured [TOOL:] calls parsed from the most recent output."""
+        return list(self._pending_tool_calls)
+
+    def get_rejections(self):
+        """`tool.method` strings that were emitted but aren't available."""
+        return list(self._rejections)
 
     def get_commands(self):
         return [{"command": "tools",

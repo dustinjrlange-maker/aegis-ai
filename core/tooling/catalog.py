@@ -5,17 +5,25 @@ needs go to the wishlist instead).
 """
 
 import json
+import logging
 from pathlib import Path
+
+logger = logging.getLogger("aegis.tooling.catalog")
 
 _CATALOG_PATH = Path(__file__).parent / "catalog.json"
 _cache = None
 
 
 def all_entries():
-    """Return the full catalog as {tool_id: entry}."""
+    """Return the full catalog as {tool_id: entry}. On a read/parse error, log
+    and return an empty catalog rather than raising into callers."""
     global _cache
     if _cache is None:
-        _cache = json.loads(_CATALOG_PATH.read_text(encoding="utf-8"))
+        try:
+            _cache = json.loads(_CATALOG_PATH.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as e:
+            logger.warning("Could not read tool catalog (%s) — treating as empty", e)
+            return {}          # don't cache the fallback; retry next call
     return _cache
 
 
