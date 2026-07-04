@@ -29,12 +29,25 @@ class EscalationPlan:
     reason: str
 
 
-def evaluate_escalation(user_message, *, streak, cfg, key_present) -> EscalationPlan:
-    """Decide how a chat turn should route under trouble mode. Pure — no I/O."""
+def evaluate_escalation(user_message, *, streak, cfg, key_present,
+                        history_texts=()) -> EscalationPlan:
+    """Decide how a chat turn should route under trouble mode. Pure — no I/O.
+
+    Trouble detection runs on `user_message` only (is the user correcting NOW?).
+    The private-content check covers the WHOLE outgoing payload — the current
+    message AND every prior turn in `history_texts` — because an escalated cloud
+    call ships the full conversation history, not just the current turn. Gating
+    on the current turn alone would leak private data from earlier turns.
+    """
     t = detect_trouble(user_message, streak)
     if not (cfg.cloud_trouble_escalation and key_present and t.is_trouble):
         return EscalationPlan("local", t.new_streak, t.reason)
-    is_private, priv_reason = detect_private_content(user_message)
+    is_private, priv_reason = False, ""
+    for text in (user_message, *history_texts):
+        p, reason = detect_private_content(text)
+        if p:
+            is_private, priv_reason = True, reason
+            break
     if is_private and cfg.trouble_private_consent:
         return EscalationPlan("consent", t.new_streak, priv_reason)
     return EscalationPlan("escalate", t.new_streak, priv_reason or t.reason)
@@ -165,9 +178,15 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
     # Escalate-on-trouble: decide whether this turn should route to cloud, and
     # gate any private-content escalation behind an explicit consent prompt.
     _rcfg = _load_router_config()
+    # Private-content gate must cover the ENTIRE outgoing payload, not just the
+    # current turn: an escalated cloud call ships the full history. session.messages
+    # here holds only PRIOR turns (the current user turn is appended below).
+    _history_texts = [m["content"] for m in session.messages
+                      if m.get("role") in ("user", "assistant")]
     _plan = evaluate_escalation(
         user_input, streak=getattr(session, "_correction_streak", 0),
-        cfg=_rcfg, key_present=_resolve_key() is not None)
+        cfg=_rcfg, key_present=_resolve_key() is not None,
+        history_texts=_history_texts)
     session._correction_streak = _plan.new_streak
     if _plan.action == "consent" and not _force_trouble_cloud:
         session._pending_escalation = {"message": user_input, "ts": datetime.now()}

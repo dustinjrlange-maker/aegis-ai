@@ -42,6 +42,33 @@ def test_feature_off_stays_local():
     assert out.action == "local"
 
 
+# --- Private content in PRIOR history must gate escalation (cross-turn leak) ---
+
+
+def test_history_private_with_consent_prompts():
+    # Current message is a clean correction (not private), but a prior turn was.
+    out = evaluate_escalation("no that's wrong", streak=0,
+                              cfg=_Cfg(True, True), key_present=True,
+                              history_texts=["my bank account number is 1234"])
+    assert out.action == "consent"
+    assert out.reason == "financial"
+
+
+def test_history_private_without_consent_escalates():
+    out = evaluate_escalation("no that's wrong", streak=0,
+                              cfg=_Cfg(True, False), key_present=True,
+                              history_texts=["my bank account number is 1234"])
+    assert out.action == "escalate"
+
+
+def test_clean_history_clean_correction_escalates():
+    # No private content anywhere → normal escalation (unchanged behavior).
+    out = evaluate_escalation("no that's wrong", streak=0,
+                              cfg=_Cfg(True, True), key_present=True,
+                              history_texts=["what time is it", "it is noon"])
+    assert out.action == "escalate"
+
+
 # --- Integration: prove the wiring through process_chat, not just the helper ---
 
 
@@ -146,3 +173,31 @@ def test_gate_blocks_router_then_affirmative_escalates(monkeypatch):
     assert len(calls) == 1
     assert calls[0]["trouble"] is True
     assert session._pending_escalation is None
+
+
+def test_prior_turn_private_content_blocks_silent_escalation(monkeypatch):
+    """Cross-turn leak: Turn 1 leaks private data into history while staying
+    local; Turn 2 is a clean correction. Escalating Turn 2 would ship Turn 1's
+    private data to the cloud — so the gate must fire on the WHOLE history."""
+    calls = []
+    _install_stubs(monkeypatch, calls)
+    session = _FakeSession()
+    mgr = _FakeManager(session)
+
+    # Turn 1: private, NON-correction → stays local, appended to history.
+    asyncio.run(cp.process_chat(mgr, "u", "my bank account number is 1234"))
+    assert len(calls) == 1
+    assert calls[0]["trouble"] is False
+    assert any("1234" in m["content"] for m in session.messages)
+
+    # Turn 2: clean correction (current msg NOT private) with consent ON.
+    # Prior turn IS private → must return the consent prompt, router NOT called.
+    out = asyncio.run(cp.process_chat(mgr, "u", "no that's wrong"))
+    assert "⚠" in out["response"]
+    assert len(calls) == 1                    # router NOT called — no leak
+    assert session._pending_escalation is not None
+
+    # Affirmative consent: now the escalated cloud call is allowed.
+    asyncio.run(cp.process_chat(mgr, "u", "yes"))
+    assert len(calls) == 2
+    assert calls[1]["trouble"] is True
