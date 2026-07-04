@@ -11635,6 +11635,8 @@ async function loadCloudSettings() {
 function renderCloudSettings(s) {
     var checked = s.cloud_enabled ? ' checked' : '';
     var deepChecked = s.deep_mode ? ' checked' : '';
+    var troubleChecked = s.cloud_trouble_escalation ? ' checked' : '';
+    var consentChecked = s.trouble_private_consent ? ' checked' : '';
     var keyStatus = s.key_set ? '✓ key set' : 'no key';
     var html = '';
     html += '<div class="setting-row">';
@@ -11652,6 +11654,22 @@ function renderCloudSettings(s) {
     html += '<div class="setting-control">';
     html += '<label class="proto-toggle"><input type="checkbox" id="deepModeToggle"' + deepChecked + ' onchange="saveDeepMode(this.checked)"><span class="toggle-slider"></span></label>';
     html += '<span class="setting-saved" id="deepMode-saved">SAVED</span>';
+    html += '</div></div>';
+    html += '<div class="setting-row">';
+    html += '<div class="setting-label">Escalate on trouble';
+    html += '<div class="setting-desc">When you\'re struggling, switch to the cloud brain for deeper support.</div>';
+    html += '</div>';
+    html += '<div class="setting-control">';
+    html += '<label class="proto-toggle"><input type="checkbox" id="troubleToggle"' + troubleChecked + ' onchange="saveTrouble(this.checked)"><span class="toggle-slider"></span></label>';
+    html += '<span class="setting-saved" id="trouble-saved">SAVED</span>';
+    html += '</div></div>';
+    html += '<div class="setting-row">';
+    html += '<div class="setting-label">Ask before sending private info';
+    html += '<div class="setting-desc">Prompt before sending personal data to the cloud when escalating.</div>';
+    html += '</div>';
+    html += '<div class="setting-control">';
+    html += '<label class="proto-toggle"><input type="checkbox" id="troubleConsentToggle"' + consentChecked + ' onchange="saveTroubleConsent(this.checked)"><span class="toggle-slider"></span></label>';
+    html += '<span class="setting-saved" id="troubleConsent-saved">SAVED</span>';
     html += '</div></div>';
     html += '<div class="vault-account-field"><label>API key</label><input type="password" id="cloudKeyInput" placeholder="sk-ant-..."></div>';
     html += '<button class="vault-btn" onclick="saveCloudKey()">SAVE KEY</button>';
@@ -11691,6 +11709,36 @@ async function saveDeepMode(enabled) {
             setTimeout(function() { savedEl.classList.remove('show'); }, 1500);
         }
     } catch (e) { console.error('Deep Mode toggle failed:', e); }
+}
+
+async function saveTrouble(enabled) {
+    var savedEl = document.getElementById('trouble-saved');
+    try {
+        const res = await authFetch(API + '/cloud/trouble', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({enabled: enabled}),
+        });
+        const data = await res.json();
+        if (data.success && savedEl) {
+            savedEl.classList.add('show');
+            setTimeout(function() { savedEl.classList.remove('show'); }, 1500);
+        }
+    } catch (e) { console.error('Trouble toggle failed:', e); }
+}
+
+async function saveTroubleConsent(enabled) {
+    var savedEl = document.getElementById('troubleConsent-saved');
+    try {
+        const res = await authFetch(API + '/cloud/trouble-consent', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({enabled: enabled}),
+        });
+        const data = await res.json();
+        if (data.success && savedEl) {
+            savedEl.classList.add('show');
+            setTimeout(function() { savedEl.classList.remove('show'); }, 1500);
+        }
+    } catch (e) { console.error('Trouble consent toggle failed:', e); }
 }
 
 async function saveCloudKey() {

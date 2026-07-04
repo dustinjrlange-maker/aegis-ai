@@ -1718,6 +1718,18 @@ async def post_cloud_deep(req: CloudDeepModeRequest, user_id: str = Depends(requ
     return {"success": True, "deep_mode": req.enabled}
 
 
+@app.post("/api/cloud/trouble")
+async def set_cloud_trouble(req: CloudDeepModeRequest, user_id: str = Depends(require_user)):
+    cloud_settings.set_trouble_escalation(req.enabled)
+    return {"success": True}
+
+
+@app.post("/api/cloud/trouble-consent")
+async def set_cloud_trouble_consent(req: CloudDeepModeRequest, user_id: str = Depends(require_user)):
+    cloud_settings.set_trouble_private_consent(req.enabled)
+    return {"success": True}
+
+
 @app.post("/api/cloud/key")
 async def post_cloud_key(req: CloudKeyRequest, user_id: str = Depends(require_user)):
     cloud_settings.set_api_key(req.key)
