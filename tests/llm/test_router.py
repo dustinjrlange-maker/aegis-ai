@@ -207,3 +207,30 @@ class TestChatWithMeta:
             [{"role": "user", "content": "x"}], sensitivity="personal", task="chat_casual",
         )
         assert out == "local-ans"
+
+
+def test_trouble_flag_routes_to_cloud(monkeypatch):
+    import core.llm.router as R
+
+    class _Cfg:
+        cloud_enabled = False
+        cloud_opt_in_features = ()
+        cloud_model = "claude-opus-4-8"
+        cloud_max_tokens = 2048
+        deep_mode = False
+        cloud_trouble_escalation = True
+        trouble_private_consent = True
+
+    monkeypatch.setattr(R, "load_config", lambda: _Cfg())
+
+    class _Cloud:
+        def available(self): return True
+        def chat(self, messages, *, model=None, options=None, format=None):
+            return "cloud says hi"
+
+    monkeypatch.setitem(R._BACKENDS, "cloud", _Cloud())
+    content, meta = R.chat_with_meta(
+        [{"role": "user", "content": "no that's wrong"}],
+        sensitivity="personal", task="chat_casual", trouble=True)
+    assert content == "cloud says hi"
+    assert meta.backend_used == "cloud"

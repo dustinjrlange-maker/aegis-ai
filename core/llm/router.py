@@ -30,11 +30,11 @@ class RouteMeta:
 
 
 def chat_with_meta(messages, *, sensitivity, task=None, model=None,
-                   options=None, format=None) -> tuple[str, RouteMeta]:
+                   options=None, format=None, trouble=False) -> tuple[str, RouteMeta]:
     """Route one LLM call; return (content, RouteMeta). Meta reports the backend
     that ACTUALLY answered — a cloud pick that falls back reports local."""
     cfg = load_config()
-    decision = _policy.decide(sensitivity, cfg, task=task)
+    decision = _policy.decide(sensitivity, cfg, task=task, trouble=trouble)
     backend = _BACKENDS[decision.backend]
     reason = decision.reason
 
@@ -65,7 +65,8 @@ def chat_with_meta(messages, *, sensitivity, task=None, model=None,
     return content, RouteMeta("local", reason, None)
 
 
-def chat(messages, *, sensitivity, task=None, model=None, options=None, format=None) -> str:
+def chat(messages, *, sensitivity, task=None, model=None, options=None,
+         format=None, trouble=False) -> str:
     """Route one LLM call and return the response content string.
 
     sensitivity: "private" | "personal" | "public" (required — every site tags).
@@ -74,6 +75,6 @@ def chat(messages, *, sensitivity, task=None, model=None, options=None, format=N
     """
     content, _meta = chat_with_meta(
         messages, sensitivity=sensitivity, task=task,
-        model=model, options=options, format=format,
+        model=model, options=options, format=format, trouble=trouble,
     )
     return content
