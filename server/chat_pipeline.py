@@ -5,10 +5,13 @@ Reusable async chat function shared by the web UI and Telegram bot.
 
 import asyncio
 import logging
+from dataclasses import dataclass
 from datetime import datetime
 
 from core.llm import chat_with_meta as router_chat_with_meta
 from core.llm.turn_classifier import classify, route_task_tag, inject_fact_memories
+from core.llm.trouble import detect_trouble, detect_private_content
+from core.llm.config import load_config as _load_router_config, resolve_api_key as _resolve_key
 from core.config import CONFIG, load_capabilities
 from core.tooling import service as tool_service
 from core.tooling.autocall import run_tool_loop
@@ -16,6 +19,24 @@ from core.voice import emotion
 from core.protocols.context_budget import budget_injections
 
 logger = logging.getLogger("aegis.chat_pipeline")
+
+
+@dataclass(frozen=True)
+class EscalationPlan:
+    action: str      # "local" | "escalate" | "consent"
+    new_streak: int
+    reason: str
+
+
+def evaluate_escalation(user_message, *, streak, cfg, key_present) -> EscalationPlan:
+    """Decide how a chat turn should route under trouble mode. Pure — no I/O."""
+    t = detect_trouble(user_message, streak)
+    if not (cfg.cloud_trouble_escalation and key_present and t.is_trouble):
+        return EscalationPlan("local", t.new_streak, t.reason)
+    is_private, priv_reason = detect_private_content(user_message)
+    if is_private and cfg.trouble_private_consent:
+        return EscalationPlan("consent", t.new_streak, priv_reason)
+    return EscalationPlan("escalate", t.new_streak, priv_reason or t.reason)
 
 _MODE_HINTS = {
     "emotional": "[Response mode: emotional support — you may take up to 5-6 sentences. Stay specific to their words, no advice, no cheerleading, no roleplay.]",
@@ -29,6 +50,21 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
     Returns dict with keys: agent_name, response, emotion, wellness_flag.
     """
     session = session_manager.get_or_create(user_id)
+
+    # Resolve a pending trouble-escalation consent prompt. An affirmative reply
+    # re-runs the ORIGINAL turn with cloud forced on; anything else clears the
+    # pending state and proceeds normally.
+    _pending = getattr(session, "_pending_escalation", None)
+    _force_trouble_cloud = False
+    if _pending:
+        from datetime import datetime as _dt, timedelta as _td
+        fresh = (_dt.now() - _pending["ts"]) < _td(minutes=5)
+        affirmatives = ("yes", "yes use cloud", "use cloud", "go ahead", "ok",
+                        "okay", "allow", "allowed", "do it", "sure")
+        if fresh and user_input.strip().lower() in affirmatives:
+            user_input = _pending["message"]     # re-run the ORIGINAL turn
+            _force_trouble_cloud = True
+        session._pending_escalation = None
 
     if not user_input:
         return {
@@ -122,6 +158,26 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
     )
     task_tag = route_task_tag(turn)
 
+    # Escalate-on-trouble: decide whether this turn should route to cloud, and
+    # gate any private-content escalation behind an explicit consent prompt.
+    _rcfg = _load_router_config()
+    _plan = evaluate_escalation(
+        user_input, streak=getattr(session, "_correction_streak", 0),
+        cfg=_rcfg, key_present=_resolve_key() is not None)
+    session._correction_streak = _plan.new_streak
+    if _plan.action == "consent" and not _force_trouble_cloud:
+        from datetime import datetime as _dt2
+        session._pending_escalation = {"message": user_input, "ts": _dt2.now()}
+        return {
+            "agent_name": session.agent_name,
+            "response": (f"⚠ I'm struggling with this, and it looks like it involves "
+                         f"private info ({_plan.reason}). I can get better help from the cloud, "
+                         f"but that sends it to Anthropic. Reply “yes, use cloud” to allow "
+                         f"it just this once — otherwise I'll keep trying locally."),
+            "emotion": emotion_result, "wellness_flag": False, "bracket_actions": [],
+        }
+    _trouble_cloud = _force_trouble_cloud or (_plan.action == "escalate")
+
     # Memory search. Emotional turns skip the fact/task injection — the 8B
     # fixates on injected details (task titles surfaced mid-grief in live
     # testing). Character memories stay: Pike's own past informs presence.
@@ -182,6 +238,7 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
             sensitivity="personal",
             task=task_tag,
             model=CONFIG["model"]["chat"],
+            trouble=_trouble_cloud,
         )
         reply = session.clean_reply(reply_content, mode=turn.mode)
 

@@ -138,6 +138,10 @@ class UserSession:
         # File context pending injection (set by file analyze endpoint)
         self._pending_file_context = None
 
+        # Trouble-escalation state (escalate-on-trouble mode)
+        self._pending_escalation = None   # {"message": str, "ts": datetime} or None
+        self._correction_streak = 0
+
         # Notification service (in-memory, session-scoped)
         self.notification_service = NotificationService()
 
