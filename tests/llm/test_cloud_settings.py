@@ -47,7 +47,10 @@ def test_get_cloud_status_shape(tmp_path, monkeypatch):
     monkeypatch.setattr(cfgmod, "_KEY_FILE", tmp_path / "nokey")
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     st = cs.get_cloud_status()
-    assert set(st.keys()) == {"cloud_enabled", "key_set", "cloud_model", "deep_mode"}
+    assert set(st.keys()) == {
+        "cloud_enabled", "key_set", "cloud_model", "deep_mode",
+        "cloud_trouble_escalation", "trouble_private_consent",
+    }
     assert st["cloud_enabled"] is False
     assert st["key_set"] is False
     assert st["cloud_model"] == "claude-opus-4-8"
@@ -154,6 +157,17 @@ def test_set_deep_mode_writes_and_preserves(tmp_path, monkeypatch):
 
     cs.set_deep_mode(False)
     assert cfgmod.load_config().deep_mode is False
+
+
+def test_set_and_report_trouble_flags(tmp_path, monkeypatch):
+    import core.llm.config as cfgmod
+    from core.llm import cloud_settings as cs
+    monkeypatch.setattr(cfgmod, "_OVERRIDE_PATH", tmp_path / "llm_router.json")
+    cs.set_trouble_escalation(True)
+    cs.set_trouble_private_consent(False)
+    status = cs.get_cloud_status()
+    assert status["cloud_trouble_escalation"] is True
+    assert status["trouble_private_consent"] is False
 
 
 def test_friendly_error_redacts_key_token():

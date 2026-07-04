@@ -27,6 +27,8 @@ def get_cloud_status() -> dict:
         "key_set": _cfg.resolve_api_key() is not None,
         "cloud_model": cfg.cloud_model,
         "deep_mode": cfg.deep_mode,
+        "cloud_trouble_escalation": cfg.cloud_trouble_escalation,
+        "trouble_private_consent": cfg.trouble_private_consent,
     }
 
 
@@ -55,6 +57,16 @@ def set_cloud_enabled(enabled: bool) -> None:
 def set_deep_mode(enabled: bool) -> None:
     """Toggle Deep Mode — emotional turns become cloud-eligible (default off)."""
     _write_override_key("deep_mode", bool(enabled))
+
+
+def set_trouble_escalation(enabled: bool) -> None:
+    """Toggle escalate-on-trouble mode (independent of cloud_enabled)."""
+    _write_override_key("cloud_trouble_escalation", bool(enabled))
+
+
+def set_trouble_private_consent(enabled: bool) -> None:
+    """Toggle the warn-and-confirm gate for private-content trouble turns."""
+    _write_override_key("trouble_private_consent", bool(enabled))
 
 
 def set_api_key(key: str) -> None:
