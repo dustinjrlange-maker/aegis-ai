@@ -5,8 +5,9 @@ Reusable async chat function shared by the web UI and Telegram bot.
 
 import asyncio
 import logging
+import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from core.llm import chat_with_meta as router_chat_with_meta
 from core.llm.turn_classifier import classify, route_task_tag, inject_fact_memories
@@ -57,11 +58,14 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
     _pending = getattr(session, "_pending_escalation", None)
     _force_trouble_cloud = False
     if _pending:
-        from datetime import datetime as _dt, timedelta as _td
-        fresh = (_dt.now() - _pending["ts"]) < _td(minutes=5)
+        fresh = (datetime.now() - _pending["ts"]) < timedelta(minutes=5)
         affirmatives = ("yes", "yes use cloud", "use cloud", "go ahead", "ok",
                         "okay", "allow", "allowed", "do it", "sure")
-        if fresh and user_input.strip().lower() in affirmatives:
+        # Normalize punctuation/whitespace so "yes, use cloud", "yes!", "Yes."
+        # all match the comma-free affirmatives above.
+        normalized = re.sub(r"[^\w\s]", "", user_input.strip().lower())
+        normalized = re.sub(r"\s+", " ", normalized).strip()
+        if fresh and normalized in affirmatives:
             user_input = _pending["message"]     # re-run the ORIGINAL turn
             _force_trouble_cloud = True
         session._pending_escalation = None
@@ -166,8 +170,7 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
         cfg=_rcfg, key_present=_resolve_key() is not None)
     session._correction_streak = _plan.new_streak
     if _plan.action == "consent" and not _force_trouble_cloud:
-        from datetime import datetime as _dt2
-        session._pending_escalation = {"message": user_input, "ts": _dt2.now()}
+        session._pending_escalation = {"message": user_input, "ts": datetime.now()}
         return {
             "agent_name": session.agent_name,
             "response": (f"⚠ I'm struggling with this, and it looks like it involves "
