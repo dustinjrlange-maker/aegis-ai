@@ -7,7 +7,7 @@ Handles the companion's daily digital life.
 import json
 import logging
 import re
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, time as _time, timedelta
 from pathlib import Path
 from core.protocols.base import Protocol
 from core.config import PROJECT_ROOT, CONFIG
@@ -223,13 +223,16 @@ class OperationsProtocol(Protocol):
         """List all recurring tasks."""
         return [r for r in self._recurring if r.get("enabled", True)]
 
-    def check_recurring(self):
+    def check_recurring(self, now=None):
         """Check if any recurring tasks need to generate today's task.
 
         For each enabled recurring entry, determine if a task should be
-        auto-created based on frequency and last_generated date.
+        auto-created based on frequency, last_generated date, and (if set)
+        the preferred time-of-day.  Pass ``now`` explicitly for testing;
+        defaults to ``datetime.now()``.
         """
-        today = date.today()
+        now = now if now is not None else datetime.now()
+        today = now.date()
         today_str = today.isoformat()
         weekday = today.weekday()  # 0=Mon, 6=Sun
         generated = []
@@ -270,11 +273,25 @@ class OperationsProtocol(Protocol):
                         except ValueError:
                             should_generate = True
 
-            if should_generate:
-                category = rec.get("category", "general")
-                task = self.add_task(rec["text"], category=category)
-                rec["last_generated"] = today_str
-                generated.append(task)
+            if not should_generate:
+                continue
+
+            # Time-of-day gate: honour the preferred time if one is set.
+            # Entries with no time field fire as soon as the date is due
+            # (backward-compatible with the original behaviour).
+            hhmm = rec.get("time")
+            if hhmm:
+                try:
+                    hh, mm = hhmm.split(":")
+                    if now.time() < _time(int(hh), int(mm)):
+                        continue
+                except (ValueError, AttributeError):
+                    pass  # malformed time string — fire anyway
+
+            category = rec.get("category", "general")
+            task = self.add_task(rec["text"], category=category)
+            rec["last_generated"] = today_str
+            generated.append(task)
 
         if generated:
             self._save_recurring()
