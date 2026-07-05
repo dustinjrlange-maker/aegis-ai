@@ -143,9 +143,9 @@ def run(ctx):
             msg = check(ctx)
             if msg:
                 failures.append(msg)
-        except Exception as e:
-            logger.exception("security check crashed")
-            failures.append(f"check error: {e}")
+        except Exception:
+            logger.exception("security check %s crashed", check.__name__)
+            failures.append(f"{check.__name__} raised an error (see logs)")
     if failures:
         body = "\n".join(f"- {f}" for f in failures)
         return JobResult(

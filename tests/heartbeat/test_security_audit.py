@@ -45,12 +45,19 @@ def test_failure_uses_both_channels(monkeypatch):
 
 
 def test_check_exception_is_reported_not_fatal(monkeypatch):
+    """A crashing check must not propagate, and must NOT echo the raw exception
+    repr in the finding (FIX M6 — don't leak config internals to external channels)."""
     def boom(ctx):
-        raise RuntimeError("bad check")
+        raise RuntimeError("bad check — secret internal value")
     monkeypatch.setattr(SA, "CHECKS", [boom, lambda ctx: None])
     result = SA.run(_ctx())           # must not raise
     assert result.notify is True
-    assert "bad check" in result.body or "check error" in result.body.lower()
+    # Finding must name the check and say "raised an error" — not echo the exception.
+    assert "boom" in result.body
+    assert "raised an error" in result.body
+    # Raw exception text must NOT appear (M6 privacy fix).
+    assert "bad check" not in result.body
+    assert "secret internal value" not in result.body
 
 
 def test_multiple_failures_all_appear_in_body(monkeypatch):

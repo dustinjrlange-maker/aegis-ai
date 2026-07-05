@@ -42,7 +42,8 @@ class _EnsureSessionManager:
         self._real = real_sm
 
     def get(self, user_id):
-        return self._real.get_or_create(user_id)
+        # touch=False: heartbeat access must not reset the user's idle timer
+        return self._real.get_or_create(user_id, touch=False)
 
 
 class HeartbeatRuntime:

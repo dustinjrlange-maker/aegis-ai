@@ -44,3 +44,13 @@ def test_valid_json_bad_shape_starts_fresh(tmp_path):
     p.write_text('{"jobs": {"j": {"last_fired_at": "garbage"}}}', encoding="utf-8")
     st = HeartbeatState(p)
     assert st.get("j") is None
+
+
+def test_save_swallows_oserror(tmp_path, monkeypatch):
+    """_save must log and return rather than propagate an OSError (FIX M8)."""
+    import os
+    p = tmp_path / "heartbeat.json"
+    st = HeartbeatState(p)
+    monkeypatch.setattr(os, "replace", lambda src, dst: (_ for _ in ()).throw(OSError("disk full")))
+    # mark_fired internally calls _save — must not raise
+    st.mark_fired("j", datetime(2026, 7, 4, 9, 0), datetime(2026, 7, 4, 9, 1))

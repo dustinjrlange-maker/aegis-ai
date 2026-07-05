@@ -445,13 +445,19 @@ class SessionManager:
     def __init__(self):
         self._sessions: dict[str, UserSession] = {}
 
-    def get_or_create(self, user_id: str) -> UserSession:
+    def get_or_create(self, user_id: str, touch: bool = True) -> UserSession:
         """Get an existing session or create a new one for the user.
 
         If the existing session has been inactive for longer than
         SESSION_TIMEOUT_MINUTES, it is ended (transcript saved) and a
         fresh session is created. This prevents stale context from
         bleeding across conversations.
+
+        Args:
+            touch: If True (default), reset last_activity on the session —
+                correct for real chat messages. Pass touch=False for background
+                accesses (e.g. the heartbeat) that must not reset the idle timer
+                and thereby prevent the session from ever going stale.
         """
         existing = self._sessions.get(user_id)
         if existing is not None:
@@ -467,7 +473,8 @@ class SessionManager:
         if user_id not in self._sessions:
             self._sessions[user_id] = UserSession(user_id)
         session = self._sessions[user_id]
-        session.touch()
+        if touch:
+            session.touch()
         return session
 
     def get(self, user_id: str) -> UserSession | None:

@@ -144,3 +144,28 @@ def test_job_config_flows_into_ctx(tmp_path):
               is_enabled=lambda jid: True)
     assert len(captured) == 1
     assert captured[0].get("marker") == 42
+
+
+def test_flush_deferred_crash_does_not_kill_loop(tmp_path):
+    """A _flush_deferred crash must not stop the tick or subsequent job runs (FIX I4)."""
+    state, hlog = _mk(tmp_path)
+    ran = []
+
+    class _CrashingNotifier:
+        """Notifier whose push always raises, simulating a broken delivery path."""
+        async def push(self, *a, **kw):
+            raise RuntimeError("notifier exploded")
+
+    # Queue a deferred push so _flush_deferred has something to deliver
+    state.queue_push({"user_id": "switch", "title": "T", "body": "B",
+                      "channels": ["notification"]})
+
+    job = J.Job(id="sibling", kind="silent", schedule=J.every(60), cooldown_s=60,
+                run=lambda ctx: (ran.append(1) or J.JobResult(silent_log="ok")))
+
+    # Run outside quiet hours so _flush_deferred actually attempts delivery
+    _run_once(jobs=[job], clock=FakeClock(datetime(2026, 7, 4, 12, 0)),
+              notifier=_CrashingNotifier(), state=state, hlog=hlog,
+              is_enabled=lambda jid: True)
+    # The sibling job must still have run despite the flush crash.
+    assert ran == [1]

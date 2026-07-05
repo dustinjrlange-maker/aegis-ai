@@ -40,20 +40,23 @@ class HeartbeatState:
         self._pending = pending
 
     def _save(self):
-        data = {
-            "jobs": {
-                jid: {
-                    "last_fired_at": _to_iso(r["last_fired_at"]),
-                    "next_eligible_at": _to_iso(r["next_eligible_at"]),
-                }
-                for jid, r in self._jobs.items()
-            },
-            "pending_pushes": self._pending,
-        }
-        tmp = self.path.with_suffix(self.path.suffix + ".tmp")
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        os.replace(tmp, self.path)  # atomic on same filesystem
+        try:
+            data = {
+                "jobs": {
+                    jid: {
+                        "last_fired_at": _to_iso(r["last_fired_at"]),
+                        "next_eligible_at": _to_iso(r["next_eligible_at"]),
+                    }
+                    for jid, r in self._jobs.items()
+                },
+                "pending_pushes": self._pending,
+            }
+            tmp = self.path.with_suffix(self.path.suffix + ".tmp")
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+            os.replace(tmp, self.path)  # atomic on same filesystem
+        except OSError:
+            logger.exception("heartbeat state: failed to save %s — continuing", self.path)
 
     def get(self, job_id):
         """Return the state record for job_id, or None if never fired."""

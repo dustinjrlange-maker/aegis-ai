@@ -19,10 +19,12 @@ class _RecordingSM:
 
     def __init__(self):
         self.created = []
+        self.touch_flags = []  # records the touch= value passed each call
         self.session = object()
 
-    def get_or_create(self, user_id):
+    def get_or_create(self, user_id, touch=True):
         self.created.append(user_id)
+        self.touch_flags.append(touch)
         return self.session
 
     def get(self, user_id):
@@ -175,3 +177,48 @@ def test_build_runtime_global_disabled(tmp_path):
 
     asyncio.run(rt.run(clock=clock, sleep=_noop_sleep, max_ticks=1))
     assert True
+
+
+def test_ensure_session_manager_adapter_calls_with_touch_false():
+    """The adapter always calls get_or_create with touch=False (FIX I2)."""
+    real = _RecordingSM()
+    adapter = _EnsureSessionManager(real)
+    adapter.get("switch")
+    assert real.touch_flags == [False], (
+        "adapter must pass touch=False so the heartbeat never resets the idle timer"
+    )
+
+
+def test_get_or_create_touch_false_does_not_reset_last_activity():
+    """get_or_create(touch=False) must not update last_activity (FIX I2)."""
+    from core.session import SessionManager
+    from datetime import datetime, timedelta
+
+    sm = SessionManager()
+    # Create the session first (touch=True is the default — simulates first chat).
+    session = sm.get_or_create("switch")
+    # Wind back last_activity to simulate user being idle for 10 minutes.
+    old_activity = datetime.now() - timedelta(minutes=10)
+    session.last_activity = old_activity
+
+    # Heartbeat access must NOT reset last_activity.
+    sm.get_or_create("switch", touch=False)
+    assert session.last_activity == old_activity, (
+        "touch=False must not update last_activity"
+    )
+
+
+def test_get_or_create_touch_true_resets_last_activity():
+    """get_or_create(touch=True, the default) must update last_activity (FIX I2 — chat path unchanged)."""
+    from core.session import SessionManager
+    from datetime import datetime, timedelta
+
+    sm = SessionManager()
+    session = sm.get_or_create("switch")
+    old_activity = datetime.now() - timedelta(minutes=10)
+    session.last_activity = old_activity
+
+    sm.get_or_create("switch", touch=True)
+    assert session.last_activity > old_activity, (
+        "touch=True (default) must still update last_activity for real chat messages"
+    )

@@ -40,7 +40,10 @@ async def run_heartbeat(*, jobs, clock, notifier, state, hlog, is_enabled,
     while max_ticks is None or ticks < max_ticks:
         ticks += 1
         now = clock()
-        await _flush_deferred(now, quiet_hours, state, notifier)
+        try:
+            await _flush_deferred(now, quiet_hours, state, notifier)
+        except Exception:
+            logger.exception("heartbeat: _flush_deferred crashed; continuing tick")
         for job in jobs:
             try:
                 await _evaluate_job(job, now, is_enabled, state, hlog, notifier,
