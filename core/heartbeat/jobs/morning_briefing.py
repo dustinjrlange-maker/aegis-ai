@@ -19,7 +19,7 @@ def run(ctx):
     notification is always pushed.
     """
     result = generate_narrative_briefing(ctx.session, period=None)
-    text = (result.get("narrative", "") if isinstance(result, dict) else str(result or "")).strip()
+    text = (result.get("narrative") or "" if isinstance(result, dict) else str(result or "")).strip()
     if not text:
         text = _FALLBACK
     return JobResult(
