@@ -271,6 +271,18 @@ class EmailOpsProtocol(Protocol):
                         "send", "edit", "discard")
 
     def _build_classifier_prompt(self, text, listing, pending):
+        accounts = getattr(self._session, "accounts", None)
+        acct_lines = ""
+        if accounts:
+            listed = accounts.list()
+            if listed:
+                acct_lines = (
+                    "Linked accounts (choose ACCOUNT by context; - = default):\n"
+                    + "\n".join(
+                        f"- {a['id']} — {a.get('label', '')} ({a.get('email', '')})"
+                        for a in listed)
+                    + "\n\n"
+                )
         return (
             "You classify a user's email request into ONE action.\n\n"
             "Recent inbox (most recent first):\n"
@@ -279,7 +291,8 @@ class EmailOpsProtocol(Protocol):
             f'User said: "{text}"\n\n'
             "Reply with ONE line, exactly this format:\n"
             "ACTION=<reply|new|forward|mark_read|archive|send|edit|discard|none> | REF=<inbox number or -> "
-            "| TO=<email address or -> | INSTRUCTION=<what to say, or ->\n\n"
+            "| TO=<email address or -> | ACCOUNT=<account id or -> | INSTRUCTION=<what to say, or ->\n\n"
+            + acct_lines +
             "Rules:\n"
             "- reply: replying to an inbox email. REF = the inbox number. "
             "INSTRUCTION = what the reply should say.\n"
@@ -314,6 +327,11 @@ class EmailOpsProtocol(Protocol):
             to_val = to_m.group(1).strip()
             if to_val and to_val != "-":
                 out["to"] = to_val
+        acct_m = re.search(r"ACCOUNT\s*=\s*([^|]+)", text)
+        if acct_m:
+            acct_val = acct_m.group(1).strip()
+            if acct_val and acct_val != "-":
+                out["account"] = acct_val
         ins_m = re.search(r"INSTRUCTION\s*=\s*(.+)", text)
         if ins_m:
             ins = ins_m.group(1).strip()
@@ -348,6 +366,21 @@ class EmailOpsProtocol(Protocol):
         if ref and str(ref).isdigit():
             return self._id_map.get(int(ref))
         return None
+
+    def _resolve_account(self, action):
+        """Map the classifier's ACCOUNT= hint to an account record.
+
+        Explicit hint -> resolve(); unknown or absent -> default account.
+        Returns the account dict or None (no account layer / none linked)."""
+        accounts = getattr(self._session, "accounts", None)
+        if accounts is None:
+            return None
+        hint = (action.get("account") or "").strip()
+        if hint and hint != "-":
+            acct = accounts.resolve(hint)
+            if acct is not None:
+                return acct
+        return accounts.default()
 
     def _classify(self, text):
         if self._pending is None:

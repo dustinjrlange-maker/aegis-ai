@@ -541,6 +541,92 @@ def test_mark_read_bad_ref_asks(monkeypatch):
     assert "which email" in result["response"].lower()
 
 
+# --- Task 10: ACCOUNT= classifier field + account resolution -------------
+
+import json
+from core.accounts.manager import AccountManager
+from tests.test_briefing_accounts import FakeAccounts
+
+
+def _session_with_accounts(accounts):
+    s = _FakeSession()
+    s.accounts = accounts
+    return s
+
+
+def test_classifier_prompt_lists_accounts():
+    accounts = FakeAccounts(
+        accounts=[
+            {"id": "google-personal", "label": "Personal",
+             "email": "dustin.jr.lange@gmail.com"},
+            {"id": "google-stitch", "label": "SwitchStitch",
+             "email": "TheSwitchStitch@gmail.com"},
+        ],
+        creds_by_id={},
+    )
+    p = _proto(_session_with_accounts(accounts))
+    prompt = p._build_classifier_prompt("hi", "", False)
+    assert "ACCOUNT=<account id or ->" in prompt
+    assert "google-personal" in prompt
+    assert "SwitchStitch" in prompt
+
+
+def test_classifier_prompt_no_accounts_unchanged():
+    """Un-migrated session (no accounts attr) gets no account block."""
+    p = _proto(_FakeSession())
+    prompt = p._build_classifier_prompt("hi", "", False)
+    assert "Linked accounts" not in prompt
+
+
+def test_parse_classification_account():
+    p = _proto(_FakeSession())
+    out = p._parse_classification(
+        "ACTION=new | REF=- | TO=bob@x.com | ACCOUNT=google-stitch | INSTRUCTION=say hi")
+    assert out["account"] == "google-stitch"
+    assert out["instruction"] == "say hi"
+    assert out["to"] == "bob@x.com"
+
+
+def test_parse_classification_account_dash_absent():
+    p = _proto(_FakeSession())
+    out = p._parse_classification(
+        "ACTION=new | REF=- | TO=bob@x.com | ACCOUNT=- | INSTRUCTION=say hi")
+    assert "account" not in out
+
+
+def _real_accounts(tmp_path):
+    (tmp_path / "accounts.json").write_text(json.dumps({"accounts": [
+        {"id": "google-personal", "label": "Personal",
+         "email": "dustin.jr.lange@gmail.com", "is_default": True},
+        {"id": "google-stitch", "label": "SwitchStitch",
+         "email": "TheSwitchStitch@gmail.com"},
+    ]}), encoding="utf-8")
+    return AccountManager(tmp_path)
+
+
+def test_resolve_account_explicit_hint(tmp_path):
+    p = _proto(_session_with_accounts(_real_accounts(tmp_path)))
+    acct = p._resolve_account({"account": "stitch"})
+    assert acct["id"] == "google-stitch"
+
+
+def test_resolve_account_unknown_falls_back_to_default(tmp_path):
+    p = _proto(_session_with_accounts(_real_accounts(tmp_path)))
+    acct = p._resolve_account({"account": "nonsense"})
+    assert acct["id"] == "google-personal"
+
+
+def test_resolve_account_absent_uses_default(tmp_path):
+    p = _proto(_session_with_accounts(_real_accounts(tmp_path)))
+    acct = p._resolve_account({})
+    assert acct["id"] == "google-personal"
+
+
+def test_resolve_account_no_layer_returns_none():
+    p = _proto(_FakeSession())  # session has no .accounts
+    assert p._resolve_account({"account": "stitch"}) is None
+
+
 def test_gmail_archive_removes_inbox_label(monkeypatch):
     calls = {}
     class _Ex:
