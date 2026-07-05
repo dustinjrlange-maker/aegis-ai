@@ -41,6 +41,7 @@ from core.memory.weather_cache import WeatherService
 from core.memory.alarm_manager import AlarmManager
 from core.memory.file_manager import FileManager
 from core.memory.social_manager import SocialMediaManager
+from core.accounts.manager import AccountManager
 from core.notifications import NotificationService
 from core.agent import build_filler_cleaner
 from core.auth import load_user_preferences
@@ -134,6 +135,7 @@ class UserSession:
         self.alarm_manager = AlarmManager(user_data_dir)
         self.file_manager = FileManager(user_data_dir)
         self.social_manager = SocialMediaManager(user_data_dir)
+        self.accounts = AccountManager(user_data_dir)
 
         # File context pending injection (set by file analyze endpoint)
         self._pending_file_context = None

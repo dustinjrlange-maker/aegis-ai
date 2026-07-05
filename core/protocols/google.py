@@ -52,13 +52,14 @@ class GoogleProtocol(Protocol):
     # Helpers
     # ------------------------------------------------------------------
 
-    def _get_creds(self):
-        """Load credentials for the current user. Returns Credentials or None."""
+    def _get_creds(self, account_id=None):
+        """Load credentials for the current user (optionally a specific
+        linked account). Returns Credentials or None."""
         if not self._data_dir or not self._available:
             return None
         try:
             from core.protocols.google_tools import load_credentials
-            return load_credentials(self._data_dir)
+            return load_credentials(self._data_dir, account_id=account_id)
         except Exception as e:
             logger.debug("Could not load Google credentials: %s", e)
             return None

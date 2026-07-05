@@ -162,7 +162,7 @@ def test_draft_forward_builds_quoted_draft(monkeypatch):
     from core.protocols import google_tools as gt
 
     class _G:
-        def _get_creds(self): return "CREDS"
+        def _get_creds(self, account_id=None): return "CREDS"
     class _R:
         def get(self, n): return _G() if n == "google" else None
     class _S:

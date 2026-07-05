@@ -36,12 +36,12 @@ _NARRATIVE_TTL_S: float = 600.0  # 10 minutes
 # ---------------------------------------------------------------------------
 
 
-def _creds_from_session(session):
+def _creds_from_session(session, account_id=None):
     """Pull Google OAuth creds from the session, or None if not authorized."""
     google_proto = session.protocol_registry.get("google")
     if not google_proto:
         return None
-    return google_proto._get_creds()
+    return google_proto._get_creds(account_id=account_id)
 
 
 def _llm(messages: list[dict], *, sensitivity: str = "private",
