@@ -129,6 +129,9 @@ class AccountManager:
             "features": {"briefing_calendar": True, "inbox_scan": True},
             "status": "ok",
         }]})
-        legacy.rename(self._dir / (TOKEN_FILE + ".migrated"))
+        try:
+            legacy.rename(self._dir / (TOKEN_FILE + ".migrated"))
+        except OSError as e:
+            logger.warning("Could not rename legacy token file (non-fatal): %s", e)
         logger.info("Migrated legacy Google tokens to account '%s'",
                     DEFAULT_ACCOUNT_ID)
