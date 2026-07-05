@@ -8,6 +8,8 @@ when pointed at an account dir.
 
 import json
 import logging
+import os
+import threading
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -15,6 +17,12 @@ logger = logging.getLogger(__name__)
 REGISTRY_FILE = "accounts.json"
 TOKEN_FILE = "google_tokens.json"          # Task 2/4 — per-account creds file, inside accounts/<id>/
 DEFAULT_ACCOUNT_ID = "google-personal"     # Task 2 — id assigned to the migrated legacy account
+
+# Serializes read-modify-write of accounts.json across the heartbeat loop and
+# the chat pipeline (they hold separate AccountManager instances for the same
+# user). Module-level so it's shared across instances. RLock: set_status calls
+# _write, which re-acquires.
+_REGISTRY_LOCK = threading.RLock()
 
 
 class AccountManager:
@@ -38,8 +46,11 @@ class AccountManager:
 
     def _write(self, data):
         try:
-            self._registry_path.write_text(
-                json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+            with _REGISTRY_LOCK:
+                tmp = self._registry_path.with_name(self._registry_path.name + ".tmp")
+                tmp.write_text(
+                    json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+                os.replace(tmp, self._registry_path)
         except IOError as e:
             logger.error("Could not write accounts.json: %s", e)
             raise
@@ -90,12 +101,13 @@ class AccountManager:
 
     def set_status(self, account_id, status):
         """Persist *status* on the matching account; silent no-op if id unknown."""
-        data = self._read()
-        for a in data.get("accounts", []):
-            if a.get("id") == account_id:
-                a["status"] = status
-                self._write(data)
-                return
+        with _REGISTRY_LOCK:
+            data = self._read()
+            for a in data.get("accounts", []):
+                if a.get("id") == account_id:
+                    a["status"] = status
+                    self._write(data)
+                    return
 
     def creds_for(self, account_id=None):
         """Load Google credentials for an account (default account when None).
@@ -124,35 +136,36 @@ class AccountManager:
         """One-time move of the legacy single-account google_tokens.json into
         the registry model. Verify-before-move: the original is only renamed
         (never deleted) after the copy is confirmed parseable."""
-        if self._registry_path.exists():
-            return
-        legacy = self._dir / TOKEN_FILE
-        if not legacy.exists():
-            return
-        target_dir = self._dir / "accounts" / DEFAULT_ACCOUNT_ID
-        target = target_dir / TOKEN_FILE
-        try:
-            raw = legacy.read_text(encoding="utf-8")
-            json.loads(raw)                       # verify source parses
-            target_dir.mkdir(parents=True, exist_ok=True)
-            target.write_text(raw, encoding="utf-8")
-            json.loads(target.read_text(encoding="utf-8"))   # verify copy
-        except (json.JSONDecodeError, IOError) as e:
-            logger.warning("Legacy Google token migration skipped: %s", e)
-            return
-        self._write({"accounts": [{
-            "id": DEFAULT_ACCOUNT_ID,
-            "provider": "google",
-            "email": "",
-            "label": "Primary",
-            "is_default": True,
-            "represent_as": {"name": "", "signoff": "", "tone_hint": ""},
-            "features": {"briefing_calendar": True, "inbox_scan": True},
-            "status": "ok",
-        }]})
-        try:
-            legacy.rename(self._dir / (TOKEN_FILE + ".migrated"))
-        except OSError as e:
-            logger.warning("Could not rename legacy token file (non-fatal): %s", e)
-        logger.info("Migrated legacy Google tokens to account '%s'",
-                    DEFAULT_ACCOUNT_ID)
+        with _REGISTRY_LOCK:
+            if self._registry_path.exists():
+                return
+            legacy = self._dir / TOKEN_FILE
+            if not legacy.exists():
+                return
+            target_dir = self._dir / "accounts" / DEFAULT_ACCOUNT_ID
+            target = target_dir / TOKEN_FILE
+            try:
+                raw = legacy.read_text(encoding="utf-8")
+                json.loads(raw)                       # verify source parses
+                target_dir.mkdir(parents=True, exist_ok=True)
+                target.write_text(raw, encoding="utf-8")
+                json.loads(target.read_text(encoding="utf-8"))   # verify copy
+            except (json.JSONDecodeError, IOError) as e:
+                logger.warning("Legacy Google token migration skipped: %s", e)
+                return
+            self._write({"accounts": [{
+                "id": DEFAULT_ACCOUNT_ID,
+                "provider": "google",
+                "email": "",
+                "label": "Primary",
+                "is_default": True,
+                "represent_as": {"name": "", "signoff": "", "tone_hint": ""},
+                "features": {"briefing_calendar": True, "inbox_scan": True},
+                "status": "ok",
+            }]})
+            try:
+                legacy.rename(self._dir / (TOKEN_FILE + ".migrated"))
+            except OSError as e:
+                logger.warning("Could not rename legacy token file (non-fatal): %s", e)
+            logger.info("Migrated legacy Google tokens to account '%s'",
+                        DEFAULT_ACCOUNT_ID)

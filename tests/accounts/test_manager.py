@@ -111,3 +111,48 @@ def test_creds_for_success_resets_status(tmp_path, monkeypatch):
     am = AccountManager(tmp_path)
     assert am.creds_for("google-personal") is not None
     assert am.get("google-personal")["status"] == "ok"
+
+
+def test_write_is_atomic_and_leaves_no_tmp(tmp_path):
+    """_write swaps in via a temp file; no .tmp residue, file always parses."""
+    _write_registry(tmp_path, [ACCT_A])
+    AccountManager(tmp_path).set_status("google-personal", "error")
+    data = json.loads((tmp_path / "accounts.json").read_text(encoding="utf-8"))
+    assert data["accounts"][0]["status"] == "error"
+    assert not (tmp_path / "accounts.json.tmp").exists()
+
+
+def test_concurrent_set_status_different_accounts_no_corruption(tmp_path):
+    """Two threads pounding set_status on DIFFERENT ids must not corrupt the
+    file (always parseable) and both accounts' final statuses must survive —
+    the RLock makes each read-modify-write atomic, os.replace makes reads see a
+    complete file."""
+    import threading
+
+    _write_registry(tmp_path, [ACCT_A, ACCT_B])
+    am = AccountManager(tmp_path)
+    barrier = threading.Barrier(2)
+    errors = []
+
+    def hammer(account_id):
+        barrier.wait()
+        try:
+            for i in range(200):
+                am.set_status(account_id, f"s{i}")
+                # concurrent read must never see a partial/corrupt file
+                json.loads((tmp_path / "accounts.json").read_text(encoding="utf-8"))
+        except Exception as e:  # pragma: no cover - failure path
+            errors.append(e)
+
+    t1 = threading.Thread(target=hammer, args=("google-personal",))
+    t2 = threading.Thread(target=hammer, args=("google-stitch",))
+    t1.start(); t2.start()
+    t1.join(); t2.join()
+
+    assert not errors, errors
+    data = json.loads((tmp_path / "accounts.json").read_text(encoding="utf-8"))
+    by_id = {a["id"]: a for a in data["accounts"]}
+    # Both accounts present with their last written status (no lost account).
+    assert by_id["google-personal"]["status"] == "s199"
+    assert by_id["google-stitch"]["status"] == "s199"
+    assert not (tmp_path / "accounts.json.tmp").exists()

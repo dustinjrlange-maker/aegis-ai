@@ -141,7 +141,11 @@ class EmailOpsProtocol(Protocol):
         """Preview 'From:' line for a resolved account, or '' when none."""
         if not acct:
             return ""
-        return f"From: {acct.get('label', acct['id'])} ({acct.get('email', '')})\n"
+        label = acct.get("label", acct["id"])
+        email = acct.get("email", "")
+        if email:
+            return f"From: {label} ({email})\n"
+        return f"From: {label}\n"
 
     def _extract_recipient(self, action):
         """Recipient comes only from the classifier's structured TO= field.
@@ -301,7 +305,7 @@ class EmailOpsProtocol(Protocol):
             acct_lines = (
                 "Linked accounts (choose ACCOUNT by context; - = default):\n"
                 + "\n".join(
-                    f"- {a['id']} — {a.get('label', '')} ({a.get('email', '')})"
+                    f"- {a['id']} — {a.get('label', '')}"
                     for a in listed)
                 + "\n\n"
             )

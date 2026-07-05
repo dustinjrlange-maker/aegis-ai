@@ -570,6 +570,10 @@ def test_classifier_prompt_lists_accounts():
     assert "ACCOUNT=<account id or ->" in prompt
     assert "google-personal" in prompt
     assert "SwitchStitch" in prompt
+    # Privacy: email addresses must NOT be shipped into the classifier prompt —
+    # the classifier only picks an id/label; resolve() matches emails locally.
+    assert "dustin.jr.lange@gmail.com" not in prompt
+    assert "TheSwitchStitch@gmail.com" not in prompt
 
 
 def test_classifier_prompt_no_accounts_unchanged():
