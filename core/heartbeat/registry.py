@@ -42,7 +42,9 @@ def build_registry(config):
         Job(id="morning_briefing", kind="notify",
             schedule=_daily_from_at(jc("morning_briefing").get("at", "07:00")),
             cooldown_s=12 * 3600, run=morning_briefing.run,
-            channels=ch("morning_briefing", ["telegram", "notification"]),
+            # Privacy: default to in-app only so the briefing (tasks + wellness
+            # data) never egresses to Telegram unless config explicitly opts in.
+            channels=ch("morning_briefing", ["notification"]),
             config=jc("morning_briefing")),
         Job(id="inbox_scan", kind="silent",
             schedule=every(inbox_mins * 60), cooldown_s=inbox_mins * 60,
