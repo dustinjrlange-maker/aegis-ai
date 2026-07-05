@@ -406,7 +406,9 @@ class UserSession:
         elif time_start:
             when = f"{date_str} {time_start}"
         if outcome["source"] == "google":
-            return f"Event '{title}' added to your Google Calendar on {when}"
+            acct = self.accounts.default() if getattr(self, "accounts", None) else None
+            label = f" ({acct['label']})" if acct and acct.get("label") else ""
+            return f"Event '{title}' added to your Google Calendar{label} on {when}"
         return f"Event '{title}' created on {when} (local — Google Calendar not connected)"
 
     def _handle_add_mood(self, arg: str) -> str:

@@ -44,6 +44,30 @@ def _creds_from_session(session, account_id=None):
     return google_proto._get_creds(account_id=account_id)
 
 
+def _represent_as_block(session, account_id=None):
+    """Prompt block describing how to present the user for this account.
+
+    Empty string when there is no account layer or nothing configured, so
+    prompts are unchanged for un-migrated users."""
+    accounts = getattr(session, "accounts", None)
+    if accounts is None:
+        return ""
+    acct = accounts.get(account_id) if account_id else accounts.default()
+    if acct is None:
+        return ""
+    rep = acct.get("represent_as") or {}
+    if not any(rep.get(k) for k in ("name", "signoff", "tone_hint")):
+        return ""
+    parts = [f"You are drafting from the user's '{acct.get('label', acct['id'])}' account."]
+    if rep.get("name"):
+        parts.append(f"Present the user as {rep['name']}.")
+    if rep.get("signoff"):
+        parts.append(f"Sign off as: {rep['signoff']}.")
+    if rep.get("tone_hint"):
+        parts.append(f"Tone: {rep['tone_hint']}.")
+    return " ".join(parts) + "\n"
+
+
 def _llm(messages: list[dict], *, sensitivity: str = "private",
          task: str | None = None) -> str:
     """Call the chat model via the central router and return the content.
@@ -174,7 +198,8 @@ def get_inbox_digest(session, max_messages: int = 10, fresh: bool = False,
     }
 
 
-def draft_reply(session, message_id: str, intent: str | None = None) -> dict:
+def draft_reply(session, message_id: str, intent: str | None = None,
+                account_id: str | None = None) -> dict:
     """Draft a reply to a specific inbox message.
 
     Args:
@@ -186,7 +211,7 @@ def draft_reply(session, message_id: str, intent: str | None = None) -> dict:
 
     The draft is SAVED to the user's Gmail drafts. NOT sent.
     """
-    creds = _creds_from_session(session)
+    creds = _creds_from_session(session, account_id)
     if not creds:
         return {"success": False, "error": "Email not authorized"}
 
@@ -195,7 +220,7 @@ def draft_reply(session, message_id: str, intent: str | None = None) -> dict:
         return {"success": False, "error": f"Could not load message {message_id}"}
 
     intent_block = f"User's intent for the reply: {intent}\n" if intent else ""
-    user_prompt = (
+    user_prompt = _represent_as_block(session, account_id) + (
         f"Draft a reply email IN THE USER'S VOICE (first person, addressed to the "
         f"sender). Keep it natural and matching the tone of the original. "
         f"3-8 sentences typical. Sign off appropriately. Do NOT include a "
@@ -255,7 +280,8 @@ def draft_reply(session, message_id: str, intent: str | None = None) -> dict:
 
 
 def draft_new(session, to: str, intent: str, subject_hint: str | None = None,
-              cc: str | None = None, bcc: str | None = None) -> dict:
+              cc: str | None = None, bcc: str | None = None,
+              account_id: str | None = None) -> dict:
     """Draft a new email (not a reply).
 
     Args:
@@ -267,7 +293,7 @@ def draft_new(session, to: str, intent: str, subject_hint: str | None = None,
 
     Returns: {success, draft_id, body, subject, to, error?}
     """
-    creds = _creds_from_session(session)
+    creds = _creds_from_session(session, account_id)
     if not creds:
         return {"success": False, "error": "Email not authorized"}
 
@@ -281,7 +307,7 @@ def draft_new(session, to: str, intent: str, subject_hint: str | None = None,
             "the body. Nothing else."
         )
 
-    user_prompt = (
+    user_prompt = _represent_as_block(session, account_id) + (
         f"Draft an email IN THE USER'S VOICE to {to}. {subject_instruction} "
         f"Keep tone natural and concise. 3-8 sentences typical. "
         f"Do NOT add '[draft]' markers or meta-commentary.\n"
@@ -326,12 +352,17 @@ def draft_new(session, to: str, intent: str, subject_hint: str | None = None,
     }
 
 
-def draft_forward(session, message_id: str, to: str, note: str | None = None) -> dict:
+def draft_forward(session, message_id: str, to: str, note: str | None = None,
+                  account_id: str | None = None) -> dict:
     """Forward an inbox message to a new recipient. Saved as a draft, NOT sent.
 
     Returns: {success, draft_id, subject, to, body, error?}
+
+    No LLM voice generation here — the body is a template quoting the original,
+    so there is nothing to inject represent-as into; account_id only selects
+    the composing account's creds.
     """
-    creds = _creds_from_session(session)
+    creds = _creds_from_session(session, account_id)
     if not creds:
         return {"success": False, "error": "Email not authorized"}
     original = gt.gmail_get_message(creds, message_id)
@@ -374,12 +405,14 @@ def get_draft(session, draft_id: str) -> dict | None:
     return gt.gmail_get_draft(creds, draft_id)
 
 
-def send_draft(session, draft_id: str) -> dict:
+def send_draft(session, draft_id: str, account_id: str | None = None) -> dict:
     """Send a previously-saved draft. EXPLICIT confirm step.
 
     Caller is responsible for collecting user intent before invoking this.
+    account_id selects the composing account's creds so a draft made from
+    account X is sent from X.
     """
-    creds = _creds_from_session(session)
+    creds = _creds_from_session(session, account_id)
     if not creds:
         return {"success": False, "error": "Email not authorized"}
     return gt.gmail_send_draft(creds, draft_id)

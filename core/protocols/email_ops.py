@@ -115,7 +115,9 @@ class EmailOpsProtocol(Protocol):
         if not message_id:
             return "I couldn't tell which email you mean — which one should I reply to?"
         intent = action.get("instruction") or text
-        res = ea.draft_reply(self._session, message_id, intent=intent)
+        acct = self._resolve_account(action)
+        acct_id = acct["id"] if acct else None
+        res = ea.draft_reply(self._session, message_id, intent=intent, account_id=acct_id)
         if not res.get("success"):
             return f"I couldn't draft that reply: {res.get('error', 'unknown error')}"
         self._pending = {
@@ -125,8 +127,13 @@ class EmailOpsProtocol(Protocol):
             "to": res.get("to", ""),
             "subject": res.get("subject", ""),
             "intent": intent,
+            "account_id": acct_id,
         }
+        from_line = ""
+        if acct:
+            from_line = f"From: {acct.get('label', acct['id'])} ({acct.get('email', '')})\n"
         return (
+            f"{from_line}"
             f"Here's your reply to {res.get('to', 'them')} —\n"
             f"Subject: {res.get('subject', '')}\n\n"
             f"{res.get('body', '')}\n\n"
@@ -149,14 +156,21 @@ class EmailOpsProtocol(Protocol):
         if not to:
             return "Who should I send it to? Give me an email address."
         intent = action.get("instruction") or text
-        res = ea.draft_new(self._session, to, intent=intent)
+        acct = self._resolve_account(action)
+        acct_id = acct["id"] if acct else None
+        res = ea.draft_new(self._session, to, intent=intent, account_id=acct_id)
         if not res.get("success"):
             return f"I couldn't draft that email: {res.get('error', 'unknown error')}"
         self._pending = {
             "draft_id": res["draft_id"], "kind": "new", "message_id": None,
             "to": res.get("to", to), "subject": res.get("subject", ""), "intent": intent,
+            "account_id": acct_id,
         }
+        from_line = ""
+        if acct:
+            from_line = f"From: {acct.get('label', acct['id'])} ({acct.get('email', '')})\n"
         return (
+            f"{from_line}"
             f"Here's your email to {res.get('to', to)} —\n"
             f"Subject: {res.get('subject', '')}\n\n"
             f"{res.get('body', '')}\n\n"
@@ -170,14 +184,21 @@ class EmailOpsProtocol(Protocol):
         to = self._extract_recipient(action)
         if not to:
             return "Who should I forward it to? Give me an email address."
-        res = ea.draft_forward(self._session, message_id, to)
+        acct = self._resolve_account(action)
+        acct_id = acct["id"] if acct else None
+        res = ea.draft_forward(self._session, message_id, to, account_id=acct_id)
         if not res.get("success"):
             return f"I couldn't draft that forward: {res.get('error', 'unknown error')}"
         self._pending = {
             "draft_id": res["draft_id"], "kind": "forward", "message_id": message_id,
             "to": res.get("to", to), "subject": res.get("subject", ""), "intent": text,
+            "account_id": acct_id,
         }
+        from_line = ""
+        if acct:
+            from_line = f"From: {acct.get('label', acct['id'])} ({acct.get('email', '')})\n"
         return (
+            f"{from_line}"
             f"Here's the forward to {res.get('to', to)} —\n"
             f"Subject: {res.get('subject', '')}\n\n"
             f"{res.get('body', '')}\n\n"
@@ -207,7 +228,8 @@ class EmailOpsProtocol(Protocol):
         if not _SEND_PHRASE.search(t) or _NOT_A_CONFIRM.search(t):
             return ("Just to confirm — send the draft to "
                     f"{self._pending.get('to', 'them')}? Say \"send it\" to confirm.")
-        res = ea.send_draft(self._session, self._pending["draft_id"])
+        res = ea.send_draft(self._session, self._pending["draft_id"],
+                            account_id=self._pending.get("account_id"))
         if not res.get("success"):
             return f"I couldn't send it: {res.get('error', 'unknown error')}"
         to = self._pending.get("to", "them")
@@ -231,12 +253,16 @@ class EmailOpsProtocol(Protocol):
         change = action.get("instruction") or text
         new_intent = f"{p.get('intent', '')} | revision: {change}".strip(" |")
         kind = p.get("kind", "reply")
+        acct_id = p.get("account_id")
         if kind == "new":
-            res = ea.draft_new(self._session, p.get("to", ""), intent=new_intent)
+            res = ea.draft_new(self._session, p.get("to", ""), intent=new_intent,
+                               account_id=acct_id)
         elif kind == "forward":
-            res = ea.draft_forward(self._session, p["message_id"], p.get("to", ""), note=new_intent)
+            res = ea.draft_forward(self._session, p["message_id"], p.get("to", ""),
+                                   note=new_intent, account_id=acct_id)
         else:
-            res = ea.draft_reply(self._session, p["message_id"], intent=new_intent)
+            res = ea.draft_reply(self._session, p["message_id"], intent=new_intent,
+                                 account_id=acct_id)
         if not res.get("success"):
             return f"I couldn't revise it: {res.get('error', 'unknown error')}"
         creds = ea._creds_from_session(self._session)

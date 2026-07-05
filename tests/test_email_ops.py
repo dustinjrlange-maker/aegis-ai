@@ -150,7 +150,7 @@ def _wire_reply(monkeypatch, draft_result):
     monkeypatch.setattr(ea, "_llm",
                         lambda messages, **kw: "ACTION=reply | REF=1 | INSTRUCTION=thank him")
     monkeypatch.setattr(ea, "draft_reply",
-                        lambda session, message_id, intent: draft_result)
+                        lambda session, message_id, intent, account_id=None: draft_result)
 
 
 def test_reply_creates_pending_and_shows_draft(monkeypatch):
@@ -216,7 +216,7 @@ def test_send_sends_pending_and_clears(monkeypatch):
                         lambda messages, **kw: "ACTION=send | REF=- | INSTRUCTION=-")
     sent = {}
     monkeypatch.setattr(ea, "send_draft",
-                        lambda session, draft_id: sent.update({"id": draft_id}) or {"success": True})
+                        lambda session, draft_id, account_id=None: sent.update({"id": draft_id}) or {"success": True})
     result = p.process_input("send it", {})
     assert result["intercept"] is True
     assert "sent to" in result["response"].lower()
@@ -244,7 +244,7 @@ def test_send_failure_keeps_pending(monkeypatch):
     monkeypatch.setattr(ea, "_llm",
                         lambda messages, **kw: "ACTION=send | REF=- | INSTRUCTION=-")
     monkeypatch.setattr(ea, "send_draft",
-                        lambda session, draft_id: {"success": False, "error": "no scope"})
+                        lambda session, draft_id, account_id=None: {"success": False, "error": "no scope"})
     result = p.process_input("send it", {})
     assert "no scope" in result["response"]
     assert p._pending is not None  # not cleared on failure
@@ -276,7 +276,7 @@ def test_edit_redrafts_and_updates_pending(monkeypatch):
     monkeypatch.setattr(ea, "_llm",
                         lambda messages, **kw: "ACTION=edit | REF=- | INSTRUCTION=make it more formal")
     monkeypatch.setattr(gt, "gmail_delete_draft", lambda creds, draft_id: None)
-    monkeypatch.setattr(ea, "draft_reply", lambda session, message_id, intent: {
+    monkeypatch.setattr(ea, "draft_reply", lambda session, message_id, intent, account_id=None: {
         "success": True, "draft_id": "d2", "to": "John <j@x.ca>",
         "subject": "Re: Money", "body": "Dear John, I confirm receipt. Regards.",
     })
@@ -308,7 +308,7 @@ def test_edit_failure_preserves_old_draft(monkeypatch):
     monkeypatch.setattr(gt, "gmail_delete_draft",
                         lambda creds, draft_id: deleted.update(called=True))
     monkeypatch.setattr(ea, "draft_reply",
-                        lambda session, message_id, intent: {"success": False, "error": "LLM down"})
+                        lambda session, message_id, intent, account_id=None: {"success": False, "error": "LLM down"})
     result = p.process_input("make it formal", {})
     assert "LLM down" in result["response"]
     assert deleted["called"] is False          # old draft NOT deleted on failure
@@ -325,7 +325,7 @@ def test_send_requires_literal_phrase(monkeypatch):
                         lambda messages, **kw: "ACTION=send | REF=- | INSTRUCTION=-")
     called = {"sent": False}
     monkeypatch.setattr(ea, "send_draft",
-                        lambda session, draft_id: called.update(sent=True) or {"success": True})
+                        lambda session, draft_id, account_id=None: called.update(sent=True) or {"success": True})
     result = p.process_input("yeah ok do it", {})   # affirmative but no send word
     assert called["sent"] is False                   # must NOT send
     assert "confirm" in result["response"].lower()
@@ -342,7 +342,7 @@ def _wire_send_classifier(monkeypatch, p):
                         lambda messages, **kw: "ACTION=send | REF=- | INSTRUCTION=-")
     called = {"sent": False}
     monkeypatch.setattr(ea, "send_draft",
-                        lambda session, draft_id: called.update(sent=True) or {"success": True})
+                        lambda session, draft_id, account_id=None: called.update(sent=True) or {"success": True})
     return called
 
 
@@ -404,7 +404,7 @@ def test_new_creates_pending(monkeypatch):
     monkeypatch.setattr(gt, "gmail_list_messages", lambda creds, max_results, categories: [])
     monkeypatch.setattr(ea, "_llm",
                         lambda messages, **kw: "ACTION=new | REF=- | TO=bob@x.ca | INSTRUCTION=say hi")
-    monkeypatch.setattr(ea, "draft_new", lambda session, to, intent: {
+    monkeypatch.setattr(ea, "draft_new", lambda session, to, intent, account_id=None: {
         "success": True, "draft_id": "n1", "to": "bob@x.ca",
         "subject": "Hello", "body": "Hi Bob, ..."})
     result = p.process_input("email bob@x.ca and say hi", {})
@@ -434,7 +434,7 @@ def test_forward_creates_pending(monkeypatch):
         {"id": "m1", "sender": "Ann <ann@x.ca>", "subject": "Numbers"}])
     monkeypatch.setattr(ea, "_llm",
                         lambda messages, **kw: "ACTION=forward | REF=1 | TO=sue@x.ca | INSTRUCTION=-")
-    monkeypatch.setattr(ea, "draft_forward", lambda session, message_id, to: {
+    monkeypatch.setattr(ea, "draft_forward", lambda session, message_id, to, account_id=None: {
         "success": True, "draft_id": "f1", "to": "sue@x.ca",
         "subject": "Fwd: Numbers", "body": "---------- Forwarded message ----------"})
     result = p.process_input("forward the Ann email to sue@x.ca", {})
@@ -454,7 +454,7 @@ def test_edit_new_draft_uses_draft_new(monkeypatch):
                         lambda messages, **kw: "ACTION=edit | REF=- | TO=- | INSTRUCTION=make it formal")
     monkeypatch.setattr(gt, "gmail_delete_draft", lambda creds, draft_id: None)
     used = {}
-    monkeypatch.setattr(ea, "draft_new", lambda session, to, intent: used.update(
+    monkeypatch.setattr(ea, "draft_new", lambda session, to, intent, account_id=None: used.update(
         to=to, intent=intent) or {"success": True, "draft_id": "n2", "to": to,
                                    "subject": "Hello", "body": "Dear Bob, ..."})
     # draft_reply must NOT be used for a 'new' draft
@@ -643,6 +643,47 @@ def test_resolve_account_absent_uses_default(tmp_path):
 def test_resolve_account_no_layer_returns_none():
     p = _proto(_FakeSession())  # session has no .accounts
     assert p._resolve_account({"account": "stitch"}) is None
+
+
+# --- Task 11: represent-as / account named in draft + send threading -----
+
+
+def _stitch_accounts(tmp_path):
+    (tmp_path / "accounts.json").write_text(json.dumps({"accounts": [
+        {"id": "google-stitch", "label": "SwitchStitch",
+         "email": "TheSwitchStitch@gmail.com", "is_default": True,
+         "represent_as": {"name": "Switch", "signoff": "Switch",
+                          "tone_hint": "maker-brand"}},
+    ]}), encoding="utf-8")
+    return AccountManager(tmp_path)
+
+
+def test_do_new_preview_states_account_and_stores_id(tmp_path, monkeypatch):
+    p = _proto(_session_with_accounts(_stitch_accounts(tmp_path)))
+    monkeypatch.setattr(ea, "draft_new",
+                        lambda session, to, intent, account_id=None: {
+                            "success": True, "draft_id": "n1", "to": to,
+                            "subject": "Hi", "body": "Hi Bob"})
+    resp = p._do_new({"to": "bob@x.com", "instruction": "say hi"},
+                     "email bob@x.com say hi")
+    assert "From: SwitchStitch (TheSwitchStitch@gmail.com)" in resp
+    assert p._pending["account_id"] == "google-stitch"
+
+
+def test_do_send_threads_composing_account_id(tmp_path, monkeypatch):
+    p = _proto(_session_with_accounts(_stitch_accounts(tmp_path)))
+    monkeypatch.setattr(ea, "draft_new",
+                        lambda session, to, intent, account_id=None: {
+                            "success": True, "draft_id": "n1", "to": to,
+                            "subject": "Hi", "body": "Hi Bob"})
+    p._do_new({"to": "bob@x.com", "instruction": "say hi"}, "email bob@x.com say hi")
+    assert p._pending["account_id"] == "google-stitch"
+    captured = {}
+    monkeypatch.setattr(ea, "send_draft",
+                        lambda session, draft_id, account_id=None: captured.update(
+                            draft_id=draft_id, account_id=account_id) or {"success": True})
+    p._do_send({}, "send it")
+    assert captured["account_id"] == "google-stitch"
 
 
 def test_gmail_archive_removes_inbox_label(monkeypatch):

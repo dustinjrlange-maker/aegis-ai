@@ -1,7 +1,11 @@
+import json
 import time
+import types
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
+
+from core.accounts.manager import AccountManager
 
 
 def _mock_session(narrative_text="Pike's brief"):
@@ -155,6 +159,84 @@ def test_gmail_get_message_helper_is_callable():
     """Sanity: gmail_get_message is importable and accepts (creds, message_id)."""
     from core.protocols.google_tools import gmail_get_message
     assert callable(gmail_get_message)
+
+
+# --- Task 11: represent-as persona injection into drafts -------------------
+
+
+def _stitch_session(tmp_path):
+    """Session backed by a real AccountManager whose default account has a
+    represent_as persona configured (label SwitchStitch)."""
+    (tmp_path / "accounts.json").write_text(json.dumps({"accounts": [
+        {"id": "google-stitch", "label": "SwitchStitch",
+         "email": "TheSwitchStitch@gmail.com", "is_default": True,
+         "represent_as": {"name": "Switch", "signoff": "Switch",
+                          "tone_hint": "maker-brand"}},
+    ]}), encoding="utf-8")
+    return types.SimpleNamespace(
+        system_prompt_base="SYS", user_id="u", accounts=AccountManager(tmp_path))
+
+
+def test_draft_new_injects_represent_as(tmp_path):
+    """draft_new with an account_id prepends the represent-as block."""
+    from core import email_assistant as ea
+    session = _stitch_session(tmp_path)
+    captured = {}
+    with patch.object(ea, "_creds_from_session", return_value=object()), \
+         patch.object(ea, "_llm",
+                      side_effect=lambda messages, **kw: captured.update(
+                          messages=messages) or "Subject: Hi\n\nBody"), \
+         patch.object(ea.gt, "gmail_create_draft",
+                      return_value={"success": True, "draft_id": "d1"}):
+        ea.draft_new(session, to="x@y.com", intent="say hi",
+                     account_id="google-stitch")
+    user_msg = captured["messages"][-1]["content"]
+    assert "SwitchStitch" in user_msg
+    assert "Present the user as Switch" in user_msg
+    assert "Sign off as: Switch" in user_msg
+    assert "Tone: maker-brand" in user_msg
+
+
+def test_draft_reply_injects_represent_as(tmp_path):
+    """draft_reply also prepends the represent-as block for the account."""
+    from core import email_assistant as ea
+    session = _stitch_session(tmp_path)
+    captured = {}
+    with patch.object(ea, "_creds_from_session", return_value=object()), \
+         patch.object(ea.gt, "gmail_get_message", return_value={
+             "from": "Ann <ann@x.ca>", "subject": "Hi", "date": "now",
+             "body": "hello"}), \
+         patch.object(ea, "_llm",
+                      side_effect=lambda messages, **kw: captured.update(
+                          messages=messages) or "Sure thing."), \
+         patch.object(ea.gt, "gmail_create_draft",
+                      return_value={"success": True, "draft_id": "d1"}):
+        ea.draft_reply(session, "m1", intent="agree", account_id="google-stitch")
+    user_msg = captured["messages"][-1]["content"]
+    assert "Present the user as Switch" in user_msg
+    # The original drafting instruction still follows the injected block.
+    assert "Draft a reply email IN THE USER'S VOICE" in user_msg
+
+
+def test_draft_new_no_account_layer_prompt_unchanged():
+    """No accounts layer -> block is '' and the prompt is byte-identical."""
+    from core import email_assistant as ea
+    session = types.SimpleNamespace(
+        system_prompt_base="SYS", user_id="u", accounts=None)
+    captured = {}
+    with patch.object(ea, "_creds_from_session", return_value=object()), \
+         patch.object(ea, "_llm",
+                      side_effect=lambda messages, **kw: captured.update(
+                          messages=messages) or "Subject: Hi\n\nBody"), \
+         patch.object(ea.gt, "gmail_create_draft",
+                      return_value={"success": True, "draft_id": "d1"}):
+        ea.draft_new(session, to="x@y.com", intent="say hi")
+    user_msg = captured["messages"][-1]["content"]
+    assert "Present the user as" not in user_msg
+    assert "Sign off as:" not in user_msg
+    assert "Tone:" not in user_msg
+    # Prompt starts with the original instruction — nothing prepended.
+    assert user_msg.startswith("Draft an email IN THE USER'S VOICE")
 
 
 def test_draft_forward_builds_quoted_draft(monkeypatch):
