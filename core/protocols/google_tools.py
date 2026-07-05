@@ -316,10 +316,12 @@ def _inbox_query(categories=("primary",)):
     return "in:inbox (%s)" % cats
 
 
-def gmail_list_messages(creds, max_results=10, categories=("primary",)):
+def gmail_list_messages(creds, max_results=10, categories=("primary",),
+                        extra_query=None):
     """List recent inbox messages.
 
     categories: Gmail tab categories to include (default Primary only).
+    extra_query: appended to the Gmail search query (e.g. "is:unread").
     Returns list of {id, subject, sender, date, snippet}.
     """
     service = _get_gmail_service(creds)
@@ -327,9 +329,12 @@ def gmail_list_messages(creds, max_results=10, categories=("primary",)):
         return []
 
     try:
+        q = _inbox_query(categories)
+        if extra_query:
+            q = f"{q} {extra_query}"
         results = service.users().messages().list(
             userId="me",
-            q=_inbox_query(categories),
+            q=q,
             maxResults=max_results,
         ).execute()
 
