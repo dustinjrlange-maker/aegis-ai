@@ -100,4 +100,35 @@ class AccountManager:
     # -- migration (Task 2) -------------------------------------------
 
     def _migrate_legacy_tokens(self):
-        pass
+        """One-time move of the legacy single-account google_tokens.json into
+        the registry model. Verify-before-move: the original is only renamed
+        (never deleted) after the copy is confirmed parseable."""
+        if self._registry_path.exists():
+            return
+        legacy = self._dir / TOKEN_FILE
+        if not legacy.exists():
+            return
+        target_dir = self._dir / "accounts" / DEFAULT_ACCOUNT_ID
+        target = target_dir / TOKEN_FILE
+        try:
+            raw = legacy.read_text(encoding="utf-8")
+            json.loads(raw)                       # verify source parses
+            target_dir.mkdir(parents=True, exist_ok=True)
+            target.write_text(raw, encoding="utf-8")
+            json.loads(target.read_text(encoding="utf-8"))   # verify copy
+        except (json.JSONDecodeError, IOError) as e:
+            logger.warning("Legacy Google token migration skipped: %s", e)
+            return
+        self._write({"accounts": [{
+            "id": DEFAULT_ACCOUNT_ID,
+            "provider": "google",
+            "email": "",
+            "label": "Primary",
+            "is_default": True,
+            "represent_as": {"name": "", "signoff": "", "tone_hint": ""},
+            "features": {"briefing_calendar": True, "inbox_scan": True},
+            "status": "ok",
+        }]})
+        legacy.rename(self._dir / (TOKEN_FILE + ".migrated"))
+        logger.info("Migrated legacy Google tokens to account '%s'",
+                    DEFAULT_ACCOUNT_ID)
