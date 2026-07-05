@@ -52,6 +52,10 @@ class Job:
     `kind` is the job's *disposition* ("silent" | "notify") — its normal
     behaviour when it runs — and is distinct from `Schedule.kind`, which is the
     schedule *type* ("every" | "daily_at"). The two `kind`s are unrelated.
+
+    `config` is the per-job configuration block from the heartbeat config; it is
+    passed verbatim into ``JobContext.config`` at run time so jobs can read their
+    own settings without a global config import.
     """
     id: str
     kind: str                         # "silent" | "notify" (normal disposition)
@@ -59,6 +63,7 @@ class Job:
     cooldown_s: int
     run: Callable[[JobContext], JobResult]
     channels: list[str] = field(default_factory=list)
+    config: dict = field(default_factory=dict)
 
 
 def is_due(schedule: Schedule, now: datetime,

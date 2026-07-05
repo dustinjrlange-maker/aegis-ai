@@ -129,3 +129,18 @@ def test_persisted_state_prevents_double_fire_across_restart(tmp_path):
     _run_once(jobs=[job], clock=clock, notifier=RecordingNotifier(),
               state=state2, hlog=hlog, is_enabled=lambda j: True)
     assert ran == [1]
+
+
+def test_job_config_flows_into_ctx(tmp_path):
+    """Job.config must reach ctx.config inside run()."""
+    captured = []
+    state, hlog = _mk(tmp_path)
+    job = J.Job(id="cfg_job", kind="silent", schedule=J.every(60), cooldown_s=60,
+                config={"marker": 42},
+                run=lambda ctx: (captured.append(ctx.config) or
+                                 J.JobResult(silent_log="ok")))
+    _run_once(jobs=[job], clock=FakeClock(datetime(2026, 7, 4, 12, 0)),
+              notifier=RecordingNotifier(), state=state, hlog=hlog,
+              is_enabled=lambda jid: True)
+    assert len(captured) == 1
+    assert captured[0].get("marker") == 42

@@ -116,7 +116,7 @@ async def _evaluate_job(job, now, is_enabled, state, hlog, notifier,
         return
 
     session = session_manager.get(user_id) if session_manager else None
-    ctx = J.JobContext(user_id=user_id, session=session, now=now, config={})
+    ctx = J.JobContext(user_id=user_id, session=session, now=now, config=job.config)
     result = await asyncio.to_thread(job.run, ctx)
 
     state.mark_fired(job.id, now, now + timedelta(seconds=job.cooldown_s))

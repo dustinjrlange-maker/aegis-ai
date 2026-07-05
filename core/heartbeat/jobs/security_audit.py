@@ -10,6 +10,12 @@ Config injection (Task 11 registry wires these into ctx.config):
   cloud_cfg   -- live RouterConfig instance (core.llm.config.RouterConfig)
   key_present -- bool; pre-resolved by registry to avoid repeated disk I/O
                  (falls back to live resolve_api_key() when absent)
+
+When ctx.config does NOT provide ``cloud_cfg``, each check calls
+``_live_cloud_cfg()`` to load the current RouterConfig fresh from disk.
+This ensures the audit catches runtime-toggle changes rather than using a
+stale snapshot baked in at startup.  Tests override ``_live_cloud_cfg``
+via monkeypatch so they remain deterministic.
 """
 
 import logging
@@ -17,6 +23,21 @@ import logging
 from core.heartbeat.job import JobResult
 
 logger = logging.getLogger("aegis.heartbeat")
+
+
+def _live_cloud_cfg():
+    """Load the current RouterConfig; returns None on any failure.
+
+    Always performs a fresh load (reads core_config.json + data/llm_router.json
+    override) so the audit catches runtime-toggle changes.  Failures are logged
+    and never propagated — returning None causes checks to skip gracefully.
+    """
+    try:
+        from core.llm.config import load_config
+        return load_config()
+    except Exception:
+        logger.exception("security_audit: failed to load live RouterConfig")
+        return None
 
 
 def check_cloud_misconfig(ctx):
@@ -28,6 +49,8 @@ def check_cloud_misconfig(ctx):
     RouterConfig.cloud_enabled (core/llm/config.py).
     """
     cfg = (ctx.config or {}).get("cloud_cfg")
+    if cfg is None:
+        cfg = _live_cloud_cfg()
     if cfg is None:
         return None
     if not cfg.cloud_enabled:
@@ -61,6 +84,8 @@ def check_escalation_consent_invariant(ctx):
     """
     cfg = (ctx.config or {}).get("cloud_cfg")
     if cfg is None:
+        cfg = _live_cloud_cfg()
+    if cfg is None:
         return None
     if cfg.cloud_trouble_escalation and not cfg.trouble_private_consent:
         return (
@@ -83,6 +108,8 @@ def check_escalation_without_cloud(ctx):
     (core/llm/config.py).
     """
     cfg = (ctx.config or {}).get("cloud_cfg")
+    if cfg is None:
+        cfg = _live_cloud_cfg()
     if cfg is None:
         return None
     if cfg.cloud_trouble_escalation and not cfg.cloud_enabled:

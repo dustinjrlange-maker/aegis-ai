@@ -234,3 +234,61 @@ def test_checks_is_list_of_callables():
     assert len(SA.CHECKS) >= 2
     for fn in SA.CHECKS:
         assert callable(fn)
+
+
+# ---------------------------------------------------------------------------
+# _live_cloud_cfg fallback — no ctx.config["cloud_cfg"] injection
+# ---------------------------------------------------------------------------
+
+class _LiveBadCfg:
+    """Stub: escalation on, consent gate off — invariant violated."""
+    cloud_enabled = True
+    cloud_trouble_escalation = True
+    trouble_private_consent = False
+
+
+class _LiveCleanCfg:
+    """Stub: all safe — no issues."""
+    cloud_enabled = False
+    cloud_trouble_escalation = False
+    trouble_private_consent = True
+
+
+def test_check_uses_live_cfg_bad_state(monkeypatch):
+    """No cloud_cfg injection => _live_cloud_cfg() is called; bad state flagged."""
+    monkeypatch.setattr(SA, "_live_cloud_cfg", lambda: _LiveBadCfg())
+    ctx = _ctx({})   # no cloud_cfg key
+    msg = SA.check_escalation_consent_invariant(ctx)
+    assert msg is not None
+    assert "consent" in msg.lower() or "private" in msg.lower()
+
+
+def test_check_uses_live_cfg_clean_state(monkeypatch):
+    """No cloud_cfg injection => _live_cloud_cfg() is called; clean state is None."""
+    monkeypatch.setattr(SA, "_live_cloud_cfg", lambda: _LiveCleanCfg())
+    ctx = _ctx({})
+    assert SA.check_escalation_consent_invariant(ctx) is None
+
+
+def test_injected_cloud_cfg_overrides_live(monkeypatch):
+    """Explicit cloud_cfg in ctx.config takes precedence; _live_cloud_cfg NOT called."""
+    called = []
+    monkeypatch.setattr(SA, "_live_cloud_cfg", lambda: (called.append(1) or _LiveBadCfg()))
+
+    class InjectedCfg:
+        cloud_enabled = False
+        cloud_trouble_escalation = False
+        trouble_private_consent = True
+
+    ctx = _ctx({"cloud_cfg": InjectedCfg()})
+    assert SA.check_escalation_without_cloud(ctx) is None
+    assert called == []   # live loader was NOT touched
+
+
+def test_live_cloud_cfg_loader_failure_skips_check(monkeypatch):
+    """_live_cloud_cfg() returning None causes check to skip (return None)."""
+    monkeypatch.setattr(SA, "_live_cloud_cfg", lambda: None)
+    ctx = _ctx({})
+    assert SA.check_cloud_misconfig(ctx) is None
+    assert SA.check_escalation_consent_invariant(ctx) is None
+    assert SA.check_escalation_without_cloud(ctx) is None
