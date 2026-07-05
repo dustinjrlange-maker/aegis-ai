@@ -110,6 +110,26 @@ def test_check_cloud_misconfig_skips_when_no_cfg():
     assert SA.check_cloud_misconfig(_ctx()) is None
 
 
+def test_check_cloud_misconfig_live_resolve_none_flags(monkeypatch):
+    """key_present NOT injected -> live resolve_api_key() returns None -> flag.
+
+    Exercises the function-local `from core.llm.config import resolve_api_key`
+    fallback branch deterministically, without touching the real key file.
+    """
+    monkeypatch.setattr("core.llm.config.resolve_api_key", lambda: None)
+    ctx = _ctx({"cloud_cfg": _CfgCloudOnNoKey()})   # no key_present injected
+    msg = SA.check_cloud_misconfig(ctx)
+    assert msg is not None
+    assert "key" in msg.lower() or "enabled" in msg.lower()
+
+
+def test_check_cloud_misconfig_live_resolve_key_clean(monkeypatch):
+    """key_present NOT injected -> live resolve_api_key() returns a key -> clean."""
+    monkeypatch.setattr("core.llm.config.resolve_api_key", lambda: "sk-ant-sentinel")
+    ctx = _ctx({"cloud_cfg": _CfgCloudOnWithKey()})   # no key_present injected
+    assert SA.check_cloud_misconfig(ctx) is None
+
+
 # ---------------------------------------------------------------------------
 # check_escalation_consent_invariant — real check
 # ---------------------------------------------------------------------------
