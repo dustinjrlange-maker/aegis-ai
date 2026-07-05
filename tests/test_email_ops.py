@@ -628,25 +628,50 @@ def _real_accounts(tmp_path):
 
 def test_resolve_account_explicit_hint(tmp_path):
     p = _proto(_session_with_accounts(_real_accounts(tmp_path)))
-    acct = p._resolve_account({"account": "stitch"})
+    acct, _ = p._resolve_account({"account": "stitch"})
     assert acct["id"] == "google-stitch"
 
 
 def test_resolve_account_unknown_falls_back_to_default(tmp_path):
     p = _proto(_session_with_accounts(_real_accounts(tmp_path)))
-    acct = p._resolve_account({"account": "nonsense"})
+    acct, _ = p._resolve_account({"account": "nonsense"})
     assert acct["id"] == "google-personal"
 
 
 def test_resolve_account_absent_uses_default(tmp_path):
     p = _proto(_session_with_accounts(_real_accounts(tmp_path)))
-    acct = p._resolve_account({})
+    acct, _ = p._resolve_account({})
     assert acct["id"] == "google-personal"
 
 
 def test_resolve_account_no_layer_returns_none():
     p = _proto(_FakeSession())  # session has no .accounts
-    assert p._resolve_account({"account": "stitch"}) is None
+    acct, note = p._resolve_account({"account": "stitch"})
+    assert acct is None
+    assert note == ""
+
+
+def test_resolve_account_note_fires_on_unmatched_hint(tmp_path):
+    """A hint that doesn't resolve produces a non-empty note mentioning the hint
+    and the fallback label; matching hint or absent hint yields note == ''."""
+    p = _proto(_session_with_accounts(_real_accounts(tmp_path)))
+    # unmatched hint -> fallback to default with a note
+    acct, note = p._resolve_account({"account": "nonexistent-xyz"})
+    assert acct is not None
+    assert acct["id"] == "google-personal"
+    assert note  # non-empty
+    assert "nonexistent-xyz" in note
+    assert "Personal" in note
+
+    # matching hint -> no note
+    acct2, note2 = p._resolve_account({"account": "stitch"})
+    assert acct2["id"] == "google-stitch"
+    assert note2 == ""
+
+    # absent hint -> no note
+    acct3, note3 = p._resolve_account({})
+    assert acct3["id"] == "google-personal"
+    assert note3 == ""
 
 
 # --- Task 11: represent-as / account named in draft + send threading -----

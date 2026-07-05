@@ -115,7 +115,7 @@ class EmailOpsProtocol(Protocol):
         if not message_id:
             return "I couldn't tell which email you mean — which one should I reply to?"
         intent = action.get("instruction") or text
-        acct = self._resolve_account(action)
+        acct, acct_note = self._resolve_account(action)
         acct_id = acct["id"] if acct else None
         res = ea.draft_reply(self._session, message_id, intent=intent, account_id=acct_id)
         if not res.get("success"):
@@ -130,7 +130,7 @@ class EmailOpsProtocol(Protocol):
             "account_id": acct_id,
         }
         return (
-            f"{self._from_line(acct)}"
+            f"{acct_note}{self._from_line(acct)}"
             f"Here's your reply to {res.get('to', 'them')} —\n"
             f"Subject: {res.get('subject', '')}\n\n"
             f"{res.get('body', '')}\n\n"
@@ -163,7 +163,7 @@ class EmailOpsProtocol(Protocol):
         if not to:
             return "Who should I send it to? Give me an email address."
         intent = action.get("instruction") or text
-        acct = self._resolve_account(action)
+        acct, acct_note = self._resolve_account(action)
         acct_id = acct["id"] if acct else None
         res = ea.draft_new(self._session, to, intent=intent, account_id=acct_id)
         if not res.get("success"):
@@ -174,7 +174,7 @@ class EmailOpsProtocol(Protocol):
             "account_id": acct_id,
         }
         return (
-            f"{self._from_line(acct)}"
+            f"{acct_note}{self._from_line(acct)}"
             f"Here's your email to {res.get('to', to)} —\n"
             f"Subject: {res.get('subject', '')}\n\n"
             f"{res.get('body', '')}\n\n"
@@ -188,7 +188,7 @@ class EmailOpsProtocol(Protocol):
         to = self._extract_recipient(action)
         if not to:
             return "Who should I forward it to? Give me an email address."
-        acct = self._resolve_account(action)
+        acct, acct_note = self._resolve_account(action)
         acct_id = acct["id"] if acct else None
         res = ea.draft_forward(self._session, message_id, to, account_id=acct_id)
         if not res.get("success"):
@@ -199,7 +199,7 @@ class EmailOpsProtocol(Protocol):
             "account_id": acct_id,
         }
         return (
-            f"{self._from_line(acct)}"
+            f"{acct_note}{self._from_line(acct)}"
             f"Here's the forward to {res.get('to', to)} —\n"
             f"Subject: {res.get('subject', '')}\n\n"
             f"{res.get('body', '')}\n\n"
@@ -405,17 +405,25 @@ class EmailOpsProtocol(Protocol):
     def _resolve_account(self, action):
         """Map the classifier's ACCOUNT= hint to an account record.
 
-        Explicit hint -> resolve(); unknown or absent -> default account.
-        Returns the account dict or None (no account layer / none linked)."""
+        Returns (account_or_None, note). *note* is a non-empty string ONLY when
+        the user named an account that couldn't be matched and we fell back to
+        the default — so the caller can tell them in the preview instead of
+        silently composing from the wrong account. Absent/blank hint, or a hint
+        that resolves, yields note = ""."""
         accounts = getattr(self._session, "accounts", None)
         if accounts is None:
-            return None
+            return None, ""
         hint = (action.get("account") or "").strip()
         if hint and hint != "-":
             acct = accounts.resolve(hint)
             if acct is not None:
-                return acct
-        return accounts.default()
+                return acct, ""
+            default = accounts.default()
+            if default is not None:
+                label = default.get("label", default["id"])
+                return default, f'(Couldn\'t match account "{hint}" — using {label} instead.)\n'
+            return None, ""
+        return accounts.default(), ""
 
     def _classify(self, text):
         if self._pending is None:
