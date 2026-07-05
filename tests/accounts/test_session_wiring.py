@@ -42,3 +42,17 @@ def test_user_session_exposes_account_manager(test_user):
     sm = SessionManager()
     session = sm.get_or_create(test_user)
     assert isinstance(session.accounts, AccountManager)
+
+
+def test_session_wires_fetch_unread_emails(monkeypatch, test_user):
+    """UserSession must expose a callable fetch_unread_emails that delegates
+    to fetch_unread_all_accounts (Wave 3.5 Task 8 seam)."""
+    sentinel = object()
+    monkeypatch.setattr(
+        "core.accounts.inbox.fetch_unread_all_accounts",
+        lambda s: sentinel,
+    )
+    sm = SessionManager()
+    session = sm.get_or_create(test_user)
+    assert callable(session.fetch_unread_emails)
+    assert session.fetch_unread_emails() is sentinel
