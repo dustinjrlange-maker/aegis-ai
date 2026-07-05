@@ -286,7 +286,11 @@ class OperationsProtocol(Protocol):
                     if now.time() < _time(int(hh), int(mm)):
                         continue
                 except (ValueError, AttributeError):
-                    pass  # malformed time string — fire anyway
+                    logger.warning(
+                        "recurring entry %r has malformed time %r; "
+                        "firing without time gate",
+                        rec.get("id", rec.get("text")), hhmm,
+                    )
 
             category = rec.get("category", "general")
             task = self.add_task(rec["text"], category=category)
