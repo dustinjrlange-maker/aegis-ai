@@ -1,4 +1,7 @@
+import json
+
 import core.email_assistant as ea
+from core.accounts.manager import AccountManager
 from core.protocols import google_tools as gt
 
 
@@ -543,8 +546,6 @@ def test_mark_read_bad_ref_asks(monkeypatch):
 
 # --- Task 10: ACCOUNT= classifier field + account resolution -------------
 
-import json
-from core.accounts.manager import AccountManager
 from tests.test_briefing_accounts import FakeAccounts
 
 
@@ -578,6 +579,14 @@ def test_classifier_prompt_no_accounts_unchanged():
     assert "Linked accounts" not in prompt
 
 
+def test_classifier_prompt_empty_registry_unchanged():
+    """Accounts layer present but EMPTY -> original prompt (no ACCOUNT token)."""
+    p = _proto(_session_with_accounts(FakeAccounts(accounts=[], creds_by_id={})))
+    prompt = p._build_classifier_prompt("hi", "", False)
+    assert "ACCOUNT=" not in prompt
+    assert "Linked accounts" not in prompt
+
+
 def test_parse_classification_account():
     p = _proto(_FakeSession())
     out = p._parse_classification(
@@ -592,6 +601,15 @@ def test_parse_classification_account_dash_absent():
     out = p._parse_classification(
         "ACTION=new | REF=- | TO=bob@x.com | ACCOUNT=- | INSTRUCTION=say hi")
     assert "account" not in out
+
+
+def test_parse_classification_account_out_of_order():
+    """ACCOUNT after INSTRUCTION: still parsed, instruction stays clean."""
+    p = _proto(_FakeSession())
+    out = p._parse_classification(
+        "ACTION=new | INSTRUCTION=say hi | ACCOUNT=google-stitch")
+    assert out["account"] == "google-stitch"
+    assert out["instruction"] == "say hi"
 
 
 def _real_accounts(tmp_path):

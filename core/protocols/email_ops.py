@@ -272,17 +272,24 @@ class EmailOpsProtocol(Protocol):
 
     def _build_classifier_prompt(self, text, listing, pending):
         accounts = getattr(self._session, "accounts", None)
-        acct_lines = ""
-        if accounts:
-            listed = accounts.list()
-            if listed:
-                acct_lines = (
-                    "Linked accounts (choose ACCOUNT by context; - = default):\n"
-                    + "\n".join(
-                        f"- {a['id']} — {a.get('label', '')} ({a.get('email', '')})"
-                        for a in listed)
-                    + "\n\n"
-                )
+        listed = accounts.list() if accounts else []
+        if listed:
+            acct_field = "| ACCOUNT=<account id or -> "
+            acct_lines = (
+                "Linked accounts (choose ACCOUNT by context; - = default):\n"
+                + "\n".join(
+                    f"- {a['id']} — {a.get('label', '')} ({a.get('email', '')})"
+                    for a in listed)
+                + "\n\n"
+            )
+            acct_rule = (
+                "- ACCOUNT: which linked account to act as. Set it only if the "
+                "user names or clearly implies one; otherwise leave it -.\n"
+            )
+        else:
+            acct_field = ""
+            acct_lines = ""
+            acct_rule = ""
         return (
             "You classify a user's email request into ONE action.\n\n"
             "Recent inbox (most recent first):\n"
@@ -291,8 +298,8 @@ class EmailOpsProtocol(Protocol):
             f'User said: "{text}"\n\n'
             "Reply with ONE line, exactly this format:\n"
             "ACTION=<reply|new|forward|mark_read|archive|send|edit|discard|none> | REF=<inbox number or -> "
-            "| TO=<email address or -> | ACCOUNT=<account id or -> | INSTRUCTION=<what to say, or ->\n\n"
-            + acct_lines +
+            f"| TO=<email address or -> {acct_field}| INSTRUCTION=<what to say, or ->\n\n"
+            f"{acct_lines}"
             "Rules:\n"
             "- reply: replying to an inbox email. REF = the inbox number. "
             "INSTRUCTION = what the reply should say.\n"
@@ -307,6 +314,7 @@ class EmailOpsProtocol(Protocol):
             "Only if a draft is pending.\n"
             "- discard: cancel the pending draft. Only if a draft is pending.\n"
             "- none: anything that is not an email action.\n"
+            f"{acct_rule}"
             "Output ONLY the one line. No explanation."
         )
 
