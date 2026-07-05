@@ -115,7 +115,7 @@ def collect_briefing_facts(session, period: str | None = None) -> dict:
     try:
         accounts = getattr(session, "accounts", None)
         from core.protocols.google_tools import gmail_unread_count
-        for acct in (accounts.list() if accounts else []):
+        for acct in (accounts.list(feature="inbox_scan") if accounts else []):
             creds = accounts.creds_for(acct["id"])
             if creds is None:
                 continue

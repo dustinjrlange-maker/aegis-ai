@@ -130,12 +130,14 @@ def test_single_account_no_prefix():
 def test_error_skip_none_creds():
     """Account whose creds_for returns None is skipped; briefing does not raise."""
     acct_bad = {"id": "bad-account", "label": "Bad",
-                "features": {"briefing_calendar": True}}
+                "features": {"briefing_calendar": True, "inbox_scan": True}}
 
     accounts = FakeAccounts(accounts=[acct_bad], creds_by_id={})
     session  = _make_session(accounts=accounts)
 
-    with patch("core.protocols.google_tools.gmail_unread_count", return_value=0):
+    with patch("core.protocols.google_tools.gmail_unread_count", return_value=99):
         facts = collect_briefing_facts(session, period="morning")
 
     assert facts["events_today"] == []
+    # None creds skips the unread block too — count stays 0 despite patch.
+    assert facts["unread_email_count"] == 0
