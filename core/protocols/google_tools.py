@@ -98,7 +98,7 @@ def load_credentials(user_data_dir, account_id=None):
         try:
             from google.auth.transport.requests import Request
             creds.refresh(Request())
-            save_credentials(token_dir, creds)
+            save_credentials(user_data_dir, creds, account_id=account_id)
             logger.debug("Refreshed Google OAuth tokens")
         except Exception as e:
             logger.warning("Could not refresh Google tokens: %s", e)

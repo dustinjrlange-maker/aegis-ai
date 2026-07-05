@@ -31,3 +31,8 @@ def test_unknown_account_id_falls_back_to_user_dir(tmp_path):
 def test_empty_or_corrupt_registry_falls_back(tmp_path):
     (tmp_path / "accounts.json").write_text("{corrupt", encoding="utf-8")
     assert _resolve_token_dir(tmp_path) == tmp_path
+
+
+def test_registry_no_default_falls_back_to_first_account(tmp_path):
+    _registry(tmp_path, [{"id": "a"}, {"id": "b"}])   # neither is_default
+    assert _resolve_token_dir(tmp_path) == tmp_path / "accounts" / "a"
