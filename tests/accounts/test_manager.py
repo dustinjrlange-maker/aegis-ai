@@ -85,3 +85,29 @@ def test_set_status_unknown_id_is_noop(tmp_path):
     AccountManager(tmp_path).set_status("no-such-id", "error")
     data = json.loads((tmp_path / "accounts.json").read_text(encoding="utf-8"))
     assert data["accounts"][0]["status"] == "ok"  # unchanged
+
+
+def test_creds_for_returns_none_without_account(tmp_path):
+    assert AccountManager(tmp_path).creds_for() is None
+
+
+def test_creds_for_marks_error_when_tokens_exist_but_load_fails(tmp_path, monkeypatch):
+    _write_registry(tmp_path, [ACCT_A])
+    token_dir = tmp_path / "accounts" / "google-personal"
+    token_dir.mkdir(parents=True)
+    (token_dir / "google_tokens.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(
+        "core.protocols.google_tools.load_credentials", lambda d, account_id=None: None)
+    am = AccountManager(tmp_path)
+    assert am.creds_for("google-personal") is None
+    assert am.get("google-personal")["status"] == "error"
+
+
+def test_creds_for_success_resets_status(tmp_path, monkeypatch):
+    _write_registry(tmp_path, [dict(ACCT_A, status="error")])
+    monkeypatch.setattr(
+        "core.protocols.google_tools.load_credentials",
+        lambda d, account_id=None: object())
+    am = AccountManager(tmp_path)
+    assert am.creds_for("google-personal") is not None
+    assert am.get("google-personal")["status"] == "ok"

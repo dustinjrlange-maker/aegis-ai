@@ -97,6 +97,27 @@ class AccountManager:
                 self._write(data)
                 return
 
+    def creds_for(self, account_id=None):
+        """Load Google credentials for an account (default account when None).
+
+        Returns Credentials or None. When tokens exist but fail to load or
+        refresh, the account is marked status="error" so UI/briefing can
+        surface "needs reconnecting" instead of silently dropping it.
+        """
+        from core.protocols import google_tools
+        acct = self.get(account_id) if account_id else self.default()
+        if acct is None:
+            return None
+        creds = google_tools.load_credentials(self._dir, account_id=acct["id"])
+        token_file = self._dir / "accounts" / acct["id"] / TOKEN_FILE
+        if creds is None:
+            if token_file.exists() and acct.get("status") != "error":
+                self.set_status(acct["id"], "error")
+            return None
+        if acct.get("status") != "ok":
+            self.set_status(acct["id"], "ok")
+        return creds
+
     # -- migration (Task 2) -------------------------------------------
 
     def _migrate_legacy_tokens(self):
