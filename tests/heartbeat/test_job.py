@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 from core.heartbeat import job as J
 
 
