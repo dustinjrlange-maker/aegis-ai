@@ -129,16 +129,19 @@ class EmailOpsProtocol(Protocol):
             "intent": intent,
             "account_id": acct_id,
         }
-        from_line = ""
-        if acct:
-            from_line = f"From: {acct.get('label', acct['id'])} ({acct.get('email', '')})\n"
         return (
-            f"{from_line}"
+            f"{self._from_line(acct)}"
             f"Here's your reply to {res.get('to', 'them')} —\n"
             f"Subject: {res.get('subject', '')}\n\n"
             f"{res.get('body', '')}\n\n"
             "Send it, tweak it, or discard?"
         )
+
+    def _from_line(self, acct):
+        """Preview 'From:' line for a resolved account, or '' when none."""
+        if not acct:
+            return ""
+        return f"From: {acct.get('label', acct['id'])} ({acct.get('email', '')})\n"
 
     def _extract_recipient(self, action):
         """Recipient comes only from the classifier's structured TO= field.
@@ -166,11 +169,8 @@ class EmailOpsProtocol(Protocol):
             "to": res.get("to", to), "subject": res.get("subject", ""), "intent": intent,
             "account_id": acct_id,
         }
-        from_line = ""
-        if acct:
-            from_line = f"From: {acct.get('label', acct['id'])} ({acct.get('email', '')})\n"
         return (
-            f"{from_line}"
+            f"{self._from_line(acct)}"
             f"Here's your email to {res.get('to', to)} —\n"
             f"Subject: {res.get('subject', '')}\n\n"
             f"{res.get('body', '')}\n\n"
@@ -194,11 +194,8 @@ class EmailOpsProtocol(Protocol):
             "to": res.get("to", to), "subject": res.get("subject", ""), "intent": text,
             "account_id": acct_id,
         }
-        from_line = ""
-        if acct:
-            from_line = f"From: {acct.get('label', acct['id'])} ({acct.get('email', '')})\n"
         return (
-            f"{from_line}"
+            f"{self._from_line(acct)}"
             f"Here's the forward to {res.get('to', to)} —\n"
             f"Subject: {res.get('subject', '')}\n\n"
             f"{res.get('body', '')}\n\n"
@@ -237,7 +234,7 @@ class EmailOpsProtocol(Protocol):
         return f"Sent to {to}."
 
     def _do_discard(self, action, text):
-        creds = ea._creds_from_session(self._session)
+        creds = ea._creds_from_session(self._session, self._pending.get("account_id"))
         try:
             gt.gmail_delete_draft(creds, self._pending["draft_id"])
         except Exception:
@@ -265,7 +262,7 @@ class EmailOpsProtocol(Protocol):
                                  account_id=acct_id)
         if not res.get("success"):
             return f"I couldn't revise it: {res.get('error', 'unknown error')}"
-        creds = ea._creds_from_session(self._session)
+        creds = ea._creds_from_session(self._session, acct_id)
         try:
             gt.gmail_delete_draft(creds, p["draft_id"])
         except Exception:
