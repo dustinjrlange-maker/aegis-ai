@@ -13222,7 +13222,9 @@ function _briefingTaskCard(t, klass) {
 }
 
 function briefingOpenEvent(dateStr) {
-    closeBriefingPanel();
+    // Open the Calendar panel layered ON TOP of the briefing — do NOT close the
+    // briefing (panels are independent stack-based overlays). Mirrors
+    // briefingOpenTask, which likewise leaves the briefing open.
     openCalendarPanel();
     if (dateStr && dateStr.length >= 10) {
         try {
