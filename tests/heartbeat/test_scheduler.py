@@ -1,4 +1,5 @@
 import asyncio
+import json
 from datetime import datetime
 from core.heartbeat import job as J
 from core.heartbeat.state import HeartbeatState
@@ -84,6 +85,9 @@ def test_silent_job_anomaly_defers_push_in_quiet_hours(tmp_path):
                               session_manager=None, sleep=_sleep, max_ticks=2))
     assert len(note.pushes) == 1
     assert note.pushes[0][1] == "Alert"
+    recs = [json.loads(l) for l in
+            (tmp_path / "l.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert any(r["outcome"] == "deferred" for r in recs)
 
 
 def test_one_job_crash_does_not_kill_siblings(tmp_path):

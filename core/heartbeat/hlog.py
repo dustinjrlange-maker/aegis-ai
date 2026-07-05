@@ -1,6 +1,6 @@
 """Structured heartbeat run log (JSONL). One record per job per tick that did
-something. outcome in {silent_log, notified, skipped_cooldown, skipped_quiet,
-skipped_disabled, error}. Size-capped by dropping oldest lines."""
+something. outcome in {silent_log, notified, deferred, skipped_cooldown,
+skipped_quiet, skipped_disabled, error}. Size-capped by dropping oldest lines."""
 
 import json
 import logging
@@ -8,7 +8,7 @@ from pathlib import Path
 
 logger = logging.getLogger("aegis.heartbeat")
 
-_VALID = {"silent_log", "notified", "skipped_cooldown",
+_VALID = {"silent_log", "notified", "deferred", "skipped_cooldown",
           "skipped_quiet", "skipped_disabled", "error"}
 
 

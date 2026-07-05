@@ -66,8 +66,9 @@ async def _flush_deferred(now, quiet_hours, state, notifier):
         await notifier.push(push["user_id"], push["title"], push["body"],
                             push["channels"])
         if "job_id" in push:
+            # stamp as fired now so the same-tick evaluate doesn't re-run and double-push
             state.mark_fired(push["job_id"], now,
-                             now + timedelta(seconds=push.get("cooldown_s", 60)))
+                             now + timedelta(seconds=push["cooldown_s"]))
 
 
 async def _evaluate_job(job, now, is_enabled, state, hlog, notifier,
@@ -127,7 +128,7 @@ async def _evaluate_job(job, now, is_enabled, state, hlog, notifier,
             state.queue_push({"user_id": user_id, "title": result.title,
                               "body": result.body, "channels": channels,
                               "job_id": job.id, "cooldown_s": job.cooldown_s})
-            hlog.write(now, job.id, job.kind, "silent_log", result.silent_log, 0)
+            hlog.write(now, job.id, job.kind, "deferred", result.silent_log, 0)
         else:
             await notifier.push(user_id, result.title, result.body, channels)
             hlog.write(now, job.id, job.kind, "notified", result.silent_log, 0)
