@@ -105,5 +105,18 @@
     "tooling": {
         "wishlist_path": "",
         "autocall_enabled": true
+    },
+
+    "heartbeat": {
+        "enabled": true,
+        "tick_seconds": 30,
+        "quiet_hours": { "start": "22:00", "end": "07:00" },
+        "jobs": {
+            "recurring_fire":   { "enabled": true },
+            "morning_briefing": { "enabled": true, "at": "07:00", "channels": ["telegram", "notification"] },
+            "inbox_scan":       { "enabled": true, "every_minutes": 30, "channels": ["notification"],
+                                  "important_senders": [], "keywords": ["urgent", "invoice", "overdue", "call sheet", "contract"], "notify_threshold": 1 },
+            "security_audit":   { "enabled": true, "every_minutes": 60 }
+        }
     }
 }

@@ -58,6 +58,20 @@ def get_voice_settings():
 _PENDING_VOICE = OrderedDict()
 _PENDING_MAX = 50
 
+# Running python-telegram-bot Application instance, set on bot start.
+_APPLICATION = None
+
+
+def _set_application(app):
+    global _APPLICATION
+    _APPLICATION = app
+
+
+def get_application():
+    """The running python-telegram-bot Application, or None if not started.
+    Used by the heartbeat notifier to push proactively."""
+    return _APPLICATION
+
 
 def _stash_voice(token, chat_id, text):
     """Store reply text keyed by a random token; evict oldest past the cap."""
@@ -399,6 +413,7 @@ async def start_telegram_bot(session_manager, chat_fn: Callable):
     await app.updater.start_polling(drop_pending_updates=True)
 
     logger.info("Telegram bot started (polling mode)")
+    _set_application(app)
     return app
 
 
