@@ -7,6 +7,9 @@ Architecture note
 a live mailbox. The real EmailOps seam is wired in Task 13 by attaching a
 ``fetch_unread_emails`` callable to the session object; until then the job
 self-disables gracefully (logs once, no notification, never raises).
+
+Contract: the ``fetch_unread_emails`` callable may raise once real mailbox I/O
+is wired; we treat any exception as "unavailable" and return None (self-disable).
 """
 
 import logging
@@ -23,11 +26,18 @@ def fetch_unread(session):
     Returns None when email is not configured for the current user (the
     ``fetch_unread_emails`` accessor is absent from *session*). Task 13 wires
     the real EmailOps accessor here; no change to this function is needed.
+
+    The ``fetch_unread_emails`` callable may raise (real mailbox I/O); any
+    exception is treated as "unavailable" and returns None (self-disable).
     """
     getter = getattr(session, "fetch_unread_emails", None)
     if getter is None:
         return None
-    return getter()
+    try:
+        return getter()
+    except Exception:
+        logger.exception("inbox fetch_unread failed")
+        return None
 
 
 def _is_important(email, senders, keywords):
@@ -70,7 +80,7 @@ def run(ctx):
 
     if len(important) >= threshold:
         lines = "\n".join(
-            f"- {e['from']}: {e['subject']}" for e in important
+            f"- {e.get('from', '?')}: {e.get('subject', '')}" for e in important
         )
         logger.info("inbox_scan: escalating — %d important email(s)", len(important))
         return JobResult(

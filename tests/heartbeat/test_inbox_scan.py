@@ -50,3 +50,43 @@ def test_email_unconfigured_self_disables(monkeypatch):
     result = inbox_scan.run(_ctx())
     assert result.notify is False
     assert "not configured" in result.silent_log.lower()
+
+
+def test_malformed_important_email_does_not_raise(monkeypatch):
+    """Keyword-important email missing a 'from' key must not crash the body-builder."""
+    monkeypatch.setattr(inbox_scan, "fetch_unread", lambda s: [
+        {"subject": "urgent invoice"},
+    ])
+    ctx = _ctx({"important_senders": [], "notify_threshold": 1,
+                "keywords": ["urgent", "invoice"]})
+    result = inbox_scan.run(ctx)
+    assert result.notify is True
+
+
+def test_sender_match_is_case_insensitive(monkeypatch):
+    """Sender comparison must ignore case on both sides."""
+    monkeypatch.setattr(inbox_scan, "fetch_unread", lambda s: [
+        {"from": "BOSS@studio.com", "subject": "hello"},
+    ])
+    ctx = _ctx({"important_senders": ["boss@studio.com"], "notify_threshold": 1})
+    result = inbox_scan.run(ctx)
+    assert result.notify is True
+
+
+def test_threshold_above_one(monkeypatch):
+    """notify_threshold=2 stays silent at 1 important, escalates at 2."""
+    ctx = _ctx({"important_senders": ["boss@studio.com"], "notify_threshold": 2})
+
+    monkeypatch.setattr(inbox_scan, "fetch_unread", lambda s: [
+        {"from": "boss@studio.com", "subject": "one"},
+        {"from": "spam@promo.io", "subject": "50% off"},
+    ])
+    result = inbox_scan.run(ctx)
+    assert result.notify is False
+
+    monkeypatch.setattr(inbox_scan, "fetch_unread", lambda s: [
+        {"from": "boss@studio.com", "subject": "one"},
+        {"from": "boss@studio.com", "subject": "two"},
+    ])
+    result = inbox_scan.run(ctx)
+    assert result.notify is True
