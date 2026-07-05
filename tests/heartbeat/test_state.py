@@ -30,3 +30,17 @@ def test_pending_pushes_queue(tmp_path):
     pending = st2.drain_pushes()
     assert pending == [{"user_id": "switch", "title": "t", "body": "b", "channels": ["notification"]}]
     assert st2.drain_pushes() == []
+
+
+def test_garbage_file_starts_fresh(tmp_path):
+    p = tmp_path / "heartbeat.json"
+    p.write_text("}{not json", encoding="utf-8")
+    st = HeartbeatState(p)
+    assert st.get("anything") is None
+
+
+def test_valid_json_bad_shape_starts_fresh(tmp_path):
+    p = tmp_path / "heartbeat.json"
+    p.write_text('{"jobs": {"j": {"last_fired_at": "garbage"}}}', encoding="utf-8")
+    st = HeartbeatState(p)
+    assert st.get("j") is None
