@@ -31,6 +31,10 @@ def build_registry(config):
         """Per-job channel override; uses *default* when not configured."""
         return jc(job_id).get("channels", default)
 
+    # Compute each interval once so schedule and cooldown can't drift apart.
+    inbox_mins = jc("inbox_scan").get("every_minutes", 30)
+    audit_mins = jc("security_audit").get("every_minutes", 60)
+
     return [
         Job(id="recurring_fire", kind="silent", schedule=every(60),
             cooldown_s=60, run=recurring_fire.run,
@@ -41,15 +45,15 @@ def build_registry(config):
             channels=ch("morning_briefing", ["telegram", "notification"]),
             config=jc("morning_briefing")),
         Job(id="inbox_scan", kind="silent",
-            schedule=every(jc("inbox_scan").get("every_minutes", 30) * 60),
-            cooldown_s=jc("inbox_scan").get("every_minutes", 30) * 60,
+            schedule=every(inbox_mins * 60), cooldown_s=inbox_mins * 60,
             run=inbox_scan.run,
             channels=ch("inbox_scan", ["notification"]),
             config=jc("inbox_scan")),
         Job(id="security_audit", kind="silent",
-            schedule=every(jc("security_audit").get("every_minutes", 60) * 60),
-            cooldown_s=jc("security_audit").get("every_minutes", 60) * 60,
+            schedule=every(audit_mins * 60), cooldown_s=audit_mins * 60,
             run=security_audit.run,
+            # Channels hardcoded (not from per-job config) on purpose: a security
+            # alert must not be silenceable via per-job channel config.
             channels=["notification", "telegram"],
             config=jc("security_audit")),
     ]
@@ -78,6 +82,9 @@ def make_is_enabled(config):
         if job_id == "morning_briefing":
             try:
                 import core.feature_toggles as ft
+                # data_dir must be the PER-USER data dir where features.json
+                # lives (e.g. data/users/{user}/), NOT the top-level data/.
+                # The T13 runtime is responsible for wiring the correct path.
                 data_dir = config.get("data_dir")
                 if data_dir:
                     return bool(ft.is_feature_enabled(data_dir, "daily_briefing"))

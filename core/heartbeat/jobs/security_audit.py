@@ -6,16 +6,17 @@ clean and a non-empty string is a failure message. Checks are independent:
 one raising never stops the others. New checks are appended to the
 module-level CHECKS list so Wave 6 can extend without a rewrite.
 
-Config injection (Task 11 registry wires these into ctx.config):
-  cloud_cfg   -- live RouterConfig instance (core.llm.config.RouterConfig)
-  key_present -- bool; pre-resolved by registry to avoid repeated disk I/O
-                 (falls back to live resolve_api_key() when absent)
+Cloud state is loaded live per call via ``_live_cloud_cfg()`` (so runtime
+cloud toggles are caught). The Task 11 registry passes ONLY the static
+``security_audit`` config block into ``ctx.config`` — it does not inject
+cloud state — so production always takes the live-load path.
 
-When ctx.config does NOT provide ``cloud_cfg``, each check calls
-``_live_cloud_cfg()`` to load the current RouterConfig fresh from disk.
-This ensures the audit catches runtime-toggle changes rather than using a
-stale snapshot baked in at startup.  Tests override ``_live_cloud_cfg``
-via monkeypatch so they remain deterministic.
+Tests may inject ``cloud_cfg`` and/or ``key_present`` into ``ctx.config`` to
+override the live load deterministically:
+  cloud_cfg   -- a RouterConfig-shaped object (real or stub) overriding
+                 ``_live_cloud_cfg()`` for that call
+  key_present -- bool overriding live ``resolve_api_key()`` in
+                 check_cloud_misconfig
 """
 
 import logging
