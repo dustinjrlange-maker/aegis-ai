@@ -13,8 +13,8 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 REGISTRY_FILE = "accounts.json"
-TOKEN_FILE = "google_tokens.json"          # per-account, inside accounts/<id>/
-DEFAULT_ACCOUNT_ID = "google-personal"
+TOKEN_FILE = "google_tokens.json"          # Task 2/4 — per-account creds file, inside accounts/<id>/
+DEFAULT_ACCOUNT_ID = "google-personal"     # Task 2 — id assigned to the migrated legacy account
 
 
 class AccountManager:
@@ -37,8 +37,12 @@ class AccountManager:
             return {"accounts": []}
 
     def _write(self, data):
-        self._registry_path.write_text(
-            json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+        try:
+            self._registry_path.write_text(
+                json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+        except IOError as e:
+            logger.error("Could not write accounts.json: %s", e)
+            raise
 
     # -- queries -----------------------------------------------------
 
@@ -50,12 +54,14 @@ class AccountManager:
         return [a for a in accounts if a.get("features", {}).get(feature)]
 
     def get(self, account_id):
+        """Return the account record with this id, or None if not present."""
         for a in self.list():
             if a.get("id") == account_id:
                 return a
         return None
 
     def default(self):
+        """Account flagged is_default, else the first account, else None."""
         accounts = self.list()
         for a in accounts:
             if a.get("is_default"):
@@ -83,6 +89,7 @@ class AccountManager:
         return None
 
     def set_status(self, account_id, status):
+        """Persist *status* on the matching account; silent no-op if id unknown."""
         data = self._read()
         for a in data.get("accounts", []):
             if a.get("id") == account_id:

@@ -71,3 +71,17 @@ def test_resolve(tmp_path, hint, expected):
 def test_corrupt_registry_is_empty_not_crash(tmp_path):
     (tmp_path / "accounts.json").write_text("{not json", encoding="utf-8")
     assert AccountManager(tmp_path).list() == []
+
+
+def test_set_status_persists(tmp_path):
+    _write_registry(tmp_path, [ACCT_A])
+    AccountManager(tmp_path).set_status("google-personal", "error")
+    data = json.loads((tmp_path / "accounts.json").read_text(encoding="utf-8"))
+    assert data["accounts"][0]["status"] == "error"
+
+
+def test_set_status_unknown_id_is_noop(tmp_path):
+    _write_registry(tmp_path, [ACCT_A])
+    AccountManager(tmp_path).set_status("no-such-id", "error")
+    data = json.loads((tmp_path / "accounts.json").read_text(encoding="utf-8"))
+    assert data["accounts"][0]["status"] == "ok"  # unchanged
