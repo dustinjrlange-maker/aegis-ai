@@ -7,7 +7,8 @@ Handles the companion's daily digital life.
 import json
 import logging
 import re
-from datetime import datetime, date, timedelta
+import threading
+from datetime import datetime, date, time as _time, timedelta
 from pathlib import Path
 from core.protocols.base import Protocol
 from core.config import PROJECT_ROOT, CONFIG
@@ -136,6 +137,9 @@ class OperationsProtocol(Protocol):
             self.RECURRING_FILE = PROJECT_ROOT / "data" / "recurring.json"
         self._event_manager = event_manager
         self._session = None   # UserSession back-ref, set by session.py
+        # RLock guards check_recurring→add_task nesting against the chat-pipeline
+        # thread racing the heartbeat worker thread on the same _tasks/_recurring data.
+        self._lock = threading.RLock()
         self._tasks = []
         self._recurring = []
         self._load_tasks()
@@ -223,61 +227,85 @@ class OperationsProtocol(Protocol):
         """List all recurring tasks."""
         return [r for r in self._recurring if r.get("enabled", True)]
 
-    def check_recurring(self):
+    def check_recurring(self, now=None):
         """Check if any recurring tasks need to generate today's task.
 
         For each enabled recurring entry, determine if a task should be
-        auto-created based on frequency and last_generated date.
+        auto-created based on frequency, last_generated date, and (if set)
+        the preferred time-of-day.  Pass ``now`` explicitly for testing;
+        defaults to ``datetime.now()``.
         """
-        today = date.today()
+        now = now if now is not None else datetime.now()
+        today = now.date()
         today_str = today.isoformat()
         weekday = today.weekday()  # 0=Mon, 6=Sun
         generated = []
 
-        for rec in self._recurring:
-            if not rec.get("enabled", True):
-                continue
+        # Lock guards read-modify-write of _recurring and the nested add_task
+        # call (which also acquires the RLock) against the chat-pipeline thread.
+        with self._lock:
+            for rec in self._recurring:
+                if not rec.get("enabled", True):
+                    continue
 
-            last = rec.get("last_generated")
-            should_generate = False
+                last = rec.get("last_generated")
+                should_generate = False
 
-            if rec["frequency"] == "daily":
-                should_generate = (last != today_str)
+                if rec["frequency"] == "daily":
+                    should_generate = (last != today_str)
 
-            elif rec["frequency"] == "weekday":
-                should_generate = (weekday < 5 and last != today_str)
+                elif rec["frequency"] == "weekday":
+                    should_generate = (weekday < 5 and last != today_str)
 
-            elif rec["frequency"] == "weekend":
-                should_generate = (weekday >= 5 and last != today_str)
+                elif rec["frequency"] == "weekend":
+                    should_generate = (weekday >= 5 and last != today_str)
 
-            elif rec["frequency"] == "weekly":
-                # Generate on the same weekday as the created date
-                try:
-                    created_date = datetime.fromisoformat(rec["created"]).date()
-                    created_weekday = created_date.weekday()
-                except (ValueError, KeyError):
-                    created_weekday = 0  # default to Monday
+                elif rec["frequency"] == "weekly":
+                    # Generate on the same weekday as the created date
+                    try:
+                        created_date = datetime.fromisoformat(rec["created"]).date()
+                        created_weekday = created_date.weekday()
+                    except (ValueError, KeyError):
+                        created_weekday = 0  # default to Monday
 
-                if weekday == created_weekday:
-                    # Check last_generated is not already this week
-                    if last is None:
-                        should_generate = True
-                    else:
-                        try:
-                            last_date = date.fromisoformat(last)
-                            week_start = today - timedelta(days=weekday)
-                            should_generate = (last_date < week_start)
-                        except ValueError:
+                    if weekday == created_weekday:
+                        # Check last_generated is not already this week
+                        if last is None:
                             should_generate = True
+                        else:
+                            try:
+                                last_date = date.fromisoformat(last)
+                                week_start = today - timedelta(days=weekday)
+                                should_generate = (last_date < week_start)
+                            except ValueError:
+                                should_generate = True
 
-            if should_generate:
+                if not should_generate:
+                    continue
+
+                # Time-of-day gate: honour the preferred time if one is set.
+                # Entries with no time field fire as soon as the date is due
+                # (backward-compatible with the original behaviour).
+                hhmm = rec.get("time")
+                if hhmm:
+                    try:
+                        hh, mm = hhmm.split(":")
+                        if now.time() < _time(int(hh), int(mm)):
+                            continue
+                    except (ValueError, AttributeError):
+                        logger.warning(
+                            "recurring entry %r has malformed time %r; "
+                            "firing without time gate",
+                            rec.get("id", rec.get("text")), hhmm,
+                        )
+
                 category = rec.get("category", "general")
                 task = self.add_task(rec["text"], category=category)
                 rec["last_generated"] = today_str
                 generated.append(task)
 
-        if generated:
-            self._save_recurring()
+            if generated:
+                self._save_recurring()
 
         return generated
 
@@ -838,68 +866,71 @@ class OperationsProtocol(Protocol):
         norm = text.strip().lower()
         norm_words = [w for w in norm.split() if len(w) > 2]  # ignore tiny words like "to", "a"
         from difflib import SequenceMatcher
-        for existing in reversed(self._tasks[-10:]):
-            if existing.get("completed"):
-                continue
-            existing_text = (existing.get("text") or "").strip().lower()
-            try:
-                created_dt = datetime.fromisoformat(existing.get("created", ""))
-                age_sec = (now_ts - created_dt).total_seconds()
-            except (ValueError, TypeError):
-                continue
-            if age_sec >= 60:
-                continue
-            # Tier 1 — exact match within 60s
-            if existing_text == norm:
-                return existing
-            # Tier 2 — typo-tolerant fuzzy match within 60s. A word counts as
-            # matched if any existing word == or has SequenceMatcher ratio ≥ 0.8.
-            # Catches "finsih" vs "finish" — the spellcheck LLM is non-deterministic
-            # at 8B even at temp 0, so two creations within 60s can diverge.
-            existing_words = [w for w in existing_text.split() if len(w) > 2]
-            if norm_words and existing_words:
-                def _fuzzy_match_count(a, b):
-                    n = 0
-                    for aw in a:
-                        for bw in b:
-                            if aw == bw or SequenceMatcher(None, aw, bw).ratio() >= 0.8:
-                                n += 1
-                                break
-                    return n
-                matched = _fuzzy_match_count(norm_words, existing_words)
-                larger = max(len(norm_words), len(existing_words))
-                smaller = min(len(norm_words), len(existing_words))
-                # Standard fuzzy: ≥70% of the larger set matched
-                fuzzy_hit = larger and matched / larger >= 0.7
-                # Containment: the smaller side is fully matched in the larger,
-                # AND has at least 2 significant words. Catches Pike emitting
-                # "Milo paws" as a nominalized bracket title for the NLP-captured
-                # "Finsih the milo paws" — same intent, shorter phrasing.
-                contain_hit = smaller >= 2 and matched >= smaller
-                if fuzzy_hit or contain_hit:
-                    # Backfill due date if the new attempt has one and the existing one doesn't
-                    if due and not existing.get("due"):
-                        existing["due"] = due
-                        self._save_tasks()
+        # Lock guards dedup scan + append + save against the heartbeat thread
+        # running check_recurring→add_task concurrently with the chat pipeline.
+        with self._lock:
+            for existing in reversed(self._tasks[-10:]):
+                if existing.get("completed"):
+                    continue
+                existing_text = (existing.get("text") or "").strip().lower()
+                try:
+                    created_dt = datetime.fromisoformat(existing.get("created", ""))
+                    age_sec = (now_ts - created_dt).total_seconds()
+                except (ValueError, TypeError):
+                    continue
+                if age_sec >= 60:
+                    continue
+                # Tier 1 — exact match within 60s
+                if existing_text == norm:
                     return existing
-        task = {
-            "id": len(self._tasks) + 1,
-            "text": text,
-            "priority": priority,
-            "category": category,
-            "due": due,
-            "due_time": due_time,
-            "created": now_ts.isoformat(),
-            "completed": False,
-            "completed_at": None,
-            "subtasks": [],
-            "notes": "",
-            "starred": False,
-            "activity_type": activity_type,
-        }
-        self._tasks.append(task)
-        self._save_tasks()
-        return task
+                # Tier 2 — typo-tolerant fuzzy match within 60s. A word counts as
+                # matched if any existing word == or has SequenceMatcher ratio ≥ 0.8.
+                # Catches "finsih" vs "finish" — the spellcheck LLM is non-deterministic
+                # at 8B even at temp 0, so two creations within 60s can diverge.
+                existing_words = [w for w in existing_text.split() if len(w) > 2]
+                if norm_words and existing_words:
+                    def _fuzzy_match_count(a, b):
+                        n = 0
+                        for aw in a:
+                            for bw in b:
+                                if aw == bw or SequenceMatcher(None, aw, bw).ratio() >= 0.8:
+                                    n += 1
+                                    break
+                        return n
+                    matched = _fuzzy_match_count(norm_words, existing_words)
+                    larger = max(len(norm_words), len(existing_words))
+                    smaller = min(len(norm_words), len(existing_words))
+                    # Standard fuzzy: ≥70% of the larger set matched
+                    fuzzy_hit = larger and matched / larger >= 0.7
+                    # Containment: the smaller side is fully matched in the larger,
+                    # AND has at least 2 significant words. Catches Pike emitting
+                    # "Milo paws" as a nominalized bracket title for the NLP-captured
+                    # "Finsih the milo paws" — same intent, shorter phrasing.
+                    contain_hit = smaller >= 2 and matched >= smaller
+                    if fuzzy_hit or contain_hit:
+                        # Backfill due date if the new attempt has one and the existing one doesn't
+                        if due and not existing.get("due"):
+                            existing["due"] = due
+                            self._save_tasks()
+                        return existing
+            task = {
+                "id": len(self._tasks) + 1,
+                "text": text,
+                "priority": priority,
+                "category": category,
+                "due": due,
+                "due_time": due_time,
+                "created": now_ts.isoformat(),
+                "completed": False,
+                "completed_at": None,
+                "subtasks": [],
+                "notes": "",
+                "starred": False,
+                "activity_type": activity_type,
+            }
+            self._tasks.append(task)
+            self._save_tasks()
+            return task
 
     def complete_task(self, task_id):
         """Mark a task as completed."""

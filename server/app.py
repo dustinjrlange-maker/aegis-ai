@@ -122,7 +122,39 @@ async def lifespan(app):
     except Exception as e:
         logger.warning("Could not start Telegram bot: %s", e)
 
+    # Startup — try to start heartbeat scheduler
+    hb_task = None
+    try:
+        from core.heartbeat.runtime import build_runtime
+        from integrations.telegram_bot import get_application
+        from integrations.telegram_config import get_chat_id_for
+
+        hb_cfg = CONFIG.get("heartbeat", {})
+        if hb_cfg.get("enabled", True):
+            runtime = build_runtime(
+                session_manager,
+                config=hb_cfg,
+                data_dir=CONFIG["_paths"]["data_root"],
+                get_telegram_app=get_application,
+                get_chat_id=get_chat_id_for,
+                user_id="switch",
+            )
+            hb_task = asyncio.create_task(runtime.run())
+            logger.info("heartbeat started")
+    except Exception:
+        logger.exception("failed to start heartbeat; continuing without it")
+
     yield
+
+    # Shutdown — cancel heartbeat
+    if hb_task is not None:
+        hb_task.cancel()
+        try:
+            await hb_task
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            logger.exception("heartbeat shutdown error")
 
     # Shutdown — stop Telegram bot
     if telegram_app:
