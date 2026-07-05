@@ -29,7 +29,7 @@ from core.heartbeat.state import HeartbeatState
 class _EnsureSessionManager:
     """Adapter whose ``.get()`` creates-or-returns a live session.
 
-    The heartbeat runs unattended, so a "switch" session may not exist yet
+    The heartbeat runs unattended, so the primary user's session may not exist yet
     (sessions are created lazily on the user's first chat). The scheduler and
     Notifier both call ``session_manager.get(user_id)`` expecting a session;
     with a plain SessionManager that returns None until first chat, meaning
@@ -85,7 +85,7 @@ class HeartbeatRuntime:
 
 
 def build_runtime(session_manager, *, config, data_dir, get_telegram_app,
-                  get_chat_id, user_id="switch"):
+                  get_chat_id, user_id):
     """Wire up and return a ready-to-run HeartbeatRuntime.
 
     Args:
@@ -101,7 +101,9 @@ def build_runtime(session_manager, *, config, data_dir, get_telegram_app,
         get_chat_id: ``(user_id: str) -> int | None`` reverse-lookup from an
             Aegis username to its Telegram chat_id.
         user_id: Primary Aegis username this heartbeat instance runs for.
-            Defaults to "switch" (the configured primary user).
+            REQUIRED — comes from CONFIG["heartbeat"]["primary_user"]; there is
+            deliberately no default (a wrong default made Wave 3 run against an
+            empty phantom user for two days).
     """
     data_dir = Path(data_dir)
     per_user_dir = data_dir / "users" / user_id
