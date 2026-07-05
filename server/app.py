@@ -127,23 +127,16 @@ async def lifespan(app):
     try:
         from core.heartbeat.runtime import build_runtime
         from integrations.telegram_bot import get_application
-        from integrations.telegram_config import _load_config as _tg_load_cfg
+        from integrations.telegram_config import get_chat_id_for
 
         hb_cfg = CONFIG.get("heartbeat", {})
         if hb_cfg.get("enabled", True):
-            def _chat_id_for(uid):
-                """Reverse-map an Aegis username to its Telegram chat_id."""
-                for tg_id_str, uname in _tg_load_cfg().get("user_mappings", {}).items():
-                    if uname == uid:
-                        return int(tg_id_str)
-                return None
-
             runtime = build_runtime(
                 session_manager,
                 config=hb_cfg,
                 data_dir=CONFIG["_paths"]["data_root"],
                 get_telegram_app=get_application,
-                get_chat_id=_chat_id_for,
+                get_chat_id=get_chat_id_for,
                 user_id="switch",
             )
             hb_task = asyncio.create_task(runtime.run())
@@ -160,6 +153,8 @@ async def lifespan(app):
             await hb_task
         except asyncio.CancelledError:
             pass
+        except Exception:
+            logger.exception("heartbeat shutdown error")
 
     # Shutdown — stop Telegram bot
     if telegram_app:

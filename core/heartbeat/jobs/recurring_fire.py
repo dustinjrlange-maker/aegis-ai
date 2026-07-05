@@ -21,6 +21,8 @@ def run(ctx):
     Returns:
         JobResult with a silent_log summary; notify is always False.
     """
+    if ctx.session is None:
+        return JobResult(silent_log="recurring_fire: no active session")
     ops = ctx.session.protocol_registry.get("operations")
     fired = ops.check_recurring(now=ctx.now)
     titles = ", ".join(t.get("text", "?") for t in fired) if fired else "none"

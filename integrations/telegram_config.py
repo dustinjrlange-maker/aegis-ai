@@ -73,6 +73,22 @@ def get_user_mapping(telegram_id: int) -> str | None:
     return cfg.get("user_mappings", {}).get(str(telegram_id))
 
 
+def get_chat_id_for(username: str) -> int | None:
+    """Reverse lookup: the Telegram chat_id linked to an Aegis username.
+
+    Returns None when the username has no Telegram mapping. Used by the
+    heartbeat notifier to push proactively to a user by their Aegis name.
+    """
+    mappings = _load_config().get("user_mappings", {})
+    for tg_id_str, uname in mappings.items():
+        if uname == username:
+            try:
+                return int(tg_id_str)
+            except (TypeError, ValueError):
+                return None
+    return None
+
+
 def save_user_mapping(telegram_id: int, username: str):
     """Link a Telegram user ID to an Aegis username."""
     cfg = _load_config()

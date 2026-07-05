@@ -54,3 +54,11 @@ def test_run_nothing_fired():
     result = run(ctx)
     assert result.notify is False
     assert "0" in result.silent_log
+
+
+def test_run_none_session_is_silent_no_raise():
+    """A None session yields a silent JobResult and does not raise."""
+    ctx = JobContext("switch", None, datetime(2026, 7, 4, 9, 0), {})
+    result = run(ctx)
+    assert result.notify is False
+    assert "no active session" in result.silent_log

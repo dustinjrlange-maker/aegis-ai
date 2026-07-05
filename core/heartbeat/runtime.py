@@ -26,6 +26,25 @@ from core.heartbeat.scheduler import run_heartbeat
 from core.heartbeat.state import HeartbeatState
 
 
+class _EnsureSessionManager:
+    """Adapter whose ``.get()`` creates-or-returns a live session.
+
+    The heartbeat runs unattended, so a "switch" session may not exist yet
+    (sessions are created lazily on the user's first chat). The scheduler and
+    Notifier both call ``session_manager.get(user_id)`` expecting a session;
+    with a plain SessionManager that returns None until first chat, meaning
+    recurring/briefing jobs would never fire proactively (and would crash on
+    ``None.session``). Routing ``.get`` through ``get_or_create`` guarantees a
+    live session on the first tick (created once, cached thereafter).
+    """
+
+    def __init__(self, real_sm):
+        self._real = real_sm
+
+    def get(self, user_id):
+        return self._real.get_or_create(user_id)
+
+
 class HeartbeatRuntime:
     """Ready-to-run heartbeat; wraps scheduler with all dependencies wired."""
 
@@ -92,11 +111,19 @@ def build_runtime(session_manager, *, config, data_dir, get_telegram_app,
     enabled_config = dict(config)
     enabled_config["data_dir"] = str(per_user_dir)
 
+    # Wrap the session manager so job/notifier session lookups create-or-return
+    # a live session. Without this the unattended heartbeat sees None until the
+    # user first chats (see _EnsureSessionManager). Tests may pass a fake sm
+    # that already implements a create-on-get .get(); wrapping is only applied
+    # when the real get_or_create method is present.
+    sm = _EnsureSessionManager(session_manager) if hasattr(
+        session_manager, "get_or_create") else session_manager
+
     return HeartbeatRuntime(
-        session_manager=session_manager,
+        session_manager=sm,
         jobs=build_registry(config),
         is_enabled=make_is_enabled(enabled_config),
-        notifier=Notifier(session_manager, get_telegram_app, get_chat_id),
+        notifier=Notifier(sm, get_telegram_app, get_chat_id),
         state=HeartbeatState(data_dir / "heartbeat.json"),
         hlog=HeartbeatLog(data_dir / "heartbeat_log.jsonl"),
         tick_seconds=config.get("tick_seconds", 30),

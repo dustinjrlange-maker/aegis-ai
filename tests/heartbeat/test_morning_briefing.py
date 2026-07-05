@@ -38,3 +38,11 @@ def test_run_empty_briefing_still_notifies(monkeypatch):
     result = morning_briefing.run(ctx)
     assert result.notify is True
     assert result.body
+
+
+def test_run_none_session_is_silent_no_raise():
+    """A None session yields a silent JobResult and does not raise."""
+    ctx = JobContext("switch", None, datetime(2026, 7, 4, 7, 0), {})
+    result = morning_briefing.run(ctx)
+    assert result.notify is False
+    assert "no active session" in result.silent_log

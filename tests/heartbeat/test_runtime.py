@@ -3,7 +3,7 @@
 import asyncio
 from datetime import datetime
 
-from core.heartbeat.runtime import build_runtime
+from core.heartbeat.runtime import build_runtime, _EnsureSessionManager
 from tests.heartbeat.conftest import FakeClock
 
 
@@ -11,6 +11,22 @@ class _FakeSM:
     """Minimal SessionManager stub: get() always returns None."""
 
     def get(self, user_id):
+        return None
+
+
+class _RecordingSM:
+    """SessionManager stub exposing get_or_create so the runtime adapter wraps it."""
+
+    def __init__(self):
+        self.created = []
+        self.session = object()
+
+    def get_or_create(self, user_id):
+        self.created.append(user_id)
+        return self.session
+
+    def get(self, user_id):
+        # Plain .get returns None (lazy sessions) — the adapter must NOT use this.
         return None
 
 
@@ -99,6 +115,45 @@ def test_build_runtime_per_user_data_dir_wired(tmp_path):
     # DEFAULT_FEATURES inside make_is_enabled).
     asyncio.run(rt.run(clock=clock, sleep=_noop_sleep, max_ticks=1))
     assert True
+
+
+def test_ensure_session_manager_adapter_calls_get_or_create():
+    """The adapter routes .get() through the real get_or_create."""
+    real = _RecordingSM()
+    adapter = _EnsureSessionManager(real)
+    session = adapter.get("switch")
+    assert real.created == ["switch"]
+    assert session is real.session
+
+
+def test_build_runtime_wraps_real_sm_with_get_or_create():
+    """build_runtime wraps a get_or_create-capable sm so jobs get a live session."""
+    real = _RecordingSM()
+    rt = build_runtime(
+        real,
+        config=_all_disabled_config(),
+        data_dir="ignored",
+        get_telegram_app=lambda: None,
+        get_chat_id=lambda uid: None,
+    )
+    # The scheduler-facing session manager must be the wrapping adapter.
+    assert isinstance(rt._sm, _EnsureSessionManager)
+    # And it resolves sessions via get_or_create (not the lazy .get()).
+    assert rt._sm.get("switch") is real.session
+    assert real.created == ["switch"]
+
+
+def test_build_runtime_fake_sm_without_get_or_create_passed_through():
+    """A fake sm lacking get_or_create is used as-is (tests keep working)."""
+    fake = _FakeSM()
+    rt = build_runtime(
+        fake,
+        config=_all_disabled_config(),
+        data_dir="ignored",
+        get_telegram_app=lambda: None,
+        get_chat_id=lambda uid: None,
+    )
+    assert rt._sm is fake
 
 
 def test_build_runtime_global_disabled(tmp_path):

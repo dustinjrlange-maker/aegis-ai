@@ -18,6 +18,8 @@ def run(ctx):
     Falls back to a default line if the briefing text is empty so a
     notification is always pushed.
     """
+    if ctx.session is None:
+        return JobResult(silent_log="morning_briefing: no active session")
     result = generate_narrative_briefing(ctx.session, period=None)
     text = (result.get("narrative") or "" if isinstance(result, dict) else str(result or "")).strip()
     if not text:
