@@ -2147,14 +2147,17 @@ async def google_auth_callback(request: Request):
     if not code or not state:
         return HTMLResponse("<h2>Invalid callback</h2><p>Missing code or state parameter.</p>")
 
-    # Validate state and recover user_id
-    _state_data = _oauth_states.pop(state, None)
-    user_id = _state_data.get("user_id") if isinstance(_state_data, dict) else _state_data
+    # Validate state and recover user_id + optional pending link info
+    state_data = _oauth_states.pop(state, None)
+    if not state_data:
+        return HTMLResponse("<h2>Invalid or expired state</h2><p>Please try connecting again.</p>")
+    user_id = state_data.get("user_id")
+    pending = state_data.get("pending")
     if not user_id:
         return HTMLResponse("<h2>Invalid or expired state</h2><p>Please try connecting again.</p>")
 
     try:
-        from core.protocols.google_tools import exchange_code, save_credentials
+        from core.protocols.google_tools import exchange_code, save_credentials, get_account_email
     except ImportError:
         return HTMLResponse("<h2>Error</h2><p>Google integration libraries not installed.</p>")
 
@@ -2171,11 +2174,22 @@ async def google_auth_callback(request: Request):
 
     # Save tokens to the user's data directory
     from core.config import PROJECT_ROOT
+    from core.accounts.manager import AccountManager
+
     user_data_dir = PROJECT_ROOT / "data" / "users" / user_id
     user_data_dir.mkdir(parents=True, exist_ok=True)
-    save_credentials(user_data_dir, credentials)
 
-    logger.info("Google account connected for user '%s'", user_id)
+    if pending:
+        email = get_account_email(credentials)
+        accounts = AccountManager(user_data_dir)
+        acct_id = accounts.upsert_account(pending.get("label", ""), email,
+                                          {"name": pending.get("name", "")})
+        save_credentials(user_data_dir, credentials, account_id=acct_id)
+        logger.info("Linked Google account '%s' (%s) for user '%s'",
+                    acct_id, email or "email unknown", user_id)
+    else:
+        save_credentials(user_data_dir, credentials)
+        logger.info("Google account connected for user '%s'", user_id)
 
     return HTMLResponse(
         "<html><body style='font-family:sans-serif;text-align:center;padding:60px'>"

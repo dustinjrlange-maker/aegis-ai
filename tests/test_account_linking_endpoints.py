@@ -53,3 +53,50 @@ def test_list_accounts_returns_metadata(client):
     assert body[0] == {"id": "g1", "label": "Work", "email": "a@b.com",
                        "status": "ok", "is_default": True}
     assert "token" not in body[0]
+
+
+def test_callback_links_new_account(client, monkeypatch, tmp_path):
+    import server.app as app_mod
+
+    state = "teststate_link_123"
+    app_mod._oauth_states[state] = {
+        "user_id": "linktest_user",
+        "pending": {"label": "SwitchStitch", "name": "Switch"},
+    }
+    monkeypatch.setattr("core.protocols.google_tools.exchange_code",
+                        lambda code, redirect_uri: object())
+    monkeypatch.setattr("core.protocols.google_tools.get_account_email",
+                        lambda creds: "TheSwitchStitch@gmail.com")
+    saved = {}
+    monkeypatch.setattr("core.protocols.google_tools.save_credentials",
+                        lambda d, creds, account_id=None: saved.update(
+                            {"dir": str(d), "account_id": account_id}))
+
+    captured_upsert = {}
+    from core.accounts.manager import AccountManager
+    monkeypatch.setattr(AccountManager, "upsert_account",
+                        lambda self, label, email, represent_as=None: captured_upsert.update(
+                            {"label": label, "email": email, "rep": represent_as}) or "google-switchstitch")
+
+    resp = client.get(f"/api/google/callback?code=abc&state={state}")
+    assert resp.status_code == 200
+    assert saved["account_id"] == "google-switchstitch"
+    assert captured_upsert["label"] == "SwitchStitch"
+    assert captured_upsert["email"] == "TheSwitchStitch@gmail.com"
+    assert captured_upsert["rep"] == {"name": "Switch"}
+    assert state not in app_mod._oauth_states   # state consumed
+
+
+def test_callback_default_connect_still_saves_to_default(client, monkeypatch):
+    import server.app as app_mod
+    state = "teststate_default_456"
+    app_mod._oauth_states[state] = {"user_id": "linktest_user"}   # no pending
+    monkeypatch.setattr("core.protocols.google_tools.exchange_code",
+                        lambda code, redirect_uri: object())
+    saved = {}
+    monkeypatch.setattr("core.protocols.google_tools.save_credentials",
+                        lambda d, creds, account_id=None: saved.update({"account_id": account_id}))
+
+    resp = client.get(f"/api/google/callback?code=abc&state={state}")
+    assert resp.status_code == 200
+    assert saved["account_id"] is None   # default connect -> no account_id
