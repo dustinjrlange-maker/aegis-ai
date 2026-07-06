@@ -9,6 +9,7 @@ when pointed at an account dir.
 import json
 import logging
 import os
+import re
 import threading
 from pathlib import Path
 
@@ -23,6 +24,25 @@ DEFAULT_ACCOUNT_ID = "google-personal"     # Task 2 — id assigned to the migra
 # user). Module-level so it's shared across instances. RLock: set_status calls
 # _write, which re-acquires.
 _REGISTRY_LOCK = threading.RLock()
+
+
+def _slugify_account_id(label):
+    """Derive a stable account id from a human label: 'SwitchStitch' ->
+    'google-switchstitch'. Empty/garbage -> 'google-account'."""
+    base = re.sub(r"[^a-z0-9]+", "-", (label or "").lower()).strip("-")
+    return f"google-{base}" if base else "google-account"
+
+
+def _normalize_represent_as(rep):
+    """Build a represent_as block from partial input: signoff defaults to name,
+    tone_hint blank when absent."""
+    rep = rep or {}
+    name = (rep.get("name") or "").strip()
+    return {
+        "name": name,
+        "signoff": (rep.get("signoff") or name),
+        "tone_hint": rep.get("tone_hint", "") or "",
+    }
 
 
 class AccountManager:
@@ -129,6 +149,49 @@ class AccountManager:
         if acct.get("status") != "ok":
             self.set_status(acct["id"], "ok")
         return creds
+
+    def upsert_account(self, label, email, represent_as=None):
+        """Create a new Google account record, or update the existing one that
+        already has *email* (dedupe by email — the account's true identity).
+
+        New id is a slug of *label* (deduped for uniqueness). New accounts are
+        non-default with both features on and status 'ok'. Returns the id.
+        Thread-safe: whole read-modify-write under the registry lock.
+        """
+        with _REGISTRY_LOCK:
+            data = self._read()
+            accounts = data.setdefault("accounts", [])
+            email_l = (email or "").strip().lower()
+
+            if email_l:
+                for a in accounts:
+                    if (a.get("email") or "").strip().lower() == email_l:
+                        if label:
+                            a["label"] = label
+                        if represent_as and (represent_as.get("name") or "").strip():
+                            a["represent_as"] = _normalize_represent_as(represent_as)
+                        a["status"] = "ok"
+                        self._write(data)
+                        return a["id"]
+
+            base = _slugify_account_id(label)
+            existing_ids = {a.get("id") for a in accounts}
+            acct_id, n = base, 2
+            while acct_id in existing_ids:
+                acct_id, n = f"{base}-{n}", n + 1
+
+            accounts.append({
+                "id": acct_id,
+                "provider": "google",
+                "email": email or "",
+                "label": label or acct_id,
+                "is_default": False,
+                "represent_as": _normalize_represent_as(represent_as),
+                "features": {"briefing_calendar": True, "inbox_scan": True},
+                "status": "ok",
+            })
+            self._write(data)
+            return acct_id
 
     # -- migration (Task 2) -------------------------------------------
 
