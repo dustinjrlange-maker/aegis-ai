@@ -40,10 +40,16 @@ def test_add_account_rejects_empty_label(client, monkeypatch):
 
 def test_list_accounts_returns_metadata(client):
     mock_session = MagicMock()
-    mock_session.accounts.list.return_value = []
+    mock_session.accounts.list.return_value = [
+        {"id": "g1", "label": "Work", "email": "a@b.com",
+         "status": "ok", "is_default": True, "token": "secret"}
+    ]
     with patch("server.app.session_manager") as mock_sm:
         mock_sm.get_or_create.return_value = mock_session
         resp = client.get("/api/google/accounts")
     assert resp.status_code == 200
     body = resp.json()["accounts"]
-    assert all(set(a.keys()) == {"id", "label", "email", "status", "is_default"} for a in body)
+    assert len(body) == 1
+    assert body[0] == {"id": "g1", "label": "Work", "email": "a@b.com",
+                       "status": "ok", "is_default": True}
+    assert "token" not in body[0]

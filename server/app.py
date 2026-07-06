@@ -2191,7 +2191,7 @@ async def google_add_account(req: AddAccountRequest, request: Request,
     """Start OAuth to LINK a new Google account (not overwrite the default)."""
     try:
         from integrations.google_config import is_enabled
-        from core.protocols import google_tools
+        from core.protocols.google_tools import build_auth_url
     except ImportError:
         return JSONResponse({"error": "Google integration not installed"}, status_code=500)
     if not is_enabled():
@@ -2207,8 +2207,8 @@ async def google_add_account(req: AddAccountRequest, request: Request,
         "user_id": user_id,
         "pending": {"label": label, "name": (req.name or "").strip()},
     }
-    auth_url = google_tools.build_auth_url(redirect_uri, state=state,
-                                           prompt="select_account consent")
+    auth_url = build_auth_url(redirect_uri, state=state,
+                              prompt="select_account consent")
     if not auth_url:
         _oauth_states.pop(state, None)
         return JSONResponse({"error": "Could not generate auth URL"}, status_code=500)
