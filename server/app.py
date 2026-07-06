@@ -16,7 +16,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from fastapi import FastAPI, Request, UploadFile, File, Form, Depends, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from pydantic import BaseModel
 from typing import Optional
 import ipaddress
@@ -62,8 +62,8 @@ session_manager = SessionManager()
 # --- News Service (shared singleton) ---
 _news_service = NewsService()
 
-# OAuth state store: maps state_token -> user_id (short-lived, in-memory)
-_oauth_states: dict[str, str] = {}
+# OAuth state store: maps state_token -> {"user_id": str, "pending": {...}?} (short-lived, in-memory)
+_oauth_states: dict[str, dict] = {}
 
 logger = logging.getLogger("aegis.server")
 
@@ -439,6 +439,11 @@ class SocialPostRequest(BaseModel):
     content: str
     platform: Optional[str] = ""
     status: Optional[str] = "draft"
+
+
+class AddAccountRequest(BaseModel):
+    label: str
+    name: str = ""
 
 
 class ToolInstallRequest(BaseModel):
@@ -2120,7 +2125,7 @@ async def google_auth_start(request: Request, user_id: str = Depends(require_use
 
     # Generate state token to pass user identity through OAuth redirect
     state = secrets.token_urlsafe(32)
-    _oauth_states[state] = user_id
+    _oauth_states[state] = {"user_id": user_id}
 
     auth_url = build_auth_url(redirect_uri, state=state)
     if not auth_url:
@@ -2143,7 +2148,8 @@ async def google_auth_callback(request: Request):
         return HTMLResponse("<h2>Invalid callback</h2><p>Missing code or state parameter.</p>")
 
     # Validate state and recover user_id
-    user_id = _oauth_states.pop(state, None)
+    _state_data = _oauth_states.pop(state, None)
+    user_id = _state_data.get("user_id") if isinstance(_state_data, dict) else _state_data
     if not user_id:
         return HTMLResponse("<h2>Invalid or expired state</h2><p>Please try connecting again.</p>")
 
@@ -2177,6 +2183,54 @@ async def google_auth_callback(request: Request):
         "<p>You can close this tab and return to Aegis.</p>"
         "</body></html>"
     )
+
+
+@app.post("/api/google/accounts/add")
+async def google_add_account(req: AddAccountRequest, request: Request,
+                             user_id: str = Depends(require_user)):
+    """Start OAuth to LINK a new Google account (not overwrite the default)."""
+    try:
+        from integrations.google_config import is_enabled
+        from core.protocols import google_tools
+    except ImportError:
+        return JSONResponse({"error": "Google integration not installed"}, status_code=500)
+    if not is_enabled():
+        return JSONResponse({"error": "Google integration not configured"}, status_code=400)
+    label = (req.label or "").strip()
+    if not label:
+        return JSONResponse({"error": "Label is required"}, status_code=400)
+    host = request.headers.get("host", "localhost:8484").replace("127.0.0.1", "localhost")
+    scheme = request.headers.get("x-forwarded-proto", "http")
+    redirect_uri = f"{scheme}://{host}/api/google/callback"
+    state = secrets.token_urlsafe(32)
+    _oauth_states[state] = {
+        "user_id": user_id,
+        "pending": {"label": label, "name": (req.name or "").strip()},
+    }
+    auth_url = google_tools.build_auth_url(redirect_uri, state=state,
+                                           prompt="select_account consent")
+    if not auth_url:
+        _oauth_states.pop(state, None)
+        return JSONResponse({"error": "Could not generate auth URL"}, status_code=500)
+    return {"auth_url": auth_url}
+
+
+def _account_summary(acct):
+    """Project an account record to UI-safe metadata (no tokens)."""
+    return {
+        "id": acct.get("id", ""),
+        "label": acct.get("label", ""),
+        "email": acct.get("email", ""),
+        "status": acct.get("status", "ok"),
+        "is_default": bool(acct.get("is_default")),
+    }
+
+
+@app.get("/api/google/accounts")
+async def google_list_accounts(user_id: str = Depends(require_user)):
+    """List the user's linked Google accounts (metadata only)."""
+    session = session_manager.get_or_create(user_id)
+    return {"accounts": [_account_summary(a) for a in session.accounts.list()]}
 
 
 @app.get("/api/google/status")
