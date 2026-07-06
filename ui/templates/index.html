@@ -5903,6 +5903,31 @@
         .mail-auth-cta h3 { font-size: 14px; margin-bottom: 8px; color: var(--lcars-text); }
         .mail-auth-cta p { font-size: 12px; color: var(--lcars-text-dim); margin-bottom: 16px; }
 
+        /* Linked accounts (ACCOUNTS tab) */
+        .mail-accounts-wrap { padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
+        .mail-add-acct-form { display: flex; flex-direction: column; gap: 6px; }
+        .mail-form-label { font-size: 11px; color: var(--lcars-text-dim); letter-spacing: 0.05em; }
+        .mail-form-input {
+            background: rgba(0,0,0,0.30);
+            border: 1px solid rgba(85,153,255,0.30);
+            color: var(--lcars-text);
+            padding: 6px 10px;
+            border-radius: 3px;
+            font-family: inherit;
+            font-size: 11px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .mail-form-actions { display: flex; gap: 8px; margin-top: 4px; }
+        .linked-account {
+            font-size: 11px;
+            color: var(--lcars-text);
+            padding: 5px 8px;
+            background: rgba(85,153,255,0.08);
+            border-radius: 3px;
+        }
+        .acct-error { color: var(--lcars-error); }
+
         /* Undo toast (extends existing toast styles if present) */
         .mail-undo-toast {
             position: fixed;
@@ -6813,6 +6838,8 @@
                     onclick="_mailSwitchTab('compose')">COMPOSE</button>
             <button class="mail-tab" data-tab="drafts"
                     onclick="_mailSwitchTab('drafts')">DRAFTS</button>
+            <button class="mail-tab" data-tab="accounts"
+                    onclick="_mailSwitchTab('accounts')">ACCOUNTS</button>
         </div>
         <section class="mail-tab-body" data-tab="inbox" id="mailInboxSection">
             <div class="mail-empty">Open INBOX to load.</div>
@@ -6826,6 +6853,29 @@
         <section class="mail-tab-body" data-tab="drafts" id="mailDraftsSection"
                  style="display:none">
             <div class="mail-empty">Drafts tab &mdash; wired in Task 8.</div>
+        </section>
+        <section class="mail-tab-body" data-tab="accounts" id="mailAccountsSection"
+                 style="display:none">
+            <div class="mail-accounts-wrap">
+                <button class="pill-btn pill-btn-secondary" id="addAcctToggleBtn"
+                        onclick="document.getElementById('addAcctForm').style.display='';this.style.display='none';">
+                    + Add another Google account
+                </button>
+                <div id="addAcctForm" style="display:none" class="mail-add-acct-form">
+                    <label class="mail-form-label" for="addAcctLabel">Label</label>
+                    <input id="addAcctLabel" type="text" class="mail-form-input" placeholder="SwitchStitch">
+                    <label class="mail-form-label" for="addAcctName">Present as</label>
+                    <input id="addAcctName" type="text" class="mail-form-input" placeholder="Switch">
+                    <div class="mail-form-actions">
+                        <button class="pill-btn pill-btn-primary" onclick="submitAddAccount()">Connect</button>
+                        <button class="pill-btn pill-btn-secondary"
+                                onclick="document.getElementById('addAcctForm').style.display='none';document.getElementById('addAcctToggleBtn').style.display='';">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+                <div id="linkedAccountsList"></div>
+            </div>
         </section>
     </div>
     <div class="lcars-panel-frame-bottom">
@@ -13467,6 +13517,7 @@ function openMailPanel() {
     panel.classList.add('open');
     restorePanelPosition(panel);
     _mailOnPanelOpen();
+    refreshLinkedAccounts();
     if (!_mailPanelClickWired) {
         var mp = document.getElementById('mailPanel');
         if (mp) {
@@ -13529,7 +13580,7 @@ function _mailSwitchTab(tabName) {
 function _mailOnPanelOpen() {
     try {
         var saved = localStorage.getItem('aegis_mail_active_tab');
-        if (saved && ['inbox','compose','drafts'].indexOf(saved) >= 0) {
+        if (saved && ['inbox','compose','drafts','accounts'].indexOf(saved) >= 0) {
             _mailSwitchTab(saved);
             return;
         }
@@ -14389,6 +14440,49 @@ async function _mailStartAuth() {
             }
         } catch (e) {}
     }, 3000);
+}
+
+// ========== LINKED ACCOUNTS ==========
+
+async function refreshLinkedAccounts() {
+    try {
+        var res = await authFetch(API + '/google/accounts');
+        if (!res.ok) return;
+        var data = await res.json();
+        var accounts = data.accounts || [];
+        var el = document.getElementById('linkedAccountsList');
+        if (!el) return;
+        el.innerHTML = accounts.map(function(a) {
+            return '<div class="linked-account">' +
+                a.label +
+                (a.email ? ' · ' + a.email : '') +
+                (a.is_default ? ' · default' : '') +
+                (a.status === 'error' ? ' · <span class="acct-error">needs reconnect</span>' : '') +
+                '</div>';
+        }).join('');
+    } catch (e) { /* non-fatal */ }
+}
+
+async function submitAddAccount() {
+    var label = document.getElementById('addAcctLabel').value.trim();
+    var name = document.getElementById('addAcctName').value.trim();
+    if (!label) { alert('Enter a label for the account'); return; }
+    try {
+        var res = await authFetch(API + '/google/accounts/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ label: label, name: name }),
+        });
+        var data = await res.json();
+        if (res.ok && data.auth_url) {
+            window.open(data.auth_url, '_blank');
+            setTimeout(refreshLinkedAccounts, 2000);
+        } else {
+            alert(data.error || 'Could not start account linking');
+        }
+    } catch (e) {
+        alert('Could not start account linking');
+    }
 }
 
 // ========== TOAST NOTIFICATIONS ==========
