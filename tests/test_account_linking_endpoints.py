@@ -55,7 +55,7 @@ def test_list_accounts_returns_metadata(client):
     assert "token" not in body[0]
 
 
-def test_callback_links_new_account(client, monkeypatch, tmp_path):
+def test_callback_links_new_account(client, monkeypatch):
     import server.app as app_mod
 
     state = "teststate_link_123"
@@ -100,3 +100,33 @@ def test_callback_default_connect_still_saves_to_default(client, monkeypatch):
     resp = client.get(f"/api/google/callback?code=abc&state={state}")
     assert resp.status_code == 200
     assert saved["account_id"] is None   # default connect -> no account_id
+
+
+def test_callback_save_failure_marks_account_error(client, monkeypatch):
+    import server.app as app_mod
+
+    state = "teststate_savefail_789"
+    app_mod._oauth_states[state] = {
+        "user_id": "linktest_user",
+        "pending": {"label": "SwitchStitch", "name": "Switch"},
+    }
+    monkeypatch.setattr("core.protocols.google_tools.exchange_code",
+                        lambda code, redirect_uri: object())
+    monkeypatch.setattr("core.protocols.google_tools.get_account_email",
+                        lambda creds: "TheSwitchStitch@gmail.com")
+
+    def _raise_save(d, creds, account_id=None):
+        raise OSError("disk full")
+    monkeypatch.setattr("core.protocols.google_tools.save_credentials", _raise_save)
+
+    from core.accounts.manager import AccountManager
+    monkeypatch.setattr(AccountManager, "upsert_account",
+                        lambda self, label, email, represent_as=None: "google-x")
+    status_calls = []
+    monkeypatch.setattr(AccountManager, "set_status",
+                        lambda self, account_id, status: status_calls.append((account_id, status)))
+
+    resp = client.get(f"/api/google/callback?code=abc&state={state}")
+    assert resp.status_code == 200
+    assert ("google-x", "error") in status_calls
+    assert "Could not save credentials" in resp.text

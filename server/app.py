@@ -65,6 +65,8 @@ _news_service = NewsService()
 # OAuth state store: maps state_token -> {"user_id": str, "pending": {...}?} (short-lived, in-memory)
 _oauth_states: dict[str, dict] = {}
 
+_INVALID_STATE_HTML = "<h2>Invalid or expired state</h2><p>Please try connecting again.</p>"
+
 logger = logging.getLogger("aegis.server")
 
 
@@ -2150,11 +2152,11 @@ async def google_auth_callback(request: Request):
     # Validate state and recover user_id + optional pending link info
     state_data = _oauth_states.pop(state, None)
     if not state_data:
-        return HTMLResponse("<h2>Invalid or expired state</h2><p>Please try connecting again.</p>")
+        return HTMLResponse(_INVALID_STATE_HTML)
     user_id = state_data.get("user_id")
     pending = state_data.get("pending")
     if not user_id:
-        return HTMLResponse("<h2>Invalid or expired state</h2><p>Please try connecting again.</p>")
+        return HTMLResponse(_INVALID_STATE_HTML)
 
     try:
         from core.protocols.google_tools import exchange_code, save_credentials, get_account_email
@@ -2184,7 +2186,13 @@ async def google_auth_callback(request: Request):
         accounts = AccountManager(user_data_dir)
         acct_id = accounts.upsert_account(pending.get("label", ""), email,
                                           {"name": pending.get("name", "")})
-        save_credentials(user_data_dir, credentials, account_id=acct_id)
+        try:
+            save_credentials(user_data_dir, credentials, account_id=acct_id)
+        except Exception:
+            accounts.set_status(acct_id, "error")
+            logger.exception("Token save failed for account '%s'; marked error", acct_id)
+            return HTMLResponse(
+                "<h2>Error</h2><p>Could not save credentials. Please try connecting again.</p>")
         logger.info("Linked Google account '%s' (%s) for user '%s'",
                     acct_id, email or "email unknown", user_id)
     else:
