@@ -90,3 +90,28 @@ def test_threshold_above_one(monkeypatch):
     ])
     result = inbox_scan.run(ctx)
     assert result.notify is True
+
+
+def test_notification_lines_include_account_tag(monkeypatch):
+    """Email with 'account' key must prefix [account] in notification body."""
+    monkeypatch.setattr(inbox_scan, "fetch_unread", lambda s: [
+        {"from": "hbo@x.com", "subject": "urgent call sheet", "account": "HBO"},
+    ])
+    ctx = _ctx({"important_senders": [], "notify_threshold": 1,
+                "keywords": ["urgent"]})
+    result = inbox_scan.run(ctx)
+    assert result.notify is True
+    assert "- [HBO] hbo@x.com: urgent call sheet" in result.body
+
+
+def test_notification_lines_without_account_key_unchanged(monkeypatch):
+    """Email without 'account' key must render as before — no tag, no brackets."""
+    monkeypatch.setattr(inbox_scan, "fetch_unread", lambda s: [
+        {"from": "hbo@x.com", "subject": "urgent call sheet"},
+    ])
+    ctx = _ctx({"important_senders": [], "notify_threshold": 1,
+                "keywords": ["urgent"]})
+    result = inbox_scan.run(ctx)
+    assert result.notify is True
+    assert "- hbo@x.com: urgent call sheet" in result.body
+    assert "[" not in result.body

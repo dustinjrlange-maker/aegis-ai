@@ -21,13 +21,43 @@ logger = logging.getLogger(__name__)
 
 # Token file name (stored per-user in data/users/<username>/)
 TOKEN_FILE = "google_tokens.json"
+REGISTRY_FILE = "accounts.json"
+
+
+def _resolve_token_dir(user_data_dir, account_id=None):
+    """Map a user data dir (+ optional account id) to the dir holding TOKEN_FILE.
+
+    With an accounts.json registry present, tokens live per-account under
+    accounts/<id>/ (account_id=None selects the default account). Without a
+    registry — or when the id is unknown — the legacy layout (TOKEN_FILE
+    directly in user_data_dir) applies.
+    """
+    base = Path(user_data_dir)
+    registry = base / REGISTRY_FILE
+    if not registry.exists():
+        return base
+    try:
+        accounts = json.loads(
+            registry.read_text(encoding="utf-8")).get("accounts", [])
+    except (json.JSONDecodeError, IOError):
+        return base
+    acct = None
+    if account_id is not None:
+        acct = next((a for a in accounts if a.get("id") == account_id), None)
+    else:
+        acct = next((a for a in accounts if a.get("is_default")), None)
+        if acct is None and accounts:
+            acct = accounts[0]
+    if acct is None:
+        return base
+    return base / "accounts" / acct["id"]
 
 
 # ---------------------------------------------------------------------------
 # OAuth Token Management
 # ---------------------------------------------------------------------------
 
-def load_credentials(user_data_dir):
+def load_credentials(user_data_dir, account_id=None):
     """Load OAuth credentials from the user's token file.
 
     Auto-refreshes expired tokens and saves refreshed tokens back.
@@ -39,7 +69,8 @@ def load_credentials(user_data_dir):
         logger.debug("google-auth not installed")
         return None
 
-    token_path = Path(user_data_dir) / TOKEN_FILE
+    token_dir = _resolve_token_dir(user_data_dir, account_id)
+    token_path = token_dir / TOKEN_FILE
     if not token_path.exists():
         return None
 
@@ -67,7 +98,7 @@ def load_credentials(user_data_dir):
         try:
             from google.auth.transport.requests import Request
             creds.refresh(Request())
-            save_credentials(user_data_dir, creds)
+            save_credentials(user_data_dir, creds, account_id=account_id)
             logger.debug("Refreshed Google OAuth tokens")
         except Exception as e:
             logger.warning("Could not refresh Google tokens: %s", e)
@@ -79,9 +110,9 @@ def load_credentials(user_data_dir):
     return creds
 
 
-def save_credentials(user_data_dir, credentials):
+def save_credentials(user_data_dir, credentials, account_id=None):
     """Persist OAuth credentials to the user's token file."""
-    token_path = Path(user_data_dir) / TOKEN_FILE
+    token_path = _resolve_token_dir(user_data_dir, account_id) / TOKEN_FILE
     token_path.parent.mkdir(parents=True, exist_ok=True)
 
     token_data = {
@@ -99,10 +130,11 @@ def save_credentials(user_data_dir, credentials):
     )
 
 
-def revoke_credentials(user_data_dir):
+def revoke_credentials(user_data_dir, account_id=None):
     """Revoke the user's Google tokens and delete the token file."""
-    token_path = Path(user_data_dir) / TOKEN_FILE
-    creds = load_credentials(user_data_dir)
+    token_dir = _resolve_token_dir(user_data_dir, account_id)
+    token_path = token_dir / TOKEN_FILE
+    creds = load_credentials(user_data_dir, account_id)
 
     if creds and creds.token:
         try:
@@ -284,10 +316,12 @@ def _inbox_query(categories=("primary",)):
     return "in:inbox (%s)" % cats
 
 
-def gmail_list_messages(creds, max_results=10, categories=("primary",)):
+def gmail_list_messages(creds, max_results=10, categories=("primary",),
+                        extra_query=None):
     """List recent inbox messages.
 
     categories: Gmail tab categories to include (default Primary only).
+    extra_query: appended to the Gmail search query (e.g. "is:unread").
     Returns list of {id, subject, sender, date, snippet}.
     """
     service = _get_gmail_service(creds)
@@ -295,9 +329,12 @@ def gmail_list_messages(creds, max_results=10, categories=("primary",)):
         return []
 
     try:
+        q = _inbox_query(categories)
+        if extra_query:
+            q = f"{q} {extra_query}"
         results = service.users().messages().list(
             userId="me",
-            q=_inbox_query(categories),
+            q=q,
             maxResults=max_results,
         ).execute()
 

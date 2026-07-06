@@ -1,4 +1,7 @@
+import json
+
 import core.email_assistant as ea
+from core.accounts.manager import AccountManager
 from core.protocols import google_tools as gt
 
 
@@ -111,7 +114,7 @@ def test_parse_classification_unknown_is_none():
 
 def test_recent_inbox_builds_listing_and_idmap(monkeypatch):
     p = _proto(_FakeSession())
-    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s, account_id=None: "CREDS")
     monkeypatch.setattr(gt, "gmail_list_messages", lambda creds, max_results, categories: [
         {"id": "m1", "sender": "John <j@x.ca>", "subject": "Money"},
         {"id": "m2", "sender": "Jane <ja@x.ca>", "subject": "Lunch"},
@@ -124,7 +127,7 @@ def test_recent_inbox_builds_listing_and_idmap(monkeypatch):
 
 def test_recent_inbox_no_creds_is_empty(monkeypatch):
     p = _proto(_FakeSession(creds=None))
-    monkeypatch.setattr(ea, "_creds_from_session", lambda s: None)
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s, account_id=None: None)
     listing, id_map = p._recent_inbox()
     assert listing == ""
     assert id_map == {}
@@ -140,14 +143,14 @@ def test_resolve_ref_uses_idmap():
 
 def _wire_reply(monkeypatch, draft_result):
     """Patch classify->reply, inbox, and draft_reply for an end-to-end reply."""
-    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s, account_id=None: "CREDS")
     monkeypatch.setattr(gt, "gmail_list_messages", lambda creds, max_results, categories: [
         {"id": "m1", "sender": "John Milton Carlson <j@x.ca>", "subject": "Money"},
     ])
     monkeypatch.setattr(ea, "_llm",
                         lambda messages, **kw: "ACTION=reply | REF=1 | INSTRUCTION=thank him")
     monkeypatch.setattr(ea, "draft_reply",
-                        lambda session, message_id, intent: draft_result)
+                        lambda session, message_id, intent, account_id=None: draft_result)
 
 
 def test_reply_creates_pending_and_shows_draft(monkeypatch):
@@ -167,7 +170,7 @@ def test_reply_creates_pending_and_shows_draft(monkeypatch):
 
 def test_reply_unauthorized(monkeypatch):
     p = _proto(_FakeSession(creds=None))
-    monkeypatch.setattr(ea, "_creds_from_session", lambda s: None)
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s, account_id=None: None)
     monkeypatch.setattr(ea, "_llm",
                         lambda messages, **kw: "ACTION=reply | REF=1 | INSTRUCTION=hi")
     monkeypatch.setattr(gt, "gmail_list_messages",
@@ -188,7 +191,7 @@ def test_reply_draft_failure_is_reported(monkeypatch):
 
 def test_classified_none_falls_through(monkeypatch):
     p = _proto(_FakeSession())
-    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s, account_id=None: "CREDS")
     monkeypatch.setattr(gt, "gmail_list_messages",
                         lambda creds, max_results, categories: [])
     monkeypatch.setattr(ea, "_llm",
@@ -206,14 +209,14 @@ def _pending_reply(p):
 def test_send_sends_pending_and_clears(monkeypatch):
     p = _proto(_FakeSession())
     _pending_reply(p)
-    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s, account_id=None: "CREDS")
     monkeypatch.setattr(gt, "gmail_list_messages",
                         lambda creds, max_results, categories: [])
     monkeypatch.setattr(ea, "_llm",
                         lambda messages, **kw: "ACTION=send | REF=- | INSTRUCTION=-")
     sent = {}
     monkeypatch.setattr(ea, "send_draft",
-                        lambda session, draft_id: sent.update({"id": draft_id}) or {"success": True})
+                        lambda session, draft_id, account_id=None: sent.update({"id": draft_id}) or {"success": True})
     result = p.process_input("send it", {})
     assert result["intercept"] is True
     assert "sent to" in result["response"].lower()
@@ -223,7 +226,7 @@ def test_send_sends_pending_and_clears(monkeypatch):
 
 def test_send_with_no_pending_falls_through(monkeypatch):
     p = _proto(_FakeSession())  # no pending
-    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s, account_id=None: "CREDS")
     monkeypatch.setattr(gt, "gmail_list_messages",
                         lambda creds, max_results, categories: [])
     monkeypatch.setattr(ea, "_llm",
@@ -235,13 +238,13 @@ def test_send_with_no_pending_falls_through(monkeypatch):
 def test_send_failure_keeps_pending(monkeypatch):
     p = _proto(_FakeSession())
     _pending_reply(p)
-    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s, account_id=None: "CREDS")
     monkeypatch.setattr(gt, "gmail_list_messages",
                         lambda creds, max_results, categories: [])
     monkeypatch.setattr(ea, "_llm",
                         lambda messages, **kw: "ACTION=send | REF=- | INSTRUCTION=-")
     monkeypatch.setattr(ea, "send_draft",
-                        lambda session, draft_id: {"success": False, "error": "no scope"})
+                        lambda session, draft_id, account_id=None: {"success": False, "error": "no scope"})
     result = p.process_input("send it", {})
     assert "no scope" in result["response"]
     assert p._pending is not None  # not cleared on failure
@@ -250,7 +253,7 @@ def test_send_failure_keeps_pending(monkeypatch):
 def test_discard_deletes_and_clears(monkeypatch):
     p = _proto(_FakeSession())
     _pending_reply(p)
-    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s, account_id=None: "CREDS")
     monkeypatch.setattr(gt, "gmail_list_messages",
                         lambda creds, max_results, categories: [])
     monkeypatch.setattr(ea, "_llm",
@@ -267,13 +270,13 @@ def test_discard_deletes_and_clears(monkeypatch):
 def test_edit_redrafts_and_updates_pending(monkeypatch):
     p = _proto(_FakeSession())
     _pending_reply(p)
-    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s, account_id=None: "CREDS")
     monkeypatch.setattr(gt, "gmail_list_messages",
                         lambda creds, max_results, categories: [])
     monkeypatch.setattr(ea, "_llm",
                         lambda messages, **kw: "ACTION=edit | REF=- | INSTRUCTION=make it more formal")
     monkeypatch.setattr(gt, "gmail_delete_draft", lambda creds, draft_id: None)
-    monkeypatch.setattr(ea, "draft_reply", lambda session, message_id, intent: {
+    monkeypatch.setattr(ea, "draft_reply", lambda session, message_id, intent, account_id=None: {
         "success": True, "draft_id": "d2", "to": "John <j@x.ca>",
         "subject": "Re: Money", "body": "Dear John, I confirm receipt. Regards.",
     })
@@ -296,7 +299,7 @@ def test_session_registers_email_ops_with_backref():
 def test_edit_failure_preserves_old_draft(monkeypatch):
     p = _proto(_FakeSession())
     _pending_reply(p)
-    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s, account_id=None: "CREDS")
     monkeypatch.setattr(gt, "gmail_list_messages",
                         lambda creds, max_results, categories: [])
     monkeypatch.setattr(ea, "_llm",
@@ -305,7 +308,7 @@ def test_edit_failure_preserves_old_draft(monkeypatch):
     monkeypatch.setattr(gt, "gmail_delete_draft",
                         lambda creds, draft_id: deleted.update(called=True))
     monkeypatch.setattr(ea, "draft_reply",
-                        lambda session, message_id, intent: {"success": False, "error": "LLM down"})
+                        lambda session, message_id, intent, account_id=None: {"success": False, "error": "LLM down"})
     result = p.process_input("make it formal", {})
     assert "LLM down" in result["response"]
     assert deleted["called"] is False          # old draft NOT deleted on failure
@@ -315,14 +318,14 @@ def test_edit_failure_preserves_old_draft(monkeypatch):
 def test_send_requires_literal_phrase(monkeypatch):
     p = _proto(_FakeSession())
     _pending_reply(p)
-    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s, account_id=None: "CREDS")
     monkeypatch.setattr(gt, "gmail_list_messages",
                         lambda creds, max_results, categories: [])
     monkeypatch.setattr(ea, "_llm",
                         lambda messages, **kw: "ACTION=send | REF=- | INSTRUCTION=-")
     called = {"sent": False}
     monkeypatch.setattr(ea, "send_draft",
-                        lambda session, draft_id: called.update(sent=True) or {"success": True})
+                        lambda session, draft_id, account_id=None: called.update(sent=True) or {"success": True})
     result = p.process_input("yeah ok do it", {})   # affirmative but no send word
     assert called["sent"] is False                   # must NOT send
     assert "confirm" in result["response"].lower()
@@ -332,14 +335,14 @@ def test_send_requires_literal_phrase(monkeypatch):
 def _wire_send_classifier(monkeypatch, p):
     """Pending draft + a classifier that (wrongly) says ACTION=send."""
     _pending_reply(p)
-    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s, account_id=None: "CREDS")
     monkeypatch.setattr(gt, "gmail_list_messages",
                         lambda creds, max_results, categories: [])
     monkeypatch.setattr(ea, "_llm",
                         lambda messages, **kw: "ACTION=send | REF=- | INSTRUCTION=-")
     called = {"sent": False}
     monkeypatch.setattr(ea, "send_draft",
-                        lambda session, draft_id: called.update(sent=True) or {"success": True})
+                        lambda session, draft_id, account_id=None: called.update(sent=True) or {"success": True})
     return called
 
 
@@ -397,11 +400,11 @@ def test_parse_classification_forward():
 
 def test_new_creates_pending(monkeypatch):
     p = _proto(_FakeSession())
-    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s, account_id=None: "CREDS")
     monkeypatch.setattr(gt, "gmail_list_messages", lambda creds, max_results, categories: [])
     monkeypatch.setattr(ea, "_llm",
                         lambda messages, **kw: "ACTION=new | REF=- | TO=bob@x.ca | INSTRUCTION=say hi")
-    monkeypatch.setattr(ea, "draft_new", lambda session, to, intent: {
+    monkeypatch.setattr(ea, "draft_new", lambda session, to, intent, account_id=None: {
         "success": True, "draft_id": "n1", "to": "bob@x.ca",
         "subject": "Hello", "body": "Hi Bob, ..."})
     result = p.process_input("email bob@x.ca and say hi", {})
@@ -414,7 +417,7 @@ def test_new_creates_pending(monkeypatch):
 
 def test_new_without_address_asks(monkeypatch):
     p = _proto(_FakeSession())
-    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s, account_id=None: "CREDS")
     monkeypatch.setattr(gt, "gmail_list_messages", lambda creds, max_results, categories: [])
     monkeypatch.setattr(ea, "_llm",
                         lambda messages, **kw: "ACTION=new | REF=- | TO=- | INSTRUCTION=say hi to bob")
@@ -426,12 +429,12 @@ def test_new_without_address_asks(monkeypatch):
 
 def test_forward_creates_pending(monkeypatch):
     p = _proto(_FakeSession())
-    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s, account_id=None: "CREDS")
     monkeypatch.setattr(gt, "gmail_list_messages", lambda creds, max_results, categories: [
         {"id": "m1", "sender": "Ann <ann@x.ca>", "subject": "Numbers"}])
     monkeypatch.setattr(ea, "_llm",
                         lambda messages, **kw: "ACTION=forward | REF=1 | TO=sue@x.ca | INSTRUCTION=-")
-    monkeypatch.setattr(ea, "draft_forward", lambda session, message_id, to: {
+    monkeypatch.setattr(ea, "draft_forward", lambda session, message_id, to, account_id=None: {
         "success": True, "draft_id": "f1", "to": "sue@x.ca",
         "subject": "Fwd: Numbers", "body": "---------- Forwarded message ----------"})
     result = p.process_input("forward the Ann email to sue@x.ca", {})
@@ -445,13 +448,13 @@ def test_edit_new_draft_uses_draft_new(monkeypatch):
     p = _proto(_FakeSession())
     p._pending = {"draft_id": "n1", "kind": "new", "message_id": None,
                   "to": "bob@x.ca", "subject": "Hello", "intent": "say hi"}
-    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s, account_id=None: "CREDS")
     monkeypatch.setattr(gt, "gmail_list_messages", lambda creds, max_results, categories: [])
     monkeypatch.setattr(ea, "_llm",
                         lambda messages, **kw: "ACTION=edit | REF=- | TO=- | INSTRUCTION=make it formal")
     monkeypatch.setattr(gt, "gmail_delete_draft", lambda creds, draft_id: None)
     used = {}
-    monkeypatch.setattr(ea, "draft_new", lambda session, to, intent: used.update(
+    monkeypatch.setattr(ea, "draft_new", lambda session, to, intent, account_id=None: used.update(
         to=to, intent=intent) or {"success": True, "draft_id": "n2", "to": to,
                                    "subject": "Hello", "body": "Dear Bob, ..."})
     # draft_reply must NOT be used for a 'new' draft
@@ -468,7 +471,7 @@ def test_edit_forward_is_blocked(monkeypatch):
     p = _proto(_FakeSession())
     p._pending = {"draft_id": "f1", "kind": "forward", "message_id": "m1",
                   "to": "sue@x.ca", "subject": "Fwd: X", "intent": "forward the ann email to sue@x.ca"}
-    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s, account_id=None: "CREDS")
     monkeypatch.setattr(gt, "gmail_list_messages", lambda creds, max_results, categories: [])
     monkeypatch.setattr(ea, "_llm",
                         lambda messages, **kw: "ACTION=edit | REF=- | TO=- | INSTRUCTION=make it formal")
@@ -483,7 +486,7 @@ def test_edit_forward_is_blocked(monkeypatch):
 
 def test_new_ignores_address_in_body(monkeypatch):
     p = _proto(_FakeSession())
-    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s, account_id=None: "CREDS")
     monkeypatch.setattr(gt, "gmail_list_messages", lambda creds, max_results, categories: [])
     # classifier returns no recipient (TO=-) though the body mentions an address
     monkeypatch.setattr(ea, "_llm",
@@ -499,7 +502,7 @@ def test_new_ignores_address_in_body(monkeypatch):
 
 def test_mark_read_action(monkeypatch):
     p = _proto(_FakeSession())
-    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s, account_id=None: "CREDS")
     monkeypatch.setattr(gt, "gmail_list_messages", lambda creds, max_results, categories: [
         {"id": "m5", "sender": "X", "subject": "Y"}])
     monkeypatch.setattr(ea, "_llm",
@@ -516,7 +519,7 @@ def test_mark_read_action(monkeypatch):
 
 def test_archive_action(monkeypatch):
     p = _proto(_FakeSession())
-    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s, account_id=None: "CREDS")
     monkeypatch.setattr(gt, "gmail_list_messages", lambda creds, max_results, categories: [
         {"id": "m5", "sender": "X", "subject": "Y"}])
     monkeypatch.setattr(ea, "_llm",
@@ -532,13 +535,225 @@ def test_archive_action(monkeypatch):
 
 def test_mark_read_bad_ref_asks(monkeypatch):
     p = _proto(_FakeSession())
-    monkeypatch.setattr(ea, "_creds_from_session", lambda s: "CREDS")
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s, account_id=None: "CREDS")
     monkeypatch.setattr(gt, "gmail_list_messages", lambda creds, max_results, categories: [])
     monkeypatch.setattr(ea, "_llm",
                         lambda messages, **kw: "ACTION=mark_read | REF=- | TO=- | INSTRUCTION=-")
     result = p.process_input("mark it read", {})
     assert result["intercept"] is True
     assert "which email" in result["response"].lower()
+
+
+# --- Task 10: ACCOUNT= classifier field + account resolution -------------
+
+from tests.test_briefing_accounts import FakeAccounts
+
+
+def _session_with_accounts(accounts):
+    s = _FakeSession()
+    s.accounts = accounts
+    return s
+
+
+def test_classifier_prompt_lists_accounts():
+    accounts = FakeAccounts(
+        accounts=[
+            {"id": "google-personal", "label": "Personal",
+             "email": "dustin.jr.lange@gmail.com"},
+            {"id": "google-stitch", "label": "SwitchStitch",
+             "email": "TheSwitchStitch@gmail.com"},
+        ],
+        creds_by_id={},
+    )
+    p = _proto(_session_with_accounts(accounts))
+    prompt = p._build_classifier_prompt("hi", "", False)
+    assert "ACCOUNT=<account id or ->" in prompt
+    assert "google-personal" in prompt
+    assert "SwitchStitch" in prompt
+    # Privacy: email addresses must NOT be shipped into the classifier prompt —
+    # the classifier only picks an id/label; resolve() matches emails locally.
+    assert "dustin.jr.lange@gmail.com" not in prompt
+    assert "TheSwitchStitch@gmail.com" not in prompt
+
+
+def test_classifier_prompt_no_accounts_unchanged():
+    """Un-migrated session (no accounts attr) gets no account block."""
+    p = _proto(_FakeSession())
+    prompt = p._build_classifier_prompt("hi", "", False)
+    assert "Linked accounts" not in prompt
+
+
+def test_classifier_prompt_empty_registry_unchanged():
+    """Accounts layer present but EMPTY -> original prompt (no ACCOUNT token)."""
+    p = _proto(_session_with_accounts(FakeAccounts(accounts=[], creds_by_id={})))
+    prompt = p._build_classifier_prompt("hi", "", False)
+    assert "ACCOUNT=" not in prompt
+    assert "Linked accounts" not in prompt
+
+
+def test_parse_classification_account():
+    p = _proto(_FakeSession())
+    out = p._parse_classification(
+        "ACTION=new | REF=- | TO=bob@x.com | ACCOUNT=google-stitch | INSTRUCTION=say hi")
+    assert out["account"] == "google-stitch"
+    assert out["instruction"] == "say hi"
+    assert out["to"] == "bob@x.com"
+
+
+def test_parse_classification_account_dash_absent():
+    p = _proto(_FakeSession())
+    out = p._parse_classification(
+        "ACTION=new | REF=- | TO=bob@x.com | ACCOUNT=- | INSTRUCTION=say hi")
+    assert "account" not in out
+
+
+def test_parse_classification_account_out_of_order():
+    """ACCOUNT after INSTRUCTION: still parsed, instruction stays clean."""
+    p = _proto(_FakeSession())
+    out = p._parse_classification(
+        "ACTION=new | INSTRUCTION=say hi | ACCOUNT=google-stitch")
+    assert out["account"] == "google-stitch"
+    assert out["instruction"] == "say hi"
+
+
+def _real_accounts(tmp_path):
+    (tmp_path / "accounts.json").write_text(json.dumps({"accounts": [
+        {"id": "google-personal", "label": "Personal",
+         "email": "dustin.jr.lange@gmail.com", "is_default": True},
+        {"id": "google-stitch", "label": "SwitchStitch",
+         "email": "TheSwitchStitch@gmail.com"},
+    ]}), encoding="utf-8")
+    return AccountManager(tmp_path)
+
+
+def test_resolve_account_explicit_hint(tmp_path):
+    p = _proto(_session_with_accounts(_real_accounts(tmp_path)))
+    acct, _ = p._resolve_account({"account": "stitch"})
+    assert acct["id"] == "google-stitch"
+
+
+def test_resolve_account_unknown_falls_back_to_default(tmp_path):
+    p = _proto(_session_with_accounts(_real_accounts(tmp_path)))
+    acct, _ = p._resolve_account({"account": "nonsense"})
+    assert acct["id"] == "google-personal"
+
+
+def test_resolve_account_absent_uses_default(tmp_path):
+    p = _proto(_session_with_accounts(_real_accounts(tmp_path)))
+    acct, _ = p._resolve_account({})
+    assert acct["id"] == "google-personal"
+
+
+def test_resolve_account_no_layer_returns_none():
+    p = _proto(_FakeSession())  # session has no .accounts
+    acct, note = p._resolve_account({"account": "stitch"})
+    assert acct is None
+    assert note == ""
+
+
+def test_resolve_account_note_fires_on_unmatched_hint(tmp_path):
+    """A hint that doesn't resolve produces a non-empty note mentioning the hint
+    and the fallback label; matching hint or absent hint yields note == ''."""
+    p = _proto(_session_with_accounts(_real_accounts(tmp_path)))
+    # unmatched hint -> fallback to default with a note
+    acct, note = p._resolve_account({"account": "nonexistent-xyz"})
+    assert acct is not None
+    assert acct["id"] == "google-personal"
+    assert note  # non-empty
+    assert "nonexistent-xyz" in note
+    assert "Personal" in note
+
+    # matching hint -> no note
+    acct2, note2 = p._resolve_account({"account": "stitch"})
+    assert acct2["id"] == "google-stitch"
+    assert note2 == ""
+
+    # absent hint -> no note
+    acct3, note3 = p._resolve_account({})
+    assert acct3["id"] == "google-personal"
+    assert note3 == ""
+
+
+# --- Task 11: represent-as / account named in draft + send threading -----
+
+
+def _stitch_accounts(tmp_path):
+    (tmp_path / "accounts.json").write_text(json.dumps({"accounts": [
+        {"id": "google-stitch", "label": "SwitchStitch",
+         "email": "TheSwitchStitch@gmail.com", "is_default": True,
+         "represent_as": {"name": "Switch", "signoff": "Switch",
+                          "tone_hint": "maker-brand"}},
+    ]}), encoding="utf-8")
+    return AccountManager(tmp_path)
+
+
+def test_do_new_preview_states_account_and_stores_id(tmp_path, monkeypatch):
+    p = _proto(_session_with_accounts(_stitch_accounts(tmp_path)))
+    monkeypatch.setattr(ea, "draft_new",
+                        lambda session, to, intent, account_id=None: {
+                            "success": True, "draft_id": "n1", "to": to,
+                            "subject": "Hi", "body": "Hi Bob"})
+    resp = p._do_new({"to": "bob@x.com", "instruction": "say hi"},
+                     "email bob@x.com say hi")
+    assert "From: SwitchStitch (TheSwitchStitch@gmail.com)" in resp
+    assert p._pending["account_id"] == "google-stitch"
+
+
+def test_do_send_threads_composing_account_id(tmp_path, monkeypatch):
+    p = _proto(_session_with_accounts(_stitch_accounts(tmp_path)))
+    monkeypatch.setattr(ea, "draft_new",
+                        lambda session, to, intent, account_id=None: {
+                            "success": True, "draft_id": "n1", "to": to,
+                            "subject": "Hi", "body": "Hi Bob"})
+    p._do_new({"to": "bob@x.com", "instruction": "say hi"}, "email bob@x.com say hi")
+    assert p._pending["account_id"] == "google-stitch"
+    captured = {}
+    monkeypatch.setattr(ea, "send_draft",
+                        lambda session, draft_id, account_id=None: captured.update(
+                            draft_id=draft_id, account_id=account_id) or {"success": True})
+    p._do_send({}, "send it")
+    assert captured["account_id"] == "google-stitch"
+
+
+def test_discard_deletes_with_composing_account_creds(monkeypatch):
+    """A draft made under a non-default account must be deleted with THAT
+    account's creds, not the default's."""
+    p = _proto(_FakeSession())
+    p._pending = {"draft_id": "d1", "kind": "reply", "message_id": "m1",
+                  "to": "x@y.com", "subject": "Re", "intent": "hi",
+                  "account_id": "google-stitch"}
+    # creds are keyed to the account_id so we can prove routing.
+    monkeypatch.setattr(ea, "_creds_from_session",
+                        lambda s, account_id=None: f"CREDS::{account_id}")
+    captured = {}
+    monkeypatch.setattr(gt, "gmail_delete_draft",
+                        lambda creds, draft_id: captured.update(creds=creds, draft_id=draft_id))
+    p._do_discard({}, "discard it")
+    assert captured["creds"] == "CREDS::google-stitch"
+    assert captured["draft_id"] == "d1"
+    assert p._pending is None
+
+
+def test_edit_deletes_old_draft_with_composing_account_creds(monkeypatch):
+    """The superseded draft delete in _do_edit uses the pending account's creds."""
+    p = _proto(_FakeSession())
+    p._pending = {"draft_id": "d1", "kind": "reply", "message_id": "m1",
+                  "to": "x@y.com", "subject": "Re", "intent": "hi",
+                  "account_id": "google-stitch"}
+    monkeypatch.setattr(ea, "_creds_from_session",
+                        lambda s, account_id=None: f"CREDS::{account_id}")
+    monkeypatch.setattr(ea, "draft_reply",
+                        lambda session, message_id, intent, account_id=None: {
+                            "success": True, "draft_id": "d2", "to": "x@y.com",
+                            "subject": "Re", "body": "redone"})
+    captured = {}
+    monkeypatch.setattr(gt, "gmail_delete_draft",
+                        lambda creds, draft_id: captured.update(creds=creds, draft_id=draft_id))
+    p._do_edit({"instruction": "make it formal"}, "make it formal")
+    assert captured["creds"] == "CREDS::google-stitch"   # old draft deleted under its account
+    assert captured["draft_id"] == "d1"
+    assert p._pending["draft_id"] == "d2"
+    assert p._pending["account_id"] == "google-stitch"   # account preserved across edit
 
 
 def test_gmail_archive_removes_inbox_label(monkeypatch):

@@ -41,6 +41,7 @@ from core.memory.weather_cache import WeatherService
 from core.memory.alarm_manager import AlarmManager
 from core.memory.file_manager import FileManager
 from core.memory.social_manager import SocialMediaManager
+from core.accounts.manager import AccountManager
 from core.notifications import NotificationService
 from core.agent import build_filler_cleaner
 from core.auth import load_user_preferences
@@ -134,6 +135,11 @@ class UserSession:
         self.alarm_manager = AlarmManager(user_data_dir)
         self.file_manager = FileManager(user_data_dir)
         self.social_manager = SocialMediaManager(user_data_dir)
+        self.accounts = AccountManager(user_data_dir)
+
+        # Heartbeat inbox_scan seam (Wave 3.5 Task-8): zero-arg callable.
+        from core.accounts.inbox import fetch_unread_all_accounts
+        self.fetch_unread_emails = lambda: fetch_unread_all_accounts(self)
 
         # File context pending injection (set by file analyze endpoint)
         self._pending_file_context = None
@@ -400,7 +406,9 @@ class UserSession:
         elif time_start:
             when = f"{date_str} {time_start}"
         if outcome["source"] == "google":
-            return f"Event '{title}' added to your Google Calendar on {when}"
+            acct = self.accounts.default() if getattr(self, "accounts", None) else None
+            label = f" ({acct['label']})" if acct and acct.get("label") else ""
+            return f"Event '{title}' added to your Google Calendar{label} on {when}"
         return f"Event '{title}' created on {when} (local — Google Calendar not connected)"
 
     def _handle_add_mood(self, arg: str) -> str:

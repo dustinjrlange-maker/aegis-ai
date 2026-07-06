@@ -3,8 +3,12 @@
 Covers the shared create_event_or_local helper (Google-first with local
 fallback) and the bracket-handler time-range parser.
 """
+import json
+from unittest.mock import MagicMock
+
 import pytest
 
+from core.accounts.manager import AccountManager
 from core.protocols import google_tools
 from core.session import UserSession
 
@@ -195,6 +199,34 @@ def test_falls_back_to_local_when_google_write_fails(monkeypatch):
         object(), em, "Range day", "2026-07-04", time_start="12:00")
     assert out["source"] == "local"
     assert em.created["title"] == "Range day"
+
+
+# --- Task 11: event confirmation names the (default) account --------------
+
+class _EventCarrier:
+    """Minimal carrier for UserSession._handle_add_event without a full
+    session (packs/models). Borrows only the methods it needs."""
+    _TIME_RANGE_RE = UserSession._TIME_RANGE_RE
+    _parse_time_range = UserSession._parse_time_range
+    _handle_add_event = UserSession._handle_add_event
+
+
+def test_event_confirmation_includes_account_label(tmp_path, monkeypatch):
+    (tmp_path / "accounts.json").write_text(json.dumps({"accounts": [
+        {"id": "google-personal", "label": "Personal", "is_default": True},
+    ]}), encoding="utf-8")
+
+    carrier = _EventCarrier()
+    reg = MagicMock()
+    reg.get.return_value = None            # no operations/google proto
+    carrier.protocol_registry = reg
+    carrier.event_manager = MagicMock()
+    carrier.accounts = AccountManager(tmp_path)
+
+    monkeypatch.setattr(google_tools, "create_event_or_local",
+                        lambda *a, **k: {"source": "google"})
+    out = carrier._handle_add_event("2026-07-08 | Podcast")
+    assert "added to your Google Calendar (Personal)" in out
 
 
 def test_single_time_defaults_one_hour_end(monkeypatch):

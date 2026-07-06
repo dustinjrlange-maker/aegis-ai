@@ -55,6 +55,7 @@ def test_build_runtime_produces_runnable(tmp_path):
         data_dir=tmp_path,
         get_telegram_app=lambda: None,
         get_chat_id=lambda uid: None,
+        user_id="switch",
     )
     clock = FakeClock(datetime(2026, 7, 4, 12, 0))
 
@@ -75,6 +76,7 @@ def test_build_runtime_creates_state_and_log_files(tmp_path):
         data_dir=tmp_path,
         get_telegram_app=lambda: None,
         get_chat_id=lambda uid: None,
+        user_id="switch",
     )
     clock = FakeClock(datetime(2026, 7, 4, 12, 0))
 
@@ -137,6 +139,7 @@ def test_build_runtime_wraps_real_sm_with_get_or_create():
         data_dir="ignored",
         get_telegram_app=lambda: None,
         get_chat_id=lambda uid: None,
+        user_id="switch",
     )
     # The scheduler-facing session manager must be the wrapping adapter.
     assert isinstance(rt._sm, _EnsureSessionManager)
@@ -154,6 +157,7 @@ def test_build_runtime_fake_sm_without_get_or_create_passed_through():
         data_dir="ignored",
         get_telegram_app=lambda: None,
         get_chat_id=lambda uid: None,
+        user_id="switch",
     )
     assert rt._sm is fake
 
@@ -169,6 +173,7 @@ def test_build_runtime_global_disabled(tmp_path):
         data_dir=tmp_path,
         get_telegram_app=lambda: None,
         get_chat_id=lambda uid: None,
+        user_id="switch",
     )
     clock = FakeClock(datetime(2026, 7, 4, 12, 0))
 
@@ -222,3 +227,13 @@ def test_get_or_create_touch_true_resets_last_activity():
     assert session.last_activity > old_activity, (
         "touch=True (default) must still update last_activity for real chat messages"
     )
+
+
+def test_build_runtime_requires_user_id(tmp_path):
+    """user_id lost its 'switch' default — omitting it must be an error,
+    not a silent run against a phantom user."""
+    import pytest
+    with pytest.raises(TypeError):
+        build_runtime(_FakeSM(), config={}, data_dir=tmp_path,
+                      get_telegram_app=lambda: None,
+                      get_chat_id=lambda u: None)

@@ -79,9 +79,11 @@ def run(ctx):
     )
 
     if len(important) >= threshold:
-        lines = "\n".join(
-            f"- {e.get('from', '?')}: {e.get('subject', '')}" for e in important
-        )
+        def _fmt(e):
+            tag = f"[{e['account']}] " if e.get("account") else ""
+            return f"- {tag}{e.get('from', '?')}: {e.get('subject', '')}"
+
+        lines = "\n".join(_fmt(e) for e in important)
         logger.info("inbox_scan: escalating — %d important email(s)", len(important))
         return JobResult(
             silent_log=log_line,

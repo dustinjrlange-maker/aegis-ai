@@ -74,26 +74,34 @@ def collect_briefing_facts(session, period: str | None = None) -> dict:
     events_today = session.event_manager.list_events(today_str, today_str)
     events_upcoming = session.event_manager.list_events(tomorrow_str, end_3d)
 
-    # Google calendar (best-effort)
+    # Google calendars — all linked accounts with the feature (best-effort)
     google_today, google_upcoming = [], []
     try:
-        google_proto = session.protocol_registry.get("google")
-        if google_proto:
-            creds = google_proto._get_creds()
-            if creds:
-                from core.protocols.google_tools import calendar_upcoming
-                for ev in calendar_upcoming(creds, days=4):
-                    ev_date = ev.get("start", "")[:10]
-                    item = {
-                        "title": ev.get("summary", "(no title)"),
-                        "date": ev_date,
-                        "time_start": ev.get("start", "")[11:16] or None,
-                        "source": "google",
-                    }
-                    if ev_date == today_str:
-                        google_today.append(item)
-                    elif tomorrow_str <= ev_date <= end_3d:
-                        google_upcoming.append(item)
+        accounts = getattr(session, "accounts", None)
+        acct_list = accounts.list(feature="briefing_calendar") if accounts else []
+        label_items = len(acct_list) > 1   # prefix only when ambiguous
+        from core.protocols.google_tools import calendar_upcoming
+        for acct in acct_list:
+            creds = accounts.creds_for(acct["id"])
+            if creds is None:
+                continue   # creds_for already marked status="error"
+            label = acct.get("label") or acct["id"]
+            for ev in calendar_upcoming(creds, days=4):
+                ev_date = ev.get("start", "")[:10]
+                title = ev.get("summary", "(no title)")
+                if label_items:
+                    title = f"[{label}] {title}"
+                item = {
+                    "title": title,
+                    "date": ev_date,
+                    "time_start": ev.get("start", "")[11:16] or None,
+                    "source": "google",
+                    "account": label,
+                }
+                if ev_date == today_str:
+                    google_today.append(item)
+                elif tomorrow_str <= ev_date <= end_3d:
+                    google_upcoming.append(item)
     except Exception as e:
         logger.debug("Google calendar fetch failed in briefing: %s", e)
 
@@ -102,15 +110,16 @@ def collect_briefing_facts(session, period: str | None = None) -> dict:
     if isinstance(weather, dict) and "error" in weather:
         weather = None
 
-    # Unread email count (best-effort)
+    # Unread email count — summed across linked accounts (best-effort)
     unread_email_count = 0
     try:
-        google_proto = session.protocol_registry.get("google")
-        if google_proto:
-            creds = google_proto._get_creds()
-            if creds:
-                from core.protocols.google_tools import gmail_unread_count
-                unread_email_count = gmail_unread_count(creds)
+        accounts = getattr(session, "accounts", None)
+        from core.protocols.google_tools import gmail_unread_count
+        for acct in (accounts.list(feature="inbox_scan") if accounts else []):
+            creds = accounts.creds_for(acct["id"])
+            if creds is None:
+                continue
+            unread_email_count += gmail_unread_count(creds)
     except Exception as e:
         logger.debug("Unread email count fetch failed in briefing: %s", e)
 

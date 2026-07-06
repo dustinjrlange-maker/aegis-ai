@@ -115,7 +115,9 @@ class EmailOpsProtocol(Protocol):
         if not message_id:
             return "I couldn't tell which email you mean — which one should I reply to?"
         intent = action.get("instruction") or text
-        res = ea.draft_reply(self._session, message_id, intent=intent)
+        acct, acct_note = self._resolve_account(action)
+        acct_id = acct["id"] if acct else None
+        res = ea.draft_reply(self._session, message_id, intent=intent, account_id=acct_id)
         if not res.get("success"):
             return f"I couldn't draft that reply: {res.get('error', 'unknown error')}"
         self._pending = {
@@ -125,13 +127,25 @@ class EmailOpsProtocol(Protocol):
             "to": res.get("to", ""),
             "subject": res.get("subject", ""),
             "intent": intent,
+            "account_id": acct_id,
         }
         return (
+            f"{acct_note}{self._from_line(acct)}"
             f"Here's your reply to {res.get('to', 'them')} —\n"
             f"Subject: {res.get('subject', '')}\n\n"
             f"{res.get('body', '')}\n\n"
             "Send it, tweak it, or discard?"
         )
+
+    def _from_line(self, acct):
+        """Preview 'From:' line for a resolved account, or '' when none."""
+        if not acct:
+            return ""
+        label = acct.get("label", acct["id"])
+        email = acct.get("email", "")
+        if email:
+            return f"From: {label} ({email})\n"
+        return f"From: {label}\n"
 
     def _extract_recipient(self, action):
         """Recipient comes only from the classifier's structured TO= field.
@@ -149,14 +163,18 @@ class EmailOpsProtocol(Protocol):
         if not to:
             return "Who should I send it to? Give me an email address."
         intent = action.get("instruction") or text
-        res = ea.draft_new(self._session, to, intent=intent)
+        acct, acct_note = self._resolve_account(action)
+        acct_id = acct["id"] if acct else None
+        res = ea.draft_new(self._session, to, intent=intent, account_id=acct_id)
         if not res.get("success"):
             return f"I couldn't draft that email: {res.get('error', 'unknown error')}"
         self._pending = {
             "draft_id": res["draft_id"], "kind": "new", "message_id": None,
             "to": res.get("to", to), "subject": res.get("subject", ""), "intent": intent,
+            "account_id": acct_id,
         }
         return (
+            f"{acct_note}{self._from_line(acct)}"
             f"Here's your email to {res.get('to', to)} —\n"
             f"Subject: {res.get('subject', '')}\n\n"
             f"{res.get('body', '')}\n\n"
@@ -170,14 +188,18 @@ class EmailOpsProtocol(Protocol):
         to = self._extract_recipient(action)
         if not to:
             return "Who should I forward it to? Give me an email address."
-        res = ea.draft_forward(self._session, message_id, to)
+        acct, acct_note = self._resolve_account(action)
+        acct_id = acct["id"] if acct else None
+        res = ea.draft_forward(self._session, message_id, to, account_id=acct_id)
         if not res.get("success"):
             return f"I couldn't draft that forward: {res.get('error', 'unknown error')}"
         self._pending = {
             "draft_id": res["draft_id"], "kind": "forward", "message_id": message_id,
             "to": res.get("to", to), "subject": res.get("subject", ""), "intent": text,
+            "account_id": acct_id,
         }
         return (
+            f"{acct_note}{self._from_line(acct)}"
             f"Here's the forward to {res.get('to', to)} —\n"
             f"Subject: {res.get('subject', '')}\n\n"
             f"{res.get('body', '')}\n\n"
@@ -207,7 +229,8 @@ class EmailOpsProtocol(Protocol):
         if not _SEND_PHRASE.search(t) or _NOT_A_CONFIRM.search(t):
             return ("Just to confirm — send the draft to "
                     f"{self._pending.get('to', 'them')}? Say \"send it\" to confirm.")
-        res = ea.send_draft(self._session, self._pending["draft_id"])
+        res = ea.send_draft(self._session, self._pending["draft_id"],
+                            account_id=self._pending.get("account_id"))
         if not res.get("success"):
             return f"I couldn't send it: {res.get('error', 'unknown error')}"
         to = self._pending.get("to", "them")
@@ -215,7 +238,7 @@ class EmailOpsProtocol(Protocol):
         return f"Sent to {to}."
 
     def _do_discard(self, action, text):
-        creds = ea._creds_from_session(self._session)
+        creds = ea._creds_from_session(self._session, self._pending.get("account_id"))
         try:
             gt.gmail_delete_draft(creds, self._pending["draft_id"])
         except Exception:
@@ -231,15 +254,19 @@ class EmailOpsProtocol(Protocol):
         change = action.get("instruction") or text
         new_intent = f"{p.get('intent', '')} | revision: {change}".strip(" |")
         kind = p.get("kind", "reply")
+        acct_id = p.get("account_id")
         if kind == "new":
-            res = ea.draft_new(self._session, p.get("to", ""), intent=new_intent)
+            res = ea.draft_new(self._session, p.get("to", ""), intent=new_intent,
+                               account_id=acct_id)
         elif kind == "forward":
-            res = ea.draft_forward(self._session, p["message_id"], p.get("to", ""), note=new_intent)
+            res = ea.draft_forward(self._session, p["message_id"], p.get("to", ""),
+                                   note=new_intent, account_id=acct_id)
         else:
-            res = ea.draft_reply(self._session, p["message_id"], intent=new_intent)
+            res = ea.draft_reply(self._session, p["message_id"], intent=new_intent,
+                                 account_id=acct_id)
         if not res.get("success"):
             return f"I couldn't revise it: {res.get('error', 'unknown error')}"
-        creds = ea._creds_from_session(self._session)
+        creds = ea._creds_from_session(self._session, acct_id)
         try:
             gt.gmail_delete_draft(creds, p["draft_id"])
         except Exception:
@@ -271,6 +298,25 @@ class EmailOpsProtocol(Protocol):
                         "send", "edit", "discard")
 
     def _build_classifier_prompt(self, text, listing, pending):
+        accounts = getattr(self._session, "accounts", None)
+        listed = accounts.list() if accounts else []
+        if listed:
+            acct_field = "| ACCOUNT=<account id or -> "
+            acct_lines = (
+                "Linked accounts (choose ACCOUNT by context; - = default):\n"
+                + "\n".join(
+                    f"- {a['id']} — {a.get('label', '')}"
+                    for a in listed)
+                + "\n\n"
+            )
+            acct_rule = (
+                "- ACCOUNT: which linked account to act as. Set it only if the "
+                "user names or clearly implies one; otherwise leave it -.\n"
+            )
+        else:
+            acct_field = ""
+            acct_lines = ""
+            acct_rule = ""
         return (
             "You classify a user's email request into ONE action.\n\n"
             "Recent inbox (most recent first):\n"
@@ -279,7 +325,8 @@ class EmailOpsProtocol(Protocol):
             f'User said: "{text}"\n\n'
             "Reply with ONE line, exactly this format:\n"
             "ACTION=<reply|new|forward|mark_read|archive|send|edit|discard|none> | REF=<inbox number or -> "
-            "| TO=<email address or -> | INSTRUCTION=<what to say, or ->\n\n"
+            f"| TO=<email address or -> {acct_field}| INSTRUCTION=<what to say, or ->\n\n"
+            f"{acct_lines}"
             "Rules:\n"
             "- reply: replying to an inbox email. REF = the inbox number. "
             "INSTRUCTION = what the reply should say.\n"
@@ -294,6 +341,7 @@ class EmailOpsProtocol(Protocol):
             "Only if a draft is pending.\n"
             "- discard: cancel the pending draft. Only if a draft is pending.\n"
             "- none: anything that is not an email action.\n"
+            f"{acct_rule}"
             "Output ONLY the one line. No explanation."
         )
 
@@ -314,6 +362,11 @@ class EmailOpsProtocol(Protocol):
             to_val = to_m.group(1).strip()
             if to_val and to_val != "-":
                 out["to"] = to_val
+        acct_m = re.search(r"ACCOUNT\s*=\s*([^|]+)", text)
+        if acct_m:
+            acct_val = acct_m.group(1).strip()
+            if acct_val and acct_val != "-":
+                out["account"] = acct_val
         ins_m = re.search(r"INSTRUCTION\s*=\s*(.+)", text)
         if ins_m:
             ins = ins_m.group(1).strip()
@@ -348,6 +401,29 @@ class EmailOpsProtocol(Protocol):
         if ref and str(ref).isdigit():
             return self._id_map.get(int(ref))
         return None
+
+    def _resolve_account(self, action):
+        """Map the classifier's ACCOUNT= hint to an account record.
+
+        Returns (account_or_None, note). *note* is a non-empty string ONLY when
+        the user named an account that couldn't be matched and we fell back to
+        the default — so the caller can tell them in the preview instead of
+        silently composing from the wrong account. Absent/blank hint, or a hint
+        that resolves, yields note = ""."""
+        accounts = getattr(self._session, "accounts", None)
+        if accounts is None:
+            return None, ""
+        hint = (action.get("account") or "").strip()
+        if hint and hint != "-":
+            acct = accounts.resolve(hint)
+            if acct is not None:
+                return acct, ""
+            default = accounts.default()
+            if default is not None:
+                label = default.get("label", default["id"])
+                return default, f'(Couldn\'t match account "{hint}" — using {label} instead.)\n'
+            return None, ""
+        return accounts.default(), ""
 
     def _classify(self, text):
         if self._pending is None:
