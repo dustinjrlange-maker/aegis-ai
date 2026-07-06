@@ -14475,7 +14475,18 @@ async function submitAddAccount() {
         });
         var data = await res.json();
         if (res.ok && data.auth_url) {
-            window.open(data.auth_url, '_blank');
+            // Open externally — Google won't authorize inside an Electron webview.
+            // Mirror _mailStartAuth: prefer the Electron bridge, fall back to
+            // window.open with a blocked-popup guard (never navigate the app away).
+            if (window.electronAPI && typeof window.electronAPI.openExternal === 'function') {
+                window.electronAPI.openExternal(data.auth_url);
+            } else {
+                var win = window.open(data.auth_url, '_blank');
+                if (!win) {
+                    alert('Your browser blocked the sign-in window. Please allow popups for Aegis and click Connect again.');
+                    return;
+                }
+            }
             setTimeout(refreshLinkedAccounts, 2000);
         } else {
             alert(data.error || 'Could not start account linking');

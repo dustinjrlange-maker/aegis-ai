@@ -166,9 +166,10 @@ class AccountManager:
             if email_l:
                 for a in accounts:
                     if (a.get("email") or "").strip().lower() == email_l:
-                        if label:
+                        if label and not (a.get("label") or "").strip():
                             a["label"] = label
-                        if represent_as and (represent_as.get("name") or "").strip():
+                        cur_name = ((a.get("represent_as") or {}).get("name") or "").strip()
+                        if not cur_name and represent_as and (represent_as.get("name") or "").strip():
                             a["represent_as"] = _normalize_represent_as(represent_as)
                         a["status"] = "ok"
                         self._write(data)

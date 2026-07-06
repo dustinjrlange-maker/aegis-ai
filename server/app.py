@@ -2183,6 +2183,12 @@ async def google_auth_callback(request: Request):
 
     if pending:
         email = get_account_email(credentials)
+        if not email:
+            logger.warning("Could not verify email for pending account link (user '%s')", user_id)
+            return HTMLResponse(
+                "<h2>Couldn't verify account</h2>"
+                "<p>Aegis couldn't confirm which Google account you connected. "
+                "Please try linking again.</p>")
         accounts = AccountManager(user_data_dir)
         acct_id = accounts.upsert_account(pending.get("label", ""), email,
                                           {"name": pending.get("name", "")})
@@ -2193,8 +2199,7 @@ async def google_auth_callback(request: Request):
             logger.exception("Token save failed for account '%s'; marked error", acct_id)
             return HTMLResponse(
                 "<h2>Error</h2><p>Could not save credentials. Please try connecting again.</p>")
-        logger.info("Linked Google account '%s' (%s) for user '%s'",
-                    acct_id, email or "email unknown", user_id)
+        logger.info("Linked Google account '%s' (%s) for user '%s'", acct_id, email, user_id)
     else:
         save_credentials(user_data_dir, credentials)
         logger.info("Google account connected for user '%s'", user_id)

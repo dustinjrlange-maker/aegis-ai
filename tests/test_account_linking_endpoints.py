@@ -87,6 +87,36 @@ def test_callback_links_new_account(client, monkeypatch):
     assert state not in app_mod._oauth_states   # state consumed
 
 
+def test_callback_blank_email_aborts_link(client, monkeypatch):
+    import server.app as app_mod
+
+    state = "teststate_blankemail_000"
+    app_mod._oauth_states[state] = {
+        "user_id": "linktest_user",
+        "pending": {"label": "SwitchStitch", "name": "Switch"},
+    }
+    monkeypatch.setattr("core.protocols.google_tools.exchange_code",
+                        lambda code, redirect_uri: object())
+    # getProfile blip -> blank email; the link must abort, not persist junk.
+    monkeypatch.setattr("core.protocols.google_tools.get_account_email",
+                        lambda creds: "")
+
+    upsert_called = []
+    from core.accounts.manager import AccountManager
+    monkeypatch.setattr(AccountManager, "upsert_account",
+                        lambda self, label, email, represent_as=None: upsert_called.append(True) or "google-x")
+    save_called = []
+    monkeypatch.setattr("core.protocols.google_tools.save_credentials",
+                        lambda d, creds, account_id=None: save_called.append(True))
+
+    resp = client.get(f"/api/google/callback?code=abc&state={state}")
+    assert resp.status_code == 200
+    assert "Couldn't verify account" in resp.text
+    assert upsert_called == []                   # no junk record created
+    assert save_called == []                     # no tokens saved
+    assert state not in app_mod._oauth_states    # state still consumed
+
+
 def test_callback_default_connect_still_saves_to_default(client, monkeypatch):
     import server.app as app_mod
     state = "teststate_default_456"
