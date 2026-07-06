@@ -154,7 +154,7 @@ def revoke_credentials(user_data_dir, account_id=None):
         logger.info("Deleted Google token file")
 
 
-def build_auth_url(redirect_uri, state=None):
+def build_auth_url(redirect_uri, state=None, prompt="consent"):
     """Generate an OAuth2 consent URL for Google sign-in.
 
     Returns the authorization URL string, or None on failure.
@@ -186,7 +186,7 @@ def build_auth_url(redirect_uri, state=None):
     kwargs = {
         "access_type": "offline",
         "include_granted_scopes": "true",
-        "prompt": "consent",
+        "prompt": prompt,
     }
     if state:
         kwargs["state"] = state
@@ -242,6 +242,22 @@ def _get_gmail_service(creds):
     except Exception as e:
         logger.warning("Could not build Gmail service: %s", e)
         return None
+
+
+def get_account_email(creds):
+    """Return the connected Google account's email via Gmail getProfile.
+
+    Covered by the existing gmail.modify scope (no extra scope needed). Returns
+    "" on any failure (logged) so account linking is never blocked by it.
+    """
+    service = _get_gmail_service(creds)
+    if not service:
+        return ""
+    try:
+        return service.users().getProfile(userId="me").execute().get("emailAddress", "")
+    except Exception as e:
+        logger.warning("Could not fetch account email: %s", e)
+        return ""
 
 
 def gmail_unread_count(creds, categories=("primary",)):
