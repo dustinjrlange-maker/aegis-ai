@@ -36,6 +36,23 @@ _NARRATIVE_TTL_S: float = 600.0  # 10 minutes
 # ---------------------------------------------------------------------------
 
 
+def active_account_id(session):
+    """The account id the interactive Mail panel is currently acting on.
+
+    Returns session.current_mail_account when it's set AND still exists, else
+    the default account's id, else None (no accounts / not connected). A stale
+    selection (account since deleted) falls back to the default.
+    """
+    accounts = getattr(session, "accounts", None)
+    aid = getattr(session, "current_mail_account", None)
+    if accounts is None:
+        return None
+    if aid and accounts.get(aid) is not None:
+        return aid
+    default = accounts.default()
+    return default["id"] if default else None
+
+
 def _creds_from_session(session, account_id=None):
     """Pull Google OAuth creds from the session, or None if not authorized."""
     google_proto = session.protocol_registry.get("google")
