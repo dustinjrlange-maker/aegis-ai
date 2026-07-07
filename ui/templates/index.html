@@ -6841,6 +6841,12 @@
             <button class="mail-tab" data-tab="accounts"
                     onclick="_mailSwitchTab('accounts')">ACCOUNTS</button>
         </div>
+        <div class="mail-acct-switcher-wrap" style="padding:6px 12px 2px;display:flex;align-items:center;gap:8px">
+            <label class="mail-form-label" for="mailAccountSwitcher" style="flex-shrink:0;margin:0">Account:</label>
+            <select id="mailAccountSwitcher" class="mail-form-input" style="flex:1;width:auto" onchange="onMailAccountChange()">
+                <option value="">Default account</option>
+            </select>
+        </div>
         <section class="mail-tab-body" data-tab="inbox" id="mailInboxSection">
             <div class="mail-empty">Open INBOX to load.</div>
         </section>
@@ -13511,11 +13517,22 @@ var _mailDraftsLoaded = false;
 var _mailDrafts = {};
 var _mailPanelClickWired = false;
 
-function openMailPanel() {
+async function openMailPanel() {
     document.getElementById('mailPanelOverlay').classList.add('open');
     var panel = document.getElementById('mailPanel');
     panel.classList.add('open');
     restorePanelPosition(panel);
+    // Populate switcher and sync session account BEFORE inbox loads
+    await populateMailAccountSwitcher();
+    var storedAcct = _mailGetSetting('selected_account', '');
+    try {
+        await authFetch(API + '/email/active-account', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ account_id: storedAcct || null }),
+        });
+    } catch (e) {}
+    _mailInboxLoaded = false;
+    _mailDraftsLoaded = false;
     _mailOnPanelOpen();
     refreshLinkedAccounts();
     if (!_mailPanelClickWired) {
@@ -13640,7 +13657,7 @@ async function loadInboxDigest(fresh) {
         var res = await authFetch(url);
         var data = await res.json();
         if (data && data.error === 'not_authorized') {
-            _mailRenderAuthCTA(section);
+            _mailRenderAccountReconnectCTA(section);
             return;
         }
         _mailInbox = {
@@ -14156,7 +14173,7 @@ async function loadMailDrafts() {
         var res = await authFetch(API + '/email/drafts');
         var data = await res.json();
         if (data && data.error === 'not_authorized') {
-            _mailRenderAuthCTA(section);
+            _mailRenderAccountReconnectCTA(section);
             return;
         }
         _mailDraftsCache = Array.isArray(data) ? data : (data.drafts || []);
@@ -14386,6 +14403,59 @@ function _mailRenderAuthCTA(section) {
             '<p>Pike can\'t reach your inbox until you authorize Google in settings.</p>' +
             '<button class="pill-btn-primary" onclick="_mailStartAuth()">Authorize Google ▸</button>' +
         '</div>';
+}
+
+// Account-specific reconnect CTA — shown when the active account's creds are missing/expired.
+// Falls back to the generic auth CTA if no accounts are configured in the switcher yet.
+function _mailRenderAccountReconnectCTA(section) {
+    var sel = document.getElementById('mailAccountSwitcher');
+    var hasAccounts = sel && sel.options.length > 0 && sel.options[0].value;
+    if (!hasAccounts) {
+        _mailRenderAuthCTA(section);
+        return;
+    }
+    var acctLabel = (sel.options[sel.selectedIndex])
+        ? sel.options[sel.selectedIndex].text.replace(/ ⚠.*$/, '')
+        : 'This account';
+    section.innerHTML =
+        '<div class="mail-auth-cta">' +
+            '<h3 style="color:var(--lcars-error)">' + escapeHtml(acctLabel) + ' needs reconnecting</h3>' +
+            '<p>Authorization has expired or is missing for this account. Re-link it to restore access.</p>' +
+            '<button class="pill-btn-primary" onclick="_mailSwitchTab(\'accounts\')">' +
+                'Go to Accounts ▸' +
+            '</button>' +
+        '</div>';
+}
+
+async function populateMailAccountSwitcher() {
+    try {
+        var res = await authFetch(API + '/google/accounts');
+        if (!res.ok) return;
+        var accounts = (await res.json()).accounts || [];
+        var sel = document.getElementById('mailAccountSwitcher');
+        if (!sel) return;
+        var current = _mailGetSetting('selected_account', '');
+        sel.innerHTML = accounts.map(function (a) {
+            var warn = a.status === 'error' ? ' ⚠ needs reconnect' : '';
+            var selAttr = (a.id === current) ? ' selected' : '';
+            return '<option value="' + a.id + '"' + selAttr + '>' + a.label + warn + '</option>';
+        }).join('');
+    } catch (e) { /* non-fatal */ }
+}
+
+async function onMailAccountChange() {
+    var sel = document.getElementById('mailAccountSwitcher');
+    var accountId = sel ? sel.value : '';
+    try {
+        await authFetch(API + '/email/active-account', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ account_id: accountId || null }),
+        });
+    } catch (e) { /* non-fatal; still reload */ }
+    _mailSetSetting('selected_account', accountId);
+    if (typeof loadInboxDigest === 'function') loadInboxDigest(true);
+    if (_mailActiveTab === 'drafts' && typeof loadMailDrafts === 'function') loadMailDrafts();
 }
 
 var _mailAuthPoll = null;
