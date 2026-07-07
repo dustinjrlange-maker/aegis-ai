@@ -164,3 +164,66 @@ def test_update_draft_passes_active_account(client, monkeypatch):
                         lambda session, account_id=None: captured.setdefault("aid", account_id))  # returns None
     client.patch("/api/email/drafts/d1", json={"subject": "x", "body": "y"})
     assert captured["aid"] == "google-stitch"
+
+
+# ---------------------------------------------------------------------------
+# Task 4: chat email handlers follow the active account
+# ---------------------------------------------------------------------------
+
+import core.protocols.email_ops as email_ops
+from core.protocols.email_ops import EmailOpsProtocol
+
+
+def _proto_active(monkeypatch, active_id, captured):
+    p = EmailOpsProtocol()
+    p._session = MagicMock()
+    monkeypatch.setattr("core.email_assistant.active_account_id", lambda s: active_id)
+    monkeypatch.setattr(email_ops.ea, "_creds_from_session",
+                        lambda session, account_id=None: captured.setdefault("aid", account_id) or "CREDS")
+    return p
+
+
+def test_recent_inbox_uses_active_account(monkeypatch):
+    captured = {}
+    p = _proto_active(monkeypatch, "google-stitch", captured)
+    monkeypatch.setattr(email_ops.gt, "gmail_list_messages",
+                        lambda creds, max_results=15, categories=None: [])
+    p._recent_inbox()
+    assert captured["aid"] == "google-stitch"
+
+
+def test_do_mark_read_uses_active_account(monkeypatch):
+    captured = {}
+    p = _proto_active(monkeypatch, "google-stitch", captured)
+    p._id_map = {1: "m1"}
+    monkeypatch.setattr(email_ops.gt, "gmail_mark_read", lambda creds, mid: {"ok": True})
+    p._do_mark_read({"ref": "1"}, "mark 1 read")
+    assert captured["aid"] == "google-stitch"
+
+
+def test_do_archive_uses_active_account(monkeypatch):
+    captured = {}
+    p = _proto_active(monkeypatch, "google-stitch", captured)
+    p._id_map = {1: "m1"}
+    monkeypatch.setattr(email_ops.gt, "gmail_archive", lambda creds, mid: {"ok": True})
+    p._do_archive({"ref": "1"}, "archive 1")
+    assert captured["aid"] == "google-stitch"
+
+
+def test_resolve_account_no_hint_falls_back_to_active(monkeypatch):
+    p = EmailOpsProtocol()
+    p._session = MagicMock()
+    p._session.accounts.get.return_value = {"id": "google-stitch", "label": "SwitchStitch"}
+    monkeypatch.setattr("core.email_assistant.active_account_id", lambda s: "google-stitch")
+    acct, note = p._resolve_account({})     # no ACCOUNT= hint
+    assert acct["id"] == "google-stitch"
+    assert note == ""
+
+
+def test_resolve_account_explicit_hint_still_wins(monkeypatch):
+    p = EmailOpsProtocol()
+    p._session = MagicMock()
+    p._session.accounts.resolve.return_value = {"id": "google-personal", "label": "Personal"}
+    monkeypatch.setattr("core.email_assistant.active_account_id", lambda s: "google-stitch")
+    acct, note = p._resolve_account({"account": "personal"})   # explicit hint
+    assert acct["id"] == "google-personal"   # explicit hint wins over active

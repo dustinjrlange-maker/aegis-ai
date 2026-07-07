@@ -210,7 +210,9 @@ class EmailOpsProtocol(Protocol):
         message_id = self._resolve_ref(action)
         if not message_id:
             return "Which email should I mark as read?"
-        res = gt.gmail_mark_read(ea._creds_from_session(self._session), message_id)
+        creds = ea._creds_from_session(self._session,
+                                       ea.active_account_id(self._session))
+        res = gt.gmail_mark_read(creds, message_id)
         if not res.get("ok"):
             return f"I couldn't mark it read: {res.get('error', 'unknown error')}"
         return "Marked it as read."
@@ -219,7 +221,9 @@ class EmailOpsProtocol(Protocol):
         message_id = self._resolve_ref(action)
         if not message_id:
             return "Which email should I archive?"
-        res = gt.gmail_archive(ea._creds_from_session(self._session), message_id)
+        creds = ea._creds_from_session(self._session,
+                                       ea.active_account_id(self._session))
+        res = gt.gmail_archive(creds, message_id)
         if not res.get("ok"):
             return f"I couldn't archive it: {res.get('error', 'unknown error')}"
         return "Archived it — it's out of your inbox."
@@ -380,7 +384,8 @@ class EmailOpsProtocol(Protocol):
 
     def _recent_inbox(self):
         """Return (listing_text, {index: message_id}) for the last ~15 inbox msgs."""
-        creds = ea._creds_from_session(self._session)
+        creds = ea._creds_from_session(self._session,
+                                       ea.active_account_id(self._session))
         if not creds:
             return "", {}
         try:
@@ -423,7 +428,10 @@ class EmailOpsProtocol(Protocol):
                 label = default.get("label", default["id"])
                 return default, f'(Couldn\'t match account "{hint}" — using {label} instead.)\n'
             return None, ""
-        return accounts.default(), ""
+        # no explicit ACCOUNT= hint -> the account the Mail panel is viewing
+        active_id = ea.active_account_id(self._session)
+        acct = accounts.get(active_id) if active_id else accounts.default()
+        return (acct, "") if acct else (None, "")
 
     def _classify(self, text):
         if self._pending is None:
