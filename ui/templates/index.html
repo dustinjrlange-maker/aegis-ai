@@ -14435,6 +14435,10 @@ async function populateMailAccountSwitcher() {
         var sel = document.getElementById('mailAccountSwitcher');
         if (!sel) return;
         var current = _mailGetSetting('selected_account', '');
+        if (current && !accounts.some(function (a) { return a.id === current; })) {
+            _mailSetSetting('selected_account', '');   // stale/deleted -> fall back to default
+            current = '';
+        }
         sel.innerHTML = accounts.map(function (a) {
             var warn = a.status === 'error' ? ' ⚠ needs reconnect' : '';
             var selAttr = (a.id === current) ? ' selected' : '';
@@ -14454,8 +14458,16 @@ async function onMailAccountChange() {
         });
     } catch (e) { /* non-fatal; still reload */ }
     _mailSetSetting('selected_account', accountId);
-    if (typeof loadInboxDigest === 'function') loadInboxDigest(true);
-    if (_mailActiveTab === 'drafts' && typeof loadMailDrafts === 'function') loadMailDrafts();
+    // Reset loaded-flags so the active tab genuinely re-fetches and the inactive
+    // tab re-fetches lazily when next opened (otherwise it renders the previous
+    // account's cached data).
+    _mailInboxLoaded = false;
+    _mailDraftsLoaded = false;
+    if (_mailActiveTab === 'drafts') {
+        if (typeof loadMailDrafts === 'function') loadMailDrafts();
+    } else {
+        if (typeof loadInboxDigest === 'function') loadInboxDigest(true);
+    }
 }
 
 var _mailAuthPoll = null;

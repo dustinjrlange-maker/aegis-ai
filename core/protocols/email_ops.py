@@ -81,7 +81,8 @@ class EmailOpsProtocol(Protocol):
         if act in ("send", "edit", "discard") and not self._pending:
             return result
 
-        if ea._creds_from_session(self._session) is None:
+        if ea._creds_from_session(self._session,
+                                  ea.active_account_id(self._session)) is None:
             return self._intercept(
                 result,
                 "I can't reach your email yet — connect Google in the Mail panel first.")

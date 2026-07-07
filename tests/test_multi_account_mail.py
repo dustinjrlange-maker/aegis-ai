@@ -110,6 +110,41 @@ def test_get_draft_passes_active_account(client, monkeypatch):
     assert captured.get("account_id") == "google-stitch"
 
 
+def test_list_drafts_not_authorized_when_no_creds(client, monkeypatch):
+    import server.app as app_mod
+    sess = MagicMock()
+    monkeypatch.setattr(app_mod.session_manager, "get_or_create", lambda u: sess)
+    monkeypatch.setattr("core.email_assistant.active_account_id", lambda s: "google-stitch")
+    monkeypatch.setattr("core.email_assistant._creds_from_session",
+                        lambda session, aid=None: None)
+    resp = client.get("/api/email/drafts")
+    assert resp.json()["error"] == "not_authorized"
+
+
+def test_get_draft_not_authorized_when_no_creds(client, monkeypatch):
+    import server.app as app_mod
+    sess = MagicMock()
+    monkeypatch.setattr(app_mod.session_manager, "get_or_create", lambda u: sess)
+    monkeypatch.setattr("core.email_assistant.active_account_id", lambda s: "google-stitch")
+    monkeypatch.setattr("core.email_assistant._creds_from_session",
+                        lambda session, aid=None: None)
+    resp = client.get("/api/email/drafts/draft-abc")
+    assert resp.json()["error"] == "not_authorized"
+
+
+def test_list_drafts_returns_drafts_when_authorized(client, monkeypatch):
+    import server.app as app_mod
+    sess = MagicMock()
+    monkeypatch.setattr(app_mod.session_manager, "get_or_create", lambda u: sess)
+    monkeypatch.setattr("core.email_assistant.active_account_id", lambda s: "google-stitch")
+    monkeypatch.setattr("core.email_assistant._creds_from_session",
+                        lambda session, aid=None: "CREDS")
+    monkeypatch.setattr("core.email_assistant.list_drafts",
+                        lambda session, **kw: [{"id": "d1"}])
+    resp = client.get("/api/email/drafts")
+    assert resp.json() == {"drafts": [{"id": "d1"}]}
+
+
 def test_mark_read_passes_active_account(client, monkeypatch):
     import server.app as app_mod
     sess = MagicMock()

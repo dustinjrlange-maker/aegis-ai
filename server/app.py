@@ -1212,17 +1212,23 @@ async def email_inbox_digest(fresh: int = 0, max_messages: int = 10,
 @app.get("/api/email/drafts")
 async def email_list_drafts(max_results: int = 20, user_id: str = Depends(require_user)):
     """List the user's recent Gmail drafts."""
-    from core.email_assistant import list_drafts, active_account_id
+    from core.email_assistant import list_drafts, active_account_id, _creds_from_session
     session = session_manager.get_or_create(user_id)
-    return {"drafts": list_drafts(session, max_results=max_results, account_id=active_account_id(session))}
+    aid = active_account_id(session)
+    if _creds_from_session(session, aid) is None:
+        return {"error": "not_authorized"}
+    return {"drafts": list_drafts(session, max_results=max_results, account_id=aid)}
 
 
 @app.get("/api/email/drafts/{draft_id}")
 async def email_get_draft(draft_id: str, user_id: str = Depends(require_user)):
     """Get one draft's full contents."""
-    from core.email_assistant import get_draft, active_account_id
+    from core.email_assistant import get_draft, active_account_id, _creds_from_session
     session = session_manager.get_or_create(user_id)
-    draft = get_draft(session, draft_id, account_id=active_account_id(session))
+    aid = active_account_id(session)
+    if _creds_from_session(session, aid) is None:
+        return {"error": "not_authorized"}
+    draft = get_draft(session, draft_id, account_id=aid)
     if not draft:
         return {"error": "Draft not found"}
     return draft
