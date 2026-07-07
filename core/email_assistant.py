@@ -132,14 +132,14 @@ def _format_messages_for_llm(messages: list[dict]) -> str:
 
 
 def get_inbox_digest(session, max_messages: int = 10, fresh: bool = False,
-                     categories: tuple = ("primary",)) -> dict:
+                     categories: tuple = ("primary",), account_id=None) -> dict:
     """Pike-voiced summary of recent inbox.
 
     Returns: {narrative, unread_count, messages, cached_age_s, error?}
         - cached_age_s: int seconds since the cached narrative was generated.
           0 when the narrative was just regenerated (cache miss or fresh=True).
     """
-    creds = _creds_from_session(session)
+    creds = _creds_from_session(session, account_id)
     if not creds:
         return {
             "narrative": "Email is not connected. Authorize Google access in settings first.",
@@ -171,7 +171,7 @@ def get_inbox_digest(session, max_messages: int = 10, fresh: bool = False,
     # Narrative cache (per-user, TTL-gated). Always re-fetch the message list
     # since it's cheap; the LLM call is what we want to avoid.
     user_id = getattr(session, "user_id", "default")
-    cache_key = (user_id, tuple(categories) if categories else ())
+    cache_key = (user_id, account_id, tuple(categories) if categories else ())
     cached = _narrative_cache.get(cache_key)
     if cached and not fresh:
         ts, narrative = cached
@@ -406,17 +406,17 @@ def draft_forward(session, message_id: str, to: str, note: str | None = None,
     return {"success": True, "draft_id": result["draft_id"], "subject": subject, "to": to, "body": body}
 
 
-def list_drafts(session, max_results: int = 20) -> list[dict]:
+def list_drafts(session, max_results: int = 20, account_id=None) -> list[dict]:
     """List recent drafts. Pure passthrough."""
-    creds = _creds_from_session(session)
+    creds = _creds_from_session(session, account_id)
     if not creds:
         return []
     return gt.gmail_list_drafts(creds, max_results=max_results)
 
 
-def get_draft(session, draft_id: str) -> dict | None:
+def get_draft(session, draft_id: str, account_id=None) -> dict | None:
     """Get a draft's full contents. Pure passthrough."""
-    creds = _creds_from_session(session)
+    creds = _creds_from_session(session, account_id)
     if not creds:
         return None
     return gt.gmail_get_draft(creds, draft_id)
@@ -435,21 +435,21 @@ def send_draft(session, draft_id: str, account_id: str | None = None) -> dict:
     return gt.gmail_send_draft(creds, draft_id)
 
 
-def discard_draft(session, draft_id: str) -> dict:
+def discard_draft(session, draft_id: str, account_id=None) -> dict:
     """Discard a draft. Irreversible."""
-    creds = _creds_from_session(session)
+    creds = _creds_from_session(session, account_id)
     if not creds:
         return {"success": False, "error": "Email not authorized"}
     return gt.gmail_delete_draft(creds, draft_id)
 
 
-def mark_read(session, message_id: str) -> dict:
+def mark_read(session, message_id: str, account_id=None) -> dict:
     """Mark an inbox message as read.
 
     Always returns the {ok, error?} shape — the frontend can branch on
     `result.ok` and surface `result.error` when present.
     """
-    creds = _creds_from_session(session)
+    creds = _creds_from_session(session, account_id)
     if not creds:
         return {"ok": False, "error": "not_authorized"}
     return gt.gmail_mark_read(creds, message_id)
