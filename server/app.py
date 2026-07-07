@@ -1180,11 +1180,13 @@ async def email_set_active_account(body: dict, user_id: str = Depends(require_us
     """
     session = session_manager.get_or_create(user_id)
     account_id = (body.get("account_id") or "").strip() or None
-    if account_id is not None and session.accounts.get(account_id) is None:
+    acct = session.accounts.get(account_id) if account_id is not None else None
+    if account_id is not None and acct is None:
         return JSONResponse({"error": "Unknown account"}, status_code=400)
     session.current_mail_account = account_id
-    eff = session.accounts.get(account_id) if account_id else session.accounts.default()
-    return {"active": _account_summary(eff) if eff else None}
+    if acct is None:
+        acct = session.accounts.default()
+    return {"active": _account_summary(acct) if acct else None}
 
 
 @app.get("/api/email/inbox-digest")

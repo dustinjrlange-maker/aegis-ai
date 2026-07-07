@@ -136,3 +136,31 @@ def test_discard_draft_passes_active_account(client, monkeypatch):
     )
     client.delete("/api/email/drafts/draft-del")
     assert captured.get("account_id") == "google-work"
+
+
+# ---------------------------------------------------------------------------
+# Inline-creds endpoints (no email_assistant wrapper) — guard the threaded arg
+# ---------------------------------------------------------------------------
+
+def test_get_message_passes_active_account(client, monkeypatch):
+    import server.app as app_mod
+    sess = MagicMock()
+    monkeypatch.setattr(app_mod.session_manager, "get_or_create", lambda u: sess)
+    monkeypatch.setattr("core.email_assistant.active_account_id", lambda s: "google-stitch")
+    captured = {}
+    monkeypatch.setattr("core.email_assistant._creds_from_session",
+                        lambda session, account_id=None: captured.setdefault("aid", account_id))  # returns None
+    client.get("/api/email/messages/m1")
+    assert captured["aid"] == "google-stitch"
+
+
+def test_update_draft_passes_active_account(client, monkeypatch):
+    import server.app as app_mod
+    sess = MagicMock()
+    monkeypatch.setattr(app_mod.session_manager, "get_or_create", lambda u: sess)
+    monkeypatch.setattr("core.email_assistant.active_account_id", lambda s: "google-stitch")
+    captured = {}
+    monkeypatch.setattr("core.email_assistant._creds_from_session",
+                        lambda session, account_id=None: captured.setdefault("aid", account_id))  # returns None
+    client.patch("/api/email/drafts/d1", json={"subject": "x", "body": "y"})
+    assert captured["aid"] == "google-stitch"
