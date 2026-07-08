@@ -1358,6 +1358,14 @@ async def email_mark_read(message_id: str, user_id: str = Depends(require_user))
     return mark_read(session, message_id, account_id=active_account_id(session))
 
 
+@app.post("/api/email/mark-unread/{message_id}")
+async def email_mark_unread(message_id: str, user_id: str = Depends(require_user)):
+    """Mark an inbox message as unread."""
+    from core.email_assistant import mark_unread, active_account_id
+    session = session_manager.get_or_create(user_id)
+    return mark_unread(session, message_id, account_id=active_account_id(session))
+
+
 @app.get("/api/email/messages/{message_id}")
 async def email_get_message(message_id: str, user_id: str = Depends(require_user)):
     """Get a single inbox message's full body."""

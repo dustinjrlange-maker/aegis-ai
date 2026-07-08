@@ -86,3 +86,23 @@ def test_unread_false_when_label_ids_missing(mock_get_service):
 
     assert len(result) == 1
     assert result[0]["unread"] is False
+
+
+@patch("core.protocols.google_tools._get_gmail_service")
+def test_gmail_mark_unread_calls_modify_with_add_unread_label(mock_get_service):
+    """gmail_mark_unread calls messages().modify() with addLabelIds: ['UNREAD']."""
+    from core.protocols.google_tools import gmail_mark_unread
+
+    fake_service = _make_fake_service([])
+    mock_get_service.return_value = fake_service
+
+    result = gmail_mark_unread(creds=MagicMock(), message_id="msg-001")
+
+    assert result == {"ok": True}
+    # Verify the modify call was made with the correct body
+    modify_mock = fake_service.users().messages().modify
+    modify_mock.assert_called_once_with(
+        userId="me",
+        id="msg-001",
+        body={"addLabelIds": ["UNREAD"]},
+    )

@@ -5922,6 +5922,20 @@
             width: 100%;
             box-sizing: border-box;
         }
+        /* Account switcher: force dark/cyan styling — Chromium honours <select>/<option> CSS */
+        #mailAccountSwitcher {
+            background: var(--lcars-bg, #000000);
+            color: var(--lcars-text, #D1D5DB);
+            border: 1px solid var(--lcars-cyan, #5dd9d9);
+        }
+        #mailAccountSwitcher option {
+            background: var(--lcars-bg, #000000);
+            color: var(--lcars-text, #D1D5DB);
+        }
+        #mailAccountSwitcher:focus {
+            outline: 1px solid var(--lcars-cyan, #5dd9d9);
+            border-color: var(--lcars-cyan, #5dd9d9);
+        }
         .mail-form-actions { display: flex; gap: 8px; margin-top: 4px; }
         .linked-account {
             font-size: 11px;
@@ -13810,6 +13824,7 @@ function _mailRenderMessageDetail(messageId, data) {
            '<div class="mail-action-bar" data-message-id="' + escapeHtml(messageId) + '">' +
                '<button class="pill-btn-primary mail-act-draft-reply">Draft Reply</button>' +
                '<button class="pill-btn mail-act-open-gmail">Open in Gmail</button>' +
+               '<button class="pill-btn mail-act-mark-unread">Mark unread</button>' +
            '</div>';
 }
 
@@ -13830,6 +13845,14 @@ function _mailOnInboxClick(e) {
     } else if (btn.classList.contains('mail-act-open-gmail')) {
         e.stopPropagation();
         _mailOpenInGmail(messageId);
+    } else if (btn.classList.contains('mail-act-mark-unread')) {
+        e.stopPropagation();
+        _mailMarkUnread(messageId).then(function() {
+            var rowEl = document.querySelector(
+                '#mailInboxSection .mail-row[data-message-id="' + messageId + '"]'
+            );
+            if (rowEl) rowEl.dataset.unread = 'true';
+        });
     }
 }
 
@@ -13900,6 +13923,16 @@ async function _mailMarkRead(messageId) {
         });
     } catch (e) {
         console.warn('mail mark-read failed:', e);
+    }
+}
+
+async function _mailMarkUnread(messageId) {
+    try {
+        await authFetch(API + '/email/mark-unread/' + encodeURIComponent(messageId), {
+            method: 'POST',
+        });
+    } catch (e) {
+        console.warn('mail mark-unread failed:', e);
     }
 }
 

@@ -298,6 +298,26 @@ def gmail_mark_read(creds, message_id):
         return {"ok": False, "error": str(e)}
 
 
+def gmail_mark_unread(creds, message_id):
+    """Mark an inbox message as unread (re-adds the UNREAD label).
+
+    Returns {ok: True} on success, {ok: False, error: ...} on failure.
+    """
+    service = _get_gmail_service(creds)
+    if not service:
+        return {"ok": False, "error": "Gmail service unavailable"}
+    try:
+        service.users().messages().modify(
+            userId="me",
+            id=message_id,
+            body={"addLabelIds": ["UNREAD"]},
+        ).execute()
+        return {"ok": True}
+    except Exception as e:
+        logger.warning("Could not mark message unread: %s", e)
+        return {"ok": False, "error": str(e)}
+
+
 def gmail_archive(creds, message_id):
     """Archive an inbox message (removes the INBOX label).
 

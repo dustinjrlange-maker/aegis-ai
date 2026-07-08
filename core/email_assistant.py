@@ -453,3 +453,11 @@ def mark_read(session, message_id: str, account_id=None) -> dict:
     if not creds:
         return {"ok": False, "error": "not_authorized"}
     return gt.gmail_mark_read(creds, message_id)
+
+
+def mark_unread(session, message_id: str, account_id=None) -> dict:
+    """Mark an inbox message as unread. Returns {ok, error?}."""
+    creds = _creds_from_session(session, account_id)
+    if not creds:
+        return {"ok": False, "error": "not_authorized"}
+    return gt.gmail_mark_unread(creds, message_id)
