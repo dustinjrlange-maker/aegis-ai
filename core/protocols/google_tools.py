@@ -10,6 +10,12 @@ import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+try:
+    from google.auth.exceptions import RefreshError
+except ImportError:  # pragma: no cover — google-auth absent in some test envs
+    class RefreshError(Exception):  # type: ignore[no-redef]
+        pass
+
 # Tolerate Google returning a superset of the requested scopes during the OAuth
 # token exchange. This happens with incremental consent (include_granted_scopes):
 # once an account has granted a scope (e.g. an older gmail.send), Google keeps
@@ -273,6 +279,8 @@ def gmail_unread_count(creds, categories=("primary",)):
             maxResults=1,
         ).execute()
         return results.get("resultSizeEstimate", 0)
+    except RefreshError:
+        raise
     except Exception as e:
         logger.warning("Could not get unread count: %s", e)
         return 0
@@ -295,6 +303,26 @@ def gmail_mark_read(creds, message_id):
         return {"ok": True}
     except Exception as e:
         logger.warning("Could not mark message read: %s", e)
+        return {"ok": False, "error": str(e)}
+
+
+def gmail_mark_unread(creds, message_id):
+    """Mark an inbox message as unread (re-adds the UNREAD label).
+
+    Returns {ok: True} on success, {ok: False, error: ...} on failure.
+    """
+    service = _get_gmail_service(creds)
+    if not service:
+        return {"ok": False, "error": "Gmail service unavailable"}
+    try:
+        service.users().messages().modify(
+            userId="me",
+            id=message_id,
+            body={"addLabelIds": ["UNREAD"]},
+        ).execute()
+        return {"ok": True}
+    except Exception as e:
+        logger.warning("Could not mark message unread: %s", e)
         return {"ok": False, "error": str(e)}
 
 
@@ -370,9 +398,12 @@ def gmail_list_messages(creds, max_results=10, categories=("primary",),
                 "sender": headers.get("From", "Unknown"),
                 "date": headers.get("Date", ""),
                 "snippet": msg.get("snippet", ""),
+                "unread": "UNREAD" in msg.get("labelIds", []),
             })
 
         return messages
+    except RefreshError:
+        raise
     except Exception as e:
         logger.warning("Could not list Gmail messages: %s", e)
         return []

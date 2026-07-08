@@ -1172,6 +1172,23 @@ async def get_briefing_narrative(
 #   POST /api/email/send-draft/{draft_id}  body: {"confirm": true}
 
 
+@app.post("/api/email/active-account")
+async def email_set_active_account(body: dict, user_id: str = Depends(require_user)):
+    """Set which linked account the Mail panel (and chat email actions) act on.
+
+    Body: {account_id: str | null}. null/empty -> default account.
+    """
+    session = session_manager.get_or_create(user_id)
+    account_id = (body.get("account_id") or "").strip() or None
+    acct = session.accounts.get(account_id) if account_id is not None else None
+    if account_id is not None and acct is None:
+        return JSONResponse({"error": "Unknown account"}, status_code=400)
+    session.current_mail_account = account_id
+    if acct is None:
+        acct = session.accounts.default()
+    return {"active": _account_summary(acct) if acct else None}
+
+
 @app.get("/api/email/inbox-digest")
 async def email_inbox_digest(fresh: int = 0, max_messages: int = 10,
                               categories: str = "primary",
@@ -1182,29 +1199,36 @@ async def email_inbox_digest(fresh: int = 0, max_messages: int = 10,
     (primary, social, promotions, updates, forums). "all" disables filtering.
     Defaults to Primary so promo/social/update noise stays hidden.
     """
-    from core.email_assistant import get_inbox_digest
+    from core.email_assistant import get_inbox_digest, active_account_id
     session = session_manager.get_or_create(user_id)
     cats = tuple(c.strip() for c in categories.split(",") if c.strip())
     if "all" in cats:
         cats = ()
     return get_inbox_digest(session, max_messages=max_messages,
-                            fresh=bool(fresh), categories=cats)
+                            fresh=bool(fresh), categories=cats,
+                            account_id=active_account_id(session))
 
 
 @app.get("/api/email/drafts")
 async def email_list_drafts(max_results: int = 20, user_id: str = Depends(require_user)):
     """List the user's recent Gmail drafts."""
-    from core.email_assistant import list_drafts
+    from core.email_assistant import list_drafts, active_account_id, _creds_from_session
     session = session_manager.get_or_create(user_id)
-    return {"drafts": list_drafts(session, max_results=max_results)}
+    aid = active_account_id(session)
+    if _creds_from_session(session, aid) is None:
+        return {"error": "not_authorized"}
+    return {"drafts": list_drafts(session, max_results=max_results, account_id=aid)}
 
 
 @app.get("/api/email/drafts/{draft_id}")
 async def email_get_draft(draft_id: str, user_id: str = Depends(require_user)):
     """Get one draft's full contents."""
-    from core.email_assistant import get_draft
+    from core.email_assistant import get_draft, active_account_id, _creds_from_session
     session = session_manager.get_or_create(user_id)
-    draft = get_draft(session, draft_id)
+    aid = active_account_id(session)
+    if _creds_from_session(session, aid) is None:
+        return {"error": "not_authorized"}
+    draft = get_draft(session, draft_id, account_id=aid)
     if not draft:
         return {"error": "Draft not found"}
     return draft
@@ -1216,13 +1240,13 @@ async def email_draft_reply(body: dict, user_id: str = Depends(require_user)):
 
     Body: {message_id: str, intent?: str}
     """
-    from core.email_assistant import draft_reply
+    from core.email_assistant import draft_reply, active_account_id
     session = session_manager.get_or_create(user_id)
     message_id = body.get("message_id", "").strip()
     if not message_id:
         return {"success": False, "error": "message_id required"}
     intent = body.get("intent")
-    return draft_reply(session, message_id, intent=intent)
+    return draft_reply(session, message_id, intent=intent, account_id=active_account_id(session))
 
 
 @app.post("/api/email/draft")
@@ -1231,7 +1255,7 @@ async def email_draft_new(body: dict, user_id: str = Depends(require_user)):
 
     Body: {to: str, intent: str, subject?: str, cc?: str, bcc?: str}
     """
-    from core.email_assistant import draft_new
+    from core.email_assistant import draft_new, active_account_id
     session = session_manager.get_or_create(user_id)
     to = body.get("to", "").strip()
     intent = body.get("intent", "").strip()
@@ -1241,7 +1265,7 @@ async def email_draft_new(body: dict, user_id: str = Depends(require_user)):
     cc = (body.get("cc") or "").strip() or None
     bcc = (body.get("bcc") or "").strip() or None
     return draft_new(session, to=to, intent=intent, subject_hint=subject_hint,
-                     cc=cc, bcc=bcc)
+                     cc=cc, bcc=bcc, account_id=active_account_id(session))
 
 
 @app.post("/api/email/send-draft/{draft_id}")
@@ -1252,17 +1276,17 @@ async def email_send_draft(draft_id: str, body: dict, user_id: str = Depends(req
     """
     if body.get("confirm") is not True:
         return {"success": False, "error": "Send requires {\"confirm\": true} in body"}
-    from core.email_assistant import send_draft
+    from core.email_assistant import send_draft, active_account_id
     session = session_manager.get_or_create(user_id)
-    return send_draft(session, draft_id)
+    return send_draft(session, draft_id, account_id=active_account_id(session))
 
 
 @app.delete("/api/email/drafts/{draft_id}")
 async def email_discard_draft(draft_id: str, user_id: str = Depends(require_user)):
     """Discard a draft. Irreversible."""
-    from core.email_assistant import discard_draft
+    from core.email_assistant import discard_draft, active_account_id
     session = session_manager.get_or_create(user_id)
-    return discard_draft(session, draft_id)
+    return discard_draft(session, draft_id, account_id=active_account_id(session))
 
 
 @app.patch("/api/email/drafts/{draft_id}")
@@ -1274,10 +1298,10 @@ async def email_update_draft(draft_id: str, body: dict,
     to re-create the draft with the new MIME content. We honor the incoming
     draft_id by passing it as the existing draft to overwrite.
     """
-    from core.email_assistant import _creds_from_session
+    from core.email_assistant import _creds_from_session, active_account_id
     from core.protocols import google_tools as gt
     session = session_manager.get_or_create(user_id)
-    creds = _creds_from_session(session)
+    creds = _creds_from_session(session, active_account_id(session))
     if not creds:
         return {"ok": False, "error": "not_authorized"}
     subject = body.get("subject", "")
@@ -1329,18 +1353,26 @@ async def email_update_draft(draft_id: str, body: dict,
 @app.post("/api/email/mark-read/{message_id}")
 async def email_mark_read(message_id: str, user_id: str = Depends(require_user)):
     """Mark an inbox message as read."""
-    from core.email_assistant import mark_read
+    from core.email_assistant import mark_read, active_account_id
     session = session_manager.get_or_create(user_id)
-    return mark_read(session, message_id)
+    return mark_read(session, message_id, account_id=active_account_id(session))
+
+
+@app.post("/api/email/mark-unread/{message_id}")
+async def email_mark_unread(message_id: str, user_id: str = Depends(require_user)):
+    """Mark an inbox message as unread."""
+    from core.email_assistant import mark_unread, active_account_id
+    session = session_manager.get_or_create(user_id)
+    return mark_unread(session, message_id, account_id=active_account_id(session))
 
 
 @app.get("/api/email/messages/{message_id}")
 async def email_get_message(message_id: str, user_id: str = Depends(require_user)):
     """Get a single inbox message's full body."""
-    from core.email_assistant import _creds_from_session
+    from core.email_assistant import _creds_from_session, active_account_id
     from core.protocols import google_tools as gt
     session = session_manager.get_or_create(user_id)
-    creds = _creds_from_session(session)
+    creds = _creds_from_session(session, active_account_id(session))
     if not creds:
         return {"error": "not_authorized"}
     msg = gt.gmail_get_message(creds, message_id)

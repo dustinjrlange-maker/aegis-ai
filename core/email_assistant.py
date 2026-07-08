@@ -17,6 +17,12 @@ import logging
 import re
 import time as _time
 
+try:
+    from google.auth.exceptions import RefreshError
+except ImportError:  # pragma: no cover
+    class RefreshError(Exception):  # type: ignore[no-redef]
+        pass
+
 from core.config import CONFIG
 from core.llm import chat as _router_chat
 from core.protocols import google_tools as gt
@@ -34,6 +40,23 @@ _NARRATIVE_TTL_S: float = 600.0  # 10 minutes
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+
+def active_account_id(session):
+    """The account id the interactive Mail panel is currently acting on.
+
+    Returns session.current_mail_account when it's set AND still exists, else
+    the default account's id, else None (no accounts / not connected). A stale
+    selection (account since deleted) falls back to the default.
+    """
+    accounts = getattr(session, "accounts", None)
+    aid = getattr(session, "current_mail_account", None)
+    if accounts is None:
+        return None
+    if aid and accounts.get(aid) is not None:
+        return aid
+    default = accounts.default()
+    return default["id"] if default else None
 
 
 def _creds_from_session(session, account_id=None):
@@ -115,14 +138,14 @@ def _format_messages_for_llm(messages: list[dict]) -> str:
 
 
 def get_inbox_digest(session, max_messages: int = 10, fresh: bool = False,
-                     categories: tuple = ("primary",)) -> dict:
+                     categories: tuple = ("primary",), account_id=None) -> dict:
     """Pike-voiced summary of recent inbox.
 
     Returns: {narrative, unread_count, messages, cached_age_s, error?}
         - cached_age_s: int seconds since the cached narrative was generated.
           0 when the narrative was just regenerated (cache miss or fresh=True).
     """
-    creds = _creds_from_session(session)
+    creds = _creds_from_session(session, account_id)
     if not creds:
         return {
             "narrative": "Email is not connected. Authorize Google access in settings first.",
@@ -135,6 +158,23 @@ def get_inbox_digest(session, max_messages: int = 10, fresh: bool = False,
         unread_count = gt.gmail_unread_count(creds, categories=categories)
         messages = gt.gmail_list_messages(creds, max_results=max_messages,
                                           categories=categories)
+    except RefreshError:
+        # Token expired/revoked (e.g. Google Testing-mode weekly expiry). Surface as
+        # needs-reconnect (fires the UI reconnect CTA) and flag the account so the
+        # switcher shows "needs reconnect".
+        logger.info("Inbox digest: token expired/revoked for account %s", account_id)
+        accounts = getattr(session, "accounts", None)
+        if accounts is not None and account_id:
+            try:
+                accounts.set_status(account_id, "error")
+            except Exception:
+                logger.warning("Could not mark account %s status=error", account_id)
+        return {
+            "narrative": "This account needs reconnecting — re-link it in the Accounts tab.",
+            "unread_count": 0,
+            "messages": [],
+            "error": "not_authorized",
+        }
     except Exception as e:
         logger.exception("Inbox digest fetch failed")
         return {
@@ -154,7 +194,7 @@ def get_inbox_digest(session, max_messages: int = 10, fresh: bool = False,
     # Narrative cache (per-user, TTL-gated). Always re-fetch the message list
     # since it's cheap; the LLM call is what we want to avoid.
     user_id = getattr(session, "user_id", "default")
-    cache_key = (user_id, tuple(categories) if categories else ())
+    cache_key = (user_id, account_id, tuple(categories) if categories else ())
     cached = _narrative_cache.get(cache_key)
     if cached and not fresh:
         ts, narrative = cached
@@ -389,17 +429,17 @@ def draft_forward(session, message_id: str, to: str, note: str | None = None,
     return {"success": True, "draft_id": result["draft_id"], "subject": subject, "to": to, "body": body}
 
 
-def list_drafts(session, max_results: int = 20) -> list[dict]:
+def list_drafts(session, max_results: int = 20, account_id=None) -> list[dict]:
     """List recent drafts. Pure passthrough."""
-    creds = _creds_from_session(session)
+    creds = _creds_from_session(session, account_id)
     if not creds:
         return []
     return gt.gmail_list_drafts(creds, max_results=max_results)
 
 
-def get_draft(session, draft_id: str) -> dict | None:
+def get_draft(session, draft_id: str, account_id=None) -> dict | None:
     """Get a draft's full contents. Pure passthrough."""
-    creds = _creds_from_session(session)
+    creds = _creds_from_session(session, account_id)
     if not creds:
         return None
     return gt.gmail_get_draft(creds, draft_id)
@@ -418,21 +458,29 @@ def send_draft(session, draft_id: str, account_id: str | None = None) -> dict:
     return gt.gmail_send_draft(creds, draft_id)
 
 
-def discard_draft(session, draft_id: str) -> dict:
+def discard_draft(session, draft_id: str, account_id=None) -> dict:
     """Discard a draft. Irreversible."""
-    creds = _creds_from_session(session)
+    creds = _creds_from_session(session, account_id)
     if not creds:
         return {"success": False, "error": "Email not authorized"}
     return gt.gmail_delete_draft(creds, draft_id)
 
 
-def mark_read(session, message_id: str) -> dict:
+def mark_read(session, message_id: str, account_id=None) -> dict:
     """Mark an inbox message as read.
 
     Always returns the {ok, error?} shape — the frontend can branch on
     `result.ok` and surface `result.error` when present.
     """
-    creds = _creds_from_session(session)
+    creds = _creds_from_session(session, account_id)
     if not creds:
         return {"ok": False, "error": "not_authorized"}
     return gt.gmail_mark_read(creds, message_id)
+
+
+def mark_unread(session, message_id: str, account_id=None) -> dict:
+    """Mark an inbox message as unread. Returns {ok, error?}."""
+    creds = _creds_from_session(session, account_id)
+    if not creds:
+        return {"ok": False, "error": "not_authorized"}
+    return gt.gmail_mark_unread(creds, message_id)

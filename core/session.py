@@ -137,6 +137,11 @@ class UserSession:
         self.social_manager = SocialMediaManager(user_data_dir)
         self.accounts = AccountManager(user_data_dir)
 
+        # The account the interactive Mail panel is currently acting on.
+        # None = use the default account. Set via POST /api/email/active-account;
+        # read by the email endpoints and the chat email handlers.
+        self.current_mail_account = None
+
         # Heartbeat inbox_scan seam (Wave 3.5 Task-8): zero-arg callable.
         from core.accounts.inbox import fetch_unread_all_accounts
         self.fetch_unread_emails = lambda: fetch_unread_all_accounts(self)

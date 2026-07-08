@@ -5731,7 +5731,11 @@
             transition: background 0.12s;
         }
         .mail-row:hover { background: rgba(85,153,255,0.06); }
-        .mail-row[data-unread="true"] { background: rgba(85,153,255,0.04); }
+        .mail-row[data-unread="true"] {
+            background: rgba(85,153,255,0.07);
+            border-left: 3px solid var(--lcars-cyan, #5dd9d9);
+        }
+        .mail-row[data-unread="true"] .mail-row-subj { font-weight: 600; color: var(--lcars-text); }
         .mail-row.expanded {
             background: rgba(93,217,217,0.10);
             border-left: 3px solid var(--lcars-cyan, #5dd9d9);
@@ -5917,6 +5921,20 @@
             font-size: 11px;
             width: 100%;
             box-sizing: border-box;
+        }
+        /* Account switcher: force dark/cyan styling — Chromium honours <select>/<option> CSS */
+        #mailAccountSwitcher {
+            background: var(--lcars-bg, #000000);
+            color: var(--lcars-text, #D1D5DB);
+            border: 1px solid var(--lcars-cyan, #5dd9d9);
+        }
+        #mailAccountSwitcher option {
+            background: var(--lcars-bg, #000000);
+            color: var(--lcars-text, #D1D5DB);
+        }
+        #mailAccountSwitcher:focus {
+            outline: 1px solid var(--lcars-cyan, #5dd9d9);
+            border-color: var(--lcars-cyan, #5dd9d9);
         }
         .mail-form-actions { display: flex; gap: 8px; margin-top: 4px; }
         .linked-account {
@@ -6840,6 +6858,12 @@
                     onclick="_mailSwitchTab('drafts')">DRAFTS</button>
             <button class="mail-tab" data-tab="accounts"
                     onclick="_mailSwitchTab('accounts')">ACCOUNTS</button>
+        </div>
+        <div class="mail-acct-switcher-wrap" style="padding:6px 12px 2px;display:flex;align-items:center;gap:8px">
+            <label class="mail-form-label" for="mailAccountSwitcher" style="flex-shrink:0;margin:0">Account:</label>
+            <select id="mailAccountSwitcher" class="mail-form-input" style="flex:1;width:auto" onchange="onMailAccountChange()">
+                <option value="">Default account</option>
+            </select>
         </div>
         <section class="mail-tab-body" data-tab="inbox" id="mailInboxSection">
             <div class="mail-empty">Open INBOX to load.</div>
@@ -13511,11 +13535,22 @@ var _mailDraftsLoaded = false;
 var _mailDrafts = {};
 var _mailPanelClickWired = false;
 
-function openMailPanel() {
+async function openMailPanel() {
     document.getElementById('mailPanelOverlay').classList.add('open');
     var panel = document.getElementById('mailPanel');
     panel.classList.add('open');
     restorePanelPosition(panel);
+    // Populate switcher and sync session account BEFORE inbox loads
+    await populateMailAccountSwitcher();
+    var storedAcct = _mailGetSetting('selected_account', '');
+    try {
+        await authFetch(API + '/email/active-account', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ account_id: storedAcct || null }),
+        });
+    } catch (e) {}
+    _mailInboxLoaded = false;
+    _mailDraftsLoaded = false;
     _mailOnPanelOpen();
     refreshLinkedAccounts();
     if (!_mailPanelClickWired) {
@@ -13640,7 +13675,7 @@ async function loadInboxDigest(fresh) {
         var res = await authFetch(url);
         var data = await res.json();
         if (data && data.error === 'not_authorized') {
-            _mailRenderAuthCTA(section);
+            _mailRenderAccountReconnectCTA(section);
             return;
         }
         _mailInbox = {
@@ -13789,6 +13824,7 @@ function _mailRenderMessageDetail(messageId, data) {
            '<div class="mail-action-bar" data-message-id="' + escapeHtml(messageId) + '">' +
                '<button class="pill-btn-primary mail-act-draft-reply">Draft Reply</button>' +
                '<button class="pill-btn mail-act-open-gmail">Open in Gmail</button>' +
+               '<button class="pill-btn mail-act-mark-unread">Mark unread</button>' +
            '</div>';
 }
 
@@ -13809,6 +13845,14 @@ function _mailOnInboxClick(e) {
     } else if (btn.classList.contains('mail-act-open-gmail')) {
         e.stopPropagation();
         _mailOpenInGmail(messageId);
+    } else if (btn.classList.contains('mail-act-mark-unread')) {
+        e.stopPropagation();
+        _mailMarkUnread(messageId).then(function() {
+            var rowEl = document.querySelector(
+                '#mailInboxSection .mail-row[data-message-id="' + messageId + '"]'
+            );
+            if (rowEl) rowEl.dataset.unread = 'true';
+        });
     }
 }
 
@@ -13879,6 +13923,16 @@ async function _mailMarkRead(messageId) {
         });
     } catch (e) {
         console.warn('mail mark-read failed:', e);
+    }
+}
+
+async function _mailMarkUnread(messageId) {
+    try {
+        await authFetch(API + '/email/mark-unread/' + encodeURIComponent(messageId), {
+            method: 'POST',
+        });
+    } catch (e) {
+        console.warn('mail mark-unread failed:', e);
     }
 }
 
@@ -14156,7 +14210,7 @@ async function loadMailDrafts() {
         var res = await authFetch(API + '/email/drafts');
         var data = await res.json();
         if (data && data.error === 'not_authorized') {
-            _mailRenderAuthCTA(section);
+            _mailRenderAccountReconnectCTA(section);
             return;
         }
         _mailDraftsCache = Array.isArray(data) ? data : (data.drafts || []);
@@ -14386,6 +14440,71 @@ function _mailRenderAuthCTA(section) {
             '<p>Pike can\'t reach your inbox until you authorize Google in settings.</p>' +
             '<button class="pill-btn-primary" onclick="_mailStartAuth()">Authorize Google ▸</button>' +
         '</div>';
+}
+
+// Account-specific reconnect CTA — shown when the active account's creds are missing/expired.
+// Falls back to the generic auth CTA if no accounts are configured in the switcher yet.
+function _mailRenderAccountReconnectCTA(section) {
+    var sel = document.getElementById('mailAccountSwitcher');
+    var hasAccounts = sel && sel.options.length > 0 && sel.options[0].value;
+    if (!hasAccounts) {
+        _mailRenderAuthCTA(section);
+        return;
+    }
+    var acctLabel = (sel.options[sel.selectedIndex])
+        ? sel.options[sel.selectedIndex].text.replace(/ ⚠.*$/, '')
+        : 'This account';
+    section.innerHTML =
+        '<div class="mail-auth-cta">' +
+            '<h3 style="color:var(--lcars-error)">' + escapeHtml(acctLabel) + ' needs reconnecting</h3>' +
+            '<p>Authorization has expired or is missing for this account. Re-link it to restore access.</p>' +
+            '<button class="pill-btn-primary" onclick="_mailSwitchTab(\'accounts\')">' +
+                'Go to Accounts ▸' +
+            '</button>' +
+        '</div>';
+}
+
+async function populateMailAccountSwitcher() {
+    try {
+        var res = await authFetch(API + '/google/accounts');
+        if (!res.ok) return;
+        var accounts = (await res.json()).accounts || [];
+        var sel = document.getElementById('mailAccountSwitcher');
+        if (!sel) return;
+        var current = _mailGetSetting('selected_account', '');
+        if (current && !accounts.some(function (a) { return a.id === current; })) {
+            _mailSetSetting('selected_account', '');   // stale/deleted -> fall back to default
+            current = '';
+        }
+        sel.innerHTML = accounts.map(function (a) {
+            var warn = a.status === 'error' ? ' ⚠ needs reconnect' : '';
+            var selAttr = (a.id === current) ? ' selected' : '';
+            return '<option value="' + a.id + '"' + selAttr + '>' + a.label + warn + '</option>';
+        }).join('');
+    } catch (e) { /* non-fatal */ }
+}
+
+async function onMailAccountChange() {
+    var sel = document.getElementById('mailAccountSwitcher');
+    var accountId = sel ? sel.value : '';
+    try {
+        await authFetch(API + '/email/active-account', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ account_id: accountId || null }),
+        });
+    } catch (e) { /* non-fatal; still reload */ }
+    _mailSetSetting('selected_account', accountId);
+    // Reset loaded-flags so the active tab genuinely re-fetches and the inactive
+    // tab re-fetches lazily when next opened (otherwise it renders the previous
+    // account's cached data).
+    _mailInboxLoaded = false;
+    _mailDraftsLoaded = false;
+    if (_mailActiveTab === 'drafts') {
+        if (typeof loadMailDrafts === 'function') loadMailDrafts();
+    } else {
+        if (typeof loadInboxDigest === 'function') loadInboxDigest(true);
+    }
 }
 
 var _mailAuthPoll = null;
