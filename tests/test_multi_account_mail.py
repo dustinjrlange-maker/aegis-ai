@@ -262,3 +262,69 @@ def test_resolve_account_explicit_hint_still_wins(monkeypatch):
     monkeypatch.setattr("core.email_assistant.active_account_id", lambda s: "google-stitch")
     acct, note = p._resolve_account({"account": "personal"})   # explicit hint
     assert acct["id"] == "google-personal"   # explicit hint wins over active
+
+
+# ---------------------------------------------------------------------------
+# RefreshError surfacing — revoked/expired token shows reconnect, not "clear"
+# ---------------------------------------------------------------------------
+
+from google.auth.exceptions import RefreshError as _RefreshError
+
+
+def _make_refresh_error():
+    return _RefreshError(
+        "invalid_grant: Token has been expired or revoked.",
+        {"error": "invalid_grant"},
+    )
+
+
+def test_gmail_list_messages_reraises_refresh_error(monkeypatch):
+    """gmail_list_messages must NOT swallow RefreshError — it must propagate."""
+    import core.protocols.google_tools as gt_mod
+
+    fake_service = MagicMock()
+    (fake_service.users().messages().list().execute
+     .side_effect) = _make_refresh_error()
+    monkeypatch.setattr(gt_mod, "_get_gmail_service", lambda creds: fake_service)
+
+    with pytest.raises(_RefreshError):
+        gt_mod.gmail_list_messages("FAKE_CREDS")
+
+
+def test_gmail_unread_count_reraises_refresh_error(monkeypatch):
+    """gmail_unread_count must NOT swallow RefreshError — it must propagate."""
+    import core.protocols.google_tools as gt_mod
+
+    fake_service = MagicMock()
+    (fake_service.users().messages().list().execute
+     .side_effect) = _make_refresh_error()
+    monkeypatch.setattr(gt_mod, "_get_gmail_service", lambda creds: fake_service)
+
+    with pytest.raises(_RefreshError):
+        gt_mod.gmail_unread_count("FAKE_CREDS")
+
+
+def test_get_inbox_digest_refresh_error_returns_not_authorized(monkeypatch):
+    """get_inbox_digest: RefreshError → error='not_authorized' + account flagged."""
+    import core.email_assistant as ea_mod
+    import core.protocols.google_tools as gt_mod
+
+    # Fake creds so we get past the not_authorized early-return
+    monkeypatch.setattr(ea_mod, "_creds_from_session", lambda session, account_id=None: "FAKE_CREDS")
+
+    # gmail_unread_count raises RefreshError
+    monkeypatch.setattr(gt_mod, "gmail_unread_count",
+                        lambda creds, categories=("primary",): (_ for _ in ()).throw(_make_refresh_error()))
+
+    # Build a fake session with a mock accounts object
+    sess = MagicMock()
+    set_status_mock = MagicMock()
+    sess.accounts.set_status = set_status_mock
+
+    result = ea_mod.get_inbox_digest(sess, account_id="google-personal")
+
+    assert result["error"] == "not_authorized"
+    assert result["unread_count"] == 0
+    assert result["messages"] == []
+    assert "reconnect" in result["narrative"].lower()
+    set_status_mock.assert_called_once_with("google-personal", "error")

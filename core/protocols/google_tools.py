@@ -10,6 +10,12 @@ import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+try:
+    from google.auth.exceptions import RefreshError
+except ImportError:  # pragma: no cover — google-auth absent in some test envs
+    class RefreshError(Exception):  # type: ignore[no-redef]
+        pass
+
 # Tolerate Google returning a superset of the requested scopes during the OAuth
 # token exchange. This happens with incremental consent (include_granted_scopes):
 # once an account has granted a scope (e.g. an older gmail.send), Google keeps
@@ -273,6 +279,8 @@ def gmail_unread_count(creds, categories=("primary",)):
             maxResults=1,
         ).execute()
         return results.get("resultSizeEstimate", 0)
+    except RefreshError:
+        raise
     except Exception as e:
         logger.warning("Could not get unread count: %s", e)
         return 0
@@ -394,6 +402,8 @@ def gmail_list_messages(creds, max_results=10, categories=("primary",),
             })
 
         return messages
+    except RefreshError:
+        raise
     except Exception as e:
         logger.warning("Could not list Gmail messages: %s", e)
         return []

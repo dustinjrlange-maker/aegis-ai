@@ -17,6 +17,12 @@ import logging
 import re
 import time as _time
 
+try:
+    from google.auth.exceptions import RefreshError
+except ImportError:  # pragma: no cover
+    class RefreshError(Exception):  # type: ignore[no-redef]
+        pass
+
 from core.config import CONFIG
 from core.llm import chat as _router_chat
 from core.protocols import google_tools as gt
@@ -152,6 +158,23 @@ def get_inbox_digest(session, max_messages: int = 10, fresh: bool = False,
         unread_count = gt.gmail_unread_count(creds, categories=categories)
         messages = gt.gmail_list_messages(creds, max_results=max_messages,
                                           categories=categories)
+    except RefreshError:
+        # Token expired/revoked (e.g. Google Testing-mode weekly expiry). Surface as
+        # needs-reconnect (fires the UI reconnect CTA) and flag the account so the
+        # switcher shows "needs reconnect".
+        logger.info("Inbox digest: token expired/revoked for account %s", account_id)
+        accounts = getattr(session, "accounts", None)
+        if accounts is not None and account_id:
+            try:
+                accounts.set_status(account_id, "error")
+            except Exception:
+                logger.warning("Could not mark account %s status=error", account_id)
+        return {
+            "narrative": "This account needs reconnecting — re-link it in the Accounts tab.",
+            "unread_count": 0,
+            "messages": [],
+            "error": "not_authorized",
+        }
     except Exception as e:
         logger.exception("Inbox digest fetch failed")
         return {
