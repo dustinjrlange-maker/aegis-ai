@@ -370,6 +370,7 @@ def gmail_list_messages(creds, max_results=10, categories=("primary",),
                 "sender": headers.get("From", "Unknown"),
                 "date": headers.get("Date", ""),
                 "snippet": msg.get("snippet", ""),
+                "unread": "UNREAD" in msg.get("labelIds", []),
             })
 
         return messages

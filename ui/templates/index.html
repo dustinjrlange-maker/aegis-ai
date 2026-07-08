@@ -5731,7 +5731,11 @@
             transition: background 0.12s;
         }
         .mail-row:hover { background: rgba(85,153,255,0.06); }
-        .mail-row[data-unread="true"] { background: rgba(85,153,255,0.04); }
+        .mail-row[data-unread="true"] {
+            background: rgba(85,153,255,0.07);
+            border-left: 3px solid var(--lcars-cyan, #5dd9d9);
+        }
+        .mail-row[data-unread="true"] .mail-row-subj { font-weight: 600; color: var(--lcars-text); }
         .mail-row.expanded {
             background: rgba(93,217,217,0.10);
             border-left: 3px solid var(--lcars-cyan, #5dd9d9);
