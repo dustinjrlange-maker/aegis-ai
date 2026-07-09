@@ -61,6 +61,11 @@ def test_default_falls_back_to_first(tmp_path):
     ("dustin", "google-personal"),             # represent_as name
     ("", "google-personal"),                   # empty -> default
     ("no-such-account", None),                 # unknown -> None
+    # spoken hints: spacing/dots must not break matching (2026-07-09 incident:
+    # "the switch stitch email" failed to resolve to theswitchstitch@gmail.com)
+    ("switch stitch", "google-stitch"),
+    ("the switch stitch", "google-stitch"),
+    ("dustin jr lange", "google-personal"),
 ])
 def test_resolve(tmp_path, hint, expected):
     _write_registry(tmp_path, [ACCT_A, ACCT_B])

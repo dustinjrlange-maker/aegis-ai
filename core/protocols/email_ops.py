@@ -27,19 +27,75 @@ _EMAIL_CUE = re.compile(
     re.IGNORECASE,
 )
 
-# A real send requires an explicit send word, not just an affirmative — the
-# classifier alone must not be able to transmit a held draft on a vague "yeah ok".
-_SEND_PHRASE = re.compile(r"\b(send|ship it|fire it off)\b", re.IGNORECASE)
-
-# ...but a send word inside a QUESTION or deliberation ("should I send it?",
-# "not sure, maybe send later", "don't send that") is NOT a confirmation.
-# Sending is irreversible, so if the message looks like the user is still
-# deciding — or explicitly negating — we re-confirm instead of transmitting.
-_NOT_A_CONFIRM = re.compile(
-    r"\?|\b(should|shall|do you think|not sure|maybe|later|wait|hold off|"
-    r"don't|do not|never ?mind)\b",
+# A real send requires an explicit, STANDALONE send command ("send it",
+# "yes, send it now") — never a send word buried inside a longer sentence.
+# 2026-07-09 incident: "No I want you to send it from my personal email..."
+# contained "send it" and transmitted a held draft. Confirmation is
+# fail-closed: anything that isn't a short affirmative send command
+# re-confirms instead.
+_CONFIRM_SEND = re.compile(
+    r"(?:(?:yes|yeah|yep|sure|ok(?:ay)?|please|alright|go ahead(?:\s+and)?)[\s,!.-]*)*"
+    r"(?:send(?:\s+(?:it|that|this|the\s+(?:draft|email|message)))?"
+    r"|ship\s+it|fire\s+it\s+off)"
+    r"(?:[\s,!.]*(?:now|please|off))?[\s,!.]*$",
     re.IGNORECASE,
 )
+
+# ...and a send word alongside a question, deliberation, or negation is NOT a
+# confirmation. Sending is irreversible: when in doubt, re-confirm.
+_NOT_A_CONFIRM = re.compile(
+    r"\?|\b(no|nope|wrong|not|stop|cancel|instead|should|shall|do you think|"
+    r"not sure|maybe|later|wait|hold off|don't|do not|never ?mind)\b",
+    re.IGNORECASE,
+)
+
+
+def _is_send_confirmation(text):
+    """True only for a short, explicit, standalone send command."""
+    t = (text or "").strip()
+    return bool(_CONFIRM_SEND.match(t)) and not _NOT_A_CONFIRM.search(t)
+
+
+# "from my personal email" — the user explicitly naming the From account.
+_FROM_ACCOUNT = re.compile(
+    r"\bfrom\s+(?:my|the|our)\s+([\w .&'-]{1,40}?)\s+"
+    r"(?:e-?mail|g-?mail|account|address|inbox)\b",
+    re.IGNORECASE,
+)
+
+# Dictated wording: "subject saying X", "the body of the email to say: Y".
+# When these match, the user's text is used VERBATIM — no LLM composition
+# (2026-07-09 incident: a dictated body was rewritten with its meaning flipped).
+_SUBJECT_DICT = re.compile(
+    r"\bsubject\b(?:\s+(?:line|body|field|header))?\s*"
+    r"(?:to\s+say|saying|says|should\s+say|say|reads?|[:=])\s*[\"'“]?"
+    r"(?P<subj>.+?)\s*[\"'”]?"
+    r"(?=\s*(?:$|[,.;]|\band\b|\bthen\b|\bbody\b|\bmessage\b))",
+    re.IGNORECASE,
+)
+_BODY_DICT = re.compile(
+    r"\b(?:body|message)\b(?:\s+of\s+the\s+(?:e-?mail|message))?\s*"
+    r"(?:to\s+say|saying|says|should\s+say|say|reads?|[:=])\s*:?\s*[\"'“]?"
+    r"(?P<body>.+)$",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _extract_dictation(text):
+    """(subject|None, body|None) when the user dictated exact wording."""
+    t = text or ""
+    subj = None
+    pos = 0
+    m = _SUBJECT_DICT.search(t)
+    if m:
+        subj = m.group("subj").strip().strip("\"'“”").strip()
+        pos = m.end()
+    b = _BODY_DICT.search(t, pos)
+    body = None
+    if b:
+        body = b.group("body").strip().strip("\"'“”").strip()
+    return subj or None, body or None
+
 
 _EMAIL_ADDR = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 
@@ -115,6 +171,11 @@ class EmailOpsProtocol(Protocol):
         message_id = self._resolve_ref(action)
         if not message_id:
             return "I couldn't tell which email you mean — which one should I reply to?"
+        acct_over, ask = self._explicit_from(text)
+        if ask:
+            return ask
+        if acct_over is not None:
+            action = {**action, "account": acct_over["id"]}
         intent = action.get("instruction") or text
         acct, acct_note = self._resolve_account(action)
         acct_id = acct["id"] if acct else None
@@ -160,19 +221,32 @@ class EmailOpsProtocol(Protocol):
         return m.group(0) if m else None
 
     def _do_new(self, action, text):
-        to = self._extract_recipient(action)
+        acct_over, ask = self._explicit_from(text)
+        if ask:
+            return ask
+        to = self._ground_recipient(self._extract_recipient(action), text)
         if not to:
             return "Who should I send it to? Give me an email address."
         intent = action.get("instruction") or text
+        if acct_over is not None:
+            action = {**action, "account": acct_over["id"]}
         acct, acct_note = self._resolve_account(action)
         acct_id = acct["id"] if acct else None
-        res = ea.draft_new(self._session, to, intent=intent, account_id=acct_id)
+        subject_hint, body_verbatim = _extract_dictation(text)
+        extra = {}
+        if subject_hint:
+            extra["subject_hint"] = subject_hint
+        if body_verbatim:
+            extra["body_verbatim"] = body_verbatim
+        res = ea.draft_new(self._session, to, intent=intent, account_id=acct_id,
+                           **extra)
         if not res.get("success"):
             return f"I couldn't draft that email: {res.get('error', 'unknown error')}"
         self._pending = {
             "draft_id": res["draft_id"], "kind": "new", "message_id": None,
             "to": res.get("to", to), "subject": res.get("subject", ""), "intent": intent,
             "account_id": acct_id,
+            "subject_hint": subject_hint, "body_verbatim": body_verbatim,
         }
         return (
             f"{acct_note}{self._from_line(acct)}"
@@ -186,9 +260,14 @@ class EmailOpsProtocol(Protocol):
         message_id = self._resolve_ref(action)
         if not message_id:
             return "Which email should I forward?"
-        to = self._extract_recipient(action)
+        acct_over, ask = self._explicit_from(text)
+        if ask:
+            return ask
+        to = self._ground_recipient(self._extract_recipient(action), text)
         if not to:
             return "Who should I forward it to? Give me an email address."
+        if acct_over is not None:
+            action = {**action, "account": acct_over["id"]}
         acct, acct_note = self._resolve_account(action)
         acct_id = acct["id"] if acct else None
         res = ea.draft_forward(self._session, message_id, to, account_id=acct_id)
@@ -230,17 +309,153 @@ class EmailOpsProtocol(Protocol):
         return "Archived it — it's out of your inbox."
 
     def _do_send(self, action, text):
-        t = text or ""
-        if not _SEND_PHRASE.search(t) or _NOT_A_CONFIRM.search(t):
-            return ("Just to confirm — send the draft to "
-                    f"{self._pending.get('to', 'them')}? Say \"send it\" to confirm.")
+        t = (text or "").strip()
+        acct_over, ask = self._explicit_from(t)
+        if ask:
+            return ask
+        pending_acct = self._pending.get("account_id") or self._default_account_id()
+        if acct_over is not None and acct_over["id"] != pending_acct:
+            # The user is correcting the From account, not confirming the send.
+            return self._switch_pending_account(acct_over)
+        if not _is_send_confirmation(t):
+            logger.info("email_ops: not a standalone confirmation, "
+                        "re-confirming: %r", t[:120])
+            return self._reconfirm()
         res = ea.send_draft(self._session, self._pending["draft_id"],
                             account_id=self._pending.get("account_id"))
         if not res.get("success"):
             return f"I couldn't send it: {res.get('error', 'unknown error')}"
         to = self._pending.get("to", "them")
+        logger.info("email_ops: draft sent to %r (account %r)",
+                    to, self._pending.get("account_id"))
         self._pending = None
         return f"Sent to {to}."
+
+    def _reconfirm(self):
+        """Re-ask before an irreversible send, restating From AND To so a
+        wrong account or recipient is visible before transmission."""
+        to = self._pending.get("to", "them")
+        frm = ""
+        accounts = getattr(self._session, "accounts", None)
+        if accounts is not None:
+            acct = None
+            if self._pending.get("account_id"):
+                acct = accounts.get(self._pending["account_id"])
+            acct = acct or accounts.default()
+            if acct:
+                label = acct.get("label", acct["id"])
+                email = acct.get("email", "")
+                frm = f" from {label} ({email})" if email else f" from {label}"
+        return (f"Just to confirm — send the draft{frm} to {to}? "
+                'Say "send it" to confirm.')
+
+    def _default_account_id(self):
+        accounts = getattr(self._session, "accounts", None)
+        if accounts is None:
+            return None
+        default = accounts.default()
+        return default["id"] if default else None
+
+    def _switch_pending_account(self, acct):
+        """Redraft the held draft under *acct* — the user corrected the From
+        account. Never sends."""
+        p = self._pending
+        old_acct_id = p.get("account_id")
+        new_id = acct["id"]
+        kind = p.get("kind", "reply")
+        logger.info("email_ops: switching pending draft account %r -> %r",
+                    old_acct_id, new_id)
+        if kind == "new":
+            extra = {}
+            if p.get("subject_hint"):
+                extra["subject_hint"] = p["subject_hint"]
+            if p.get("body_verbatim"):
+                extra["body_verbatim"] = p["body_verbatim"]
+            res = ea.draft_new(self._session, p.get("to", ""),
+                               intent=p.get("intent", ""), account_id=new_id,
+                               **extra)
+        elif kind == "forward":
+            res = ea.draft_forward(self._session, p["message_id"],
+                                   p.get("to", ""), account_id=new_id)
+        else:
+            res = ea.draft_reply(self._session, p["message_id"],
+                                 intent=p.get("intent", ""), account_id=new_id)
+        if not res.get("success"):
+            return ("I couldn't redraft from that account: "
+                    f"{res.get('error', 'unknown error')}")
+        creds = ea._creds_from_session(self._session, old_acct_id)
+        try:
+            gt.gmail_delete_draft(creds, p["draft_id"])
+        except Exception:
+            logger.exception("Could not delete superseded draft")
+        self._pending = {
+            **p,
+            "draft_id": res["draft_id"],
+            "to": res.get("to", p.get("to", "")),
+            "subject": res.get("subject", p.get("subject", "")),
+            "account_id": new_id,
+        }
+        return (
+            f"{self._from_line(acct)}"
+            f"Redrafted to {self._pending['to']} —\n"
+            f"Subject: {self._pending['subject']}\n\n"
+            f"{res.get('body', '')}\n\n"
+            "Send it, tweak it, or discard?"
+        )
+
+    def _known_addresses(self):
+        """Email addresses this user demonstrably owns (linked accounts)."""
+        accounts = getattr(self._session, "accounts", None)
+        if accounts is None:
+            return []
+        return [a.get("email", "") for a in accounts.list() if a.get("email")]
+
+    def _ground_recipient(self, to, text):
+        """Ground a classifier-proposed recipient before any draft exists.
+
+        Trusted only when the user literally typed it, or it matches a known
+        address. A near-miss of a known address (the classifier 'normalizing'
+        a spoken name — 2026-07-09: 'the switch stitch email' became an
+        invented switchstitch@gmail.com belonging to a stranger) is repaired
+        to the known address. Anything else -> None: the handler asks instead
+        of emailing a stranger."""
+        if not to:
+            return None
+        if to.lower() in (text or "").lower():
+            return to
+        known = self._known_addresses()
+        for k in known:
+            if k.lower() == to.lower():
+                return k
+        loc = to.split("@", 1)[0].lower().replace(".", "")
+        for k in known:
+            kloc = k.split("@", 1)[0].lower().replace(".", "")
+            if loc and (loc in kloc or kloc in loc):
+                logger.info("email_ops: repaired recipient %r -> known %r",
+                            to, k)
+                return k
+        logger.info("email_ops: rejected ungrounded recipient %r", to)
+        return None
+
+    def _explicit_from(self, text):
+        """(account|None, ask|None) for a 'from my X email' phrase in *text*.
+
+        *ask* is a question to return verbatim when the user named an account
+        that can't be matched — never silently fall back to the Mail panel's
+        active account when the user said which account to use."""
+        accounts = getattr(self._session, "accounts", None)
+        if accounts is None:
+            return None, None
+        m = _FROM_ACCOUNT.search(text or "")
+        if not m:
+            return None, None
+        hint = m.group(1).strip()
+        acct = accounts.resolve(hint)
+        if acct is not None:
+            return acct, None
+        labels = ", ".join(a.get("label", a["id"]) for a in accounts.list())
+        return None, (f'Which account is "{hint}"? I have: {labels}. '
+                      "Tell me which to send from.")
 
     def _do_discard(self, action, text):
         creds = ea._creds_from_session(self._session, self._pending.get("account_id"))
@@ -259,10 +474,21 @@ class EmailOpsProtocol(Protocol):
         change = action.get("instruction") or text
         new_intent = f"{p.get('intent', '')} | revision: {change}".strip(" |")
         kind = p.get("kind", "reply")
-        acct_id = p.get("account_id")
+        acct_over, ask = self._explicit_from(text)
+        if ask:
+            return ask
+        acct_id = acct_over["id"] if acct_over is not None else p.get("account_id")
         if kind == "new":
+            # Fresh dictation in the edit wins; otherwise compose from the
+            # combined intent (a wording revision supersedes old verbatim text).
+            subject_hint, body_verbatim = _extract_dictation(text)
+            extra = {}
+            if subject_hint:
+                extra["subject_hint"] = subject_hint
+            if body_verbatim:
+                extra["body_verbatim"] = body_verbatim
             res = ea.draft_new(self._session, p.get("to", ""), intent=new_intent,
-                               account_id=acct_id)
+                               account_id=acct_id, **extra)
         elif kind == "forward":
             res = ea.draft_forward(self._session, p["message_id"], p.get("to", ""),
                                    note=new_intent, account_id=acct_id)
@@ -271,7 +497,9 @@ class EmailOpsProtocol(Protocol):
                                  account_id=acct_id)
         if not res.get("success"):
             return f"I couldn't revise it: {res.get('error', 'unknown error')}"
-        creds = ea._creds_from_session(self._session, acct_id)
+        # Delete the superseded draft with the creds it was CREATED under —
+        # acct_id may now point at a different (corrected) account.
+        creds = ea._creds_from_session(self._session, p.get("account_id"))
         try:
             gt.gmail_delete_draft(creds, p["draft_id"])
         except Exception:
@@ -282,6 +510,7 @@ class EmailOpsProtocol(Protocol):
             "to": res.get("to", p.get("to", "")),
             "subject": res.get("subject", p.get("subject", "")),
             "intent": new_intent,
+            "account_id": acct_id,
         }
         return (
             f"Updated draft to {res.get('to', 'them')} —\n\n"
@@ -450,4 +679,9 @@ class EmailOpsProtocol(Protocol):
         except Exception:
             logger.exception("Email classify LLM call failed")
             return {"action": "none"}
-        return self._parse_classification(raw)
+        out = self._parse_classification(raw)
+        # Audit trail: the classifier drives irreversible actions, so its
+        # decision must be reconstructible from logs (2026-07-09 incident
+        # had no record of what the model actually returned).
+        logger.info("email_ops classify: %r -> %s", text[:120], out)
+        return out

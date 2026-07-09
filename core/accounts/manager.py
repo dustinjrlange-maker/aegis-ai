@@ -101,7 +101,9 @@ class AccountManager:
 
     def resolve(self, hint):
         """Fuzzy-match *hint* to an account: exact id, then substring match on
-        email/label/represent-as name (case-insensitive). Empty hint -> default.
+        email/label/represent-as name (case-insensitive; spaces and dots are
+        ignored so a spoken "switch stitch" matches theswitchstitch@gmail.com).
+        Empty hint -> default.
         Unknown hint -> None (caller decides whether to fall back or ask)."""
         hint = (hint or "").strip().lower()
         if not hint:
@@ -110,12 +112,17 @@ class AccountManager:
         for a in accounts:
             if a.get("id", "").lower() == hint:
                 return a
+
+        def _norm(s):
+            return s.lower().replace(" ", "").replace(".", "")
+
+        nhint = _norm(hint)
         for a in accounts:
             haystacks = [
                 a.get("email", ""), a.get("label", ""),
                 (a.get("represent_as") or {}).get("name", ""),
             ]
-            if any(hint in h.lower() for h in haystacks if h):
+            if any(nhint in _norm(h) for h in haystacks if h):
                 return a
         return None
 

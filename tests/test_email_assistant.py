@@ -135,6 +135,29 @@ def test_draft_new_omits_cc_bcc_when_not_provided():
     assert not kwargs.get("bcc")
 
 
+def test_draft_new_verbatim_body_skips_llm():
+    """body_verbatim is the user's dictated text: used EXACTLY as given, no
+    LLM composition at all (2026-07-09 incident: dictated body was rewritten)."""
+    from core import email_assistant as ea
+    session = _mock_session()
+    with patch.object(ea, "_creds_from_session", return_value=object()), \
+         patch.object(ea, "_llm",
+                      side_effect=AssertionError("LLM must not run for verbatim body")), \
+         patch.object(ea.gt, "gmail_create_draft", return_value={
+             "success": True, "draft_id": "d1", "message_id": "m1"
+         }) as mock_create:
+        res = ea.draft_new(
+            session, to="bill@example.com", intent="ignored",
+            subject_hint="Practical test",
+            body_verbatim="if this works we can start using this more",
+        )
+    kwargs = mock_create.call_args.kwargs
+    assert kwargs.get("body") == "if this works we can start using this more"
+    assert kwargs.get("subject") == "Practical test"
+    assert res["body"] == "if this works we can start using this more"
+    assert res["subject"] == "Practical test"
+
+
 def test_mark_read_calls_gmail_modify():
     """mark_read should call gmail_mark_read with the message id."""
     from core import email_assistant as ea

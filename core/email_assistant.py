@@ -321,7 +321,8 @@ def draft_reply(session, message_id: str, intent: str | None = None,
 
 def draft_new(session, to: str, intent: str, subject_hint: str | None = None,
               cc: str | None = None, bcc: str | None = None,
-              account_id: str | None = None) -> dict:
+              account_id: str | None = None,
+              body_verbatim: str | None = None) -> dict:
     """Draft a new email (not a reply).
 
     Args:
@@ -330,12 +331,35 @@ def draft_new(session, to: str, intent: str, subject_hint: str | None = None,
         subject_hint: Optional subject line; if omitted, the LLM proposes one.
         cc: Optional CC recipient(s), comma-separated string. Falsy → omitted.
         bcc: Optional BCC recipient(s), comma-separated string. Falsy → omitted.
+        body_verbatim: Exact body text dictated by the user. When given the
+            LLM is NOT called: the body is exactly this text and the subject
+            is subject_hint (or "(no subject)").
 
     Returns: {success, draft_id, body, subject, to, error?}
     """
     creds = _creds_from_session(session, account_id)
     if not creds:
         return {"success": False, "error": "Email not authorized"}
+
+    if body_verbatim:
+        subject = subject_hint or "(no subject)"
+        body = body_verbatim
+        result = gt.gmail_create_draft(creds, to=to, subject=subject, body=body,
+                                       cc=cc, bcc=bcc)
+        if not result.get("success"):
+            return {
+                "success": False,
+                "error": result.get("error", "Draft creation failed"),
+                "body": body,
+                "subject": subject,
+            }
+        return {
+            "success": True,
+            "draft_id": result["draft_id"],
+            "body": body,
+            "subject": subject,
+            "to": to,
+        }
 
     if subject_hint:
         subject_instruction = f"Subject line: {subject_hint}"
