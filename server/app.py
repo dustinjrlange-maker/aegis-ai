@@ -342,6 +342,10 @@ class EventRequest(BaseModel):
     repeat_until: Optional[str] = None
     reminder_minutes: Optional[int] = 0
     save_to_google: Optional[bool] = False
+    # Belt-and-suspenders for Google Calendar writes (mirrors the email
+    # send-draft pattern): a bare HTTP call must not perform an outward,
+    # hard-to-reverse write — the caller states intent explicitly.
+    confirm: Optional[bool] = False
 
 
 class MoodRequest(BaseModel):
@@ -870,6 +874,9 @@ async def manage_events(req: EventRequest, user_id: str = Depends(require_user))
 
         # Optional: save to Google Calendar instead of local
         if req.save_to_google:
+            if req.confirm is not True:
+                return {"error": "confirmation required",
+                        "detail": "Google Calendar writes need confirm=true."}
             try:
                 google_proto = session.protocol_registry.get("google")
                 if google_proto:
@@ -1012,6 +1019,10 @@ async def google_calendar_write(req: EventRequest, user_id: str = Depends(requir
     creds = google_proto._get_creds()
     if not creds:
         return {"error": "Google account not connected"}
+
+    if req.confirm is not True:
+        return {"error": "confirmation required",
+                "detail": "Google Calendar writes need confirm=true."}
 
     try:
         return _google_calendar_write_action(req, creds)
@@ -1292,8 +1303,13 @@ async def email_send_draft(draft_id: str, body: dict, user_id: str = Depends(req
 
 
 @app.delete("/api/email/drafts/{draft_id}")
-async def email_discard_draft(draft_id: str, user_id: str = Depends(require_user)):
-    """Discard a draft. Irreversible."""
+async def email_discard_draft(draft_id: str, confirm: bool = False,
+                              user_id: str = Depends(require_user)):
+    """Discard a draft. Irreversible — requires ?confirm=true (mirrors the
+    send-draft confirm gate; a stray DELETE must not destroy a draft)."""
+    if confirm is not True:
+        return {"success": False, "error": "confirmation required",
+                "detail": "Add ?confirm=true to discard this draft."}
     from core.email_assistant import discard_draft, active_account_id
     session = session_manager.get_or_create(user_id)
     return discard_draft(session, draft_id, account_id=active_account_id(session))

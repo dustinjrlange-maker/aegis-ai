@@ -11,7 +11,8 @@ from datetime import datetime, timedelta
 
 from core.llm import chat_with_meta as router_chat_with_meta
 from core.llm.turn_classifier import classify, route_task_tag, inject_fact_memories
-from core.llm.trouble import detect_trouble, detect_private_content
+from core.llm.trouble import (detect_trouble, detect_private_content,
+                              detect_private_categories)
 from core.llm.config import load_config as _load_router_config, resolve_api_key as _resolve_key
 from core.config import CONFIG, load_capabilities
 from core.tooling import service as tool_service
@@ -59,6 +60,17 @@ def payload_has_private_content(messages) -> tuple[bool, str]:
                 return True, reason
     return False, ""
 
+
+def payload_private_categories(messages) -> set:
+    """ALL private categories across an outgoing payload — consent decisions
+    must cover the full set, not just the first match."""
+    cats = set()
+    for m in messages:
+        content = m.get("content")
+        if isinstance(content, str):
+            cats |= detect_private_categories(content)
+    return cats
+
 _MODE_HINTS = {
     "emotional": "[Response mode: emotional support — you may take up to 5-6 sentences. Stay specific to their words, no advice, no cheerleading, no roleplay.]",
     "task": "[Response mode: task — give the complete, structured answer; take the length it needs.]",
@@ -74,9 +86,12 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
 
     # Resolve a pending trouble-escalation consent prompt. An affirmative reply
     # re-runs the ORIGINAL turn with cloud forced on; anything else clears the
-    # pending state and proceeds normally.
+    # pending state and proceeds normally. The consent covers the private
+    # CATEGORIES named in the prompt — the re-assembled payload is re-scanned
+    # against them below (audit: the re-run used to skip the scan entirely).
     _pending = getattr(session, "_pending_escalation", None)
     _force_trouble_cloud = False
+    _consented_categories = set()
     if _pending:
         fresh = (datetime.now() - _pending["ts"]) < timedelta(minutes=5)
         affirmatives = ("yes", "yes use cloud", "use cloud", "go ahead", "ok",
@@ -88,6 +103,7 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
         if fresh and normalized in affirmatives:
             user_input = _pending["message"]     # re-run the ORIGINAL turn
             _force_trouble_cloud = True
+            _consented_categories = set(_pending.get("categories", []))
         session._pending_escalation = None
 
     if not user_input:
@@ -241,14 +257,21 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
     # scan the exact preview of what would be sent (NOT just the bare user turn)
     # before escalating. If it's private, bail to a consent prompt. This runs
     # BEFORE appending the current turn so a consent-bail never persists/dupes it.
-    if _wants_cloud and not _force_trouble_cloud and _rcfg.trouble_private_consent:
+    if _wants_cloud and _rcfg.trouble_private_consent:
         _preview = list(session.messages)            # prior turns (incl system[0])
         if context_system_msg:
             _preview = _preview + [context_system_msg]
         _preview = _preview + [{"role": "user", "content": augmented}]
-        _priv, _reason = payload_has_private_content(_preview)
-        if _priv:
-            session._pending_escalation = {"message": user_input, "ts": datetime.now()}
+        _cats = payload_private_categories(_preview)
+        # A consented re-run proceeds ONLY if the consent still covers every
+        # private category in the re-assembled payload — new private content
+        # (interleaved turns, fresh memory retrieval) re-prompts instead.
+        if _cats and (not _force_trouble_cloud
+                      or not _cats <= _consented_categories):
+            _reason = ", ".join(sorted(_cats))
+            session._pending_escalation = {"message": user_input,
+                                           "ts": datetime.now(),
+                                           "categories": sorted(_cats)}
             return {
                 "agent_name": session.agent_name,
                 "response": (f"⚠ I'm struggling with this, and it looks like it involves "

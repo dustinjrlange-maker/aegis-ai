@@ -228,3 +228,33 @@ def test_injected_memory_private_content_blocks_escalation(monkeypatch):
     asyncio.run(cp.process_chat(mgr, "u", "yes"))
     assert len(calls) == 1
     assert calls[0]["trouble"] is True
+
+
+def test_consent_rerun_with_new_private_category_reprompts(monkeypatch):
+    """2026-07-09 audit: the consented re-run skipped the private-content
+    rescan entirely. The user consents to a payload containing FINANCIAL
+    content; before the re-run a HEALTH item lands in the history. The
+    consent no longer covers the payload -> must re-prompt, not egress."""
+    calls = []
+    _install_stubs(monkeypatch, calls)
+    session = _FakeSession()
+    mgr = _FakeManager(session)
+
+    asyncio.run(cp.process_chat(mgr, "u", "no, my bank account number is wrong"))
+    assert calls == []
+    assert session._pending_escalation is not None
+
+    # A new private category appears in history before the user answers
+    # (interleaved turn, memory retrieval, file context...).
+    session.messages.append({"role": "system",
+                             "content": "Relevant memory: my diagnosis came back"})
+
+    out = asyncio.run(cp.process_chat(mgr, "u", "yes, use cloud"))
+    assert calls == []                       # nothing left the machine
+    assert "⚠" in out["response"]            # re-prompted instead
+    assert session._pending_escalation is not None
+
+    # Consenting to the updated prompt (now covering both categories) proceeds.
+    asyncio.run(cp.process_chat(mgr, "u", "yes, use cloud"))
+    assert len(calls) == 1
+    assert calls[0]["trouble"] is True

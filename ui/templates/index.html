@@ -10833,6 +10833,7 @@ async function calSaveEdit() {
         time_start: timeStart,
         time_end: timeEnd,
         description: document.getElementById('calEventDesc').value || '',
+        confirm: true,
     };
     if (!isGoogle) {
         body.all_day = allDay;
@@ -10871,7 +10872,7 @@ async function calDeleteEvent(eventId, isGoogle) {
             await authFetch(API + '/calendar/google', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({action: 'delete', event_id: eventId}),
+                body: JSON.stringify({action: 'delete', event_id: eventId, confirm: true}),
             });
             showToast('Google event deleted');
         } catch (e) {
@@ -10883,7 +10884,7 @@ async function calDeleteEvent(eventId, isGoogle) {
             await authFetch(API + '/events', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({action: 'delete', event_id: eventId}),
+                body: JSON.stringify({action: 'delete', event_id: eventId, confirm: true}),
             });
             showToast('Event deleted');
         } catch (e) {

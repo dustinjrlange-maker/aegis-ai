@@ -98,3 +98,11 @@ def detect_private_content(user_message: str) -> tuple[bool, str]:
         if any(p in lowered for p in phrases):
             return True, reason
     return False, ""
+
+
+def detect_private_categories(text: str) -> set:
+    """ALL private categories present in *text* (first-match isn't enough when
+    a consent decision must cover the whole payload)."""
+    lowered = (text or "").lower()
+    return {reason for reason, phrases in _PRIVATE_LEXICON.items()
+            if any(p in lowered for p in phrases)}
