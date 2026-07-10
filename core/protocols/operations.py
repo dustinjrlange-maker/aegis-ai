@@ -171,6 +171,43 @@ class OperationsProtocol(Protocol):
         except Exception:
             return None
 
+    def account_label(self):
+        """Label of the default Google account (for calendar previews), or None."""
+        accounts = getattr(self._session, "accounts", None) if self._session else None
+        if accounts is None:
+            return None
+        try:
+            default = accounts.default()
+        except Exception:
+            return None
+        return default.get("label") if default else None
+
+    def _event_destination(self):
+        """Human phrase for where a chat-created event will be saved, naming
+        the account so the write identity is visible before it's committed."""
+        if self._google_creds():
+            label = self.account_label()
+            return f"your {label} Google Calendar" if label else "your Google Calendar"
+        return "your local calendar"
+
+    def propose_event(self, title, date, time_start=None, time_end=None):
+        """Hold an event as pending (confirmed on the NEXT turn) and return a
+        preview that names where it will land. This NEVER writes — the single
+        shared entry point for both the NLP and [ADD_EVENT:] bracket paths so
+        neither can auto-commit an irreversible, possibly wrong-account write.
+        """
+        self._pending_event = {"title": title, "date": date,
+                               "time_start": time_start, "time_end": time_end}
+        when = date
+        if time_start and time_end:
+            when = f"{date} {time_start}-{time_end}"
+        elif time_start:
+            when = f"{date} {time_start}"
+        where = self._event_destination()
+        logger.info("operations: proposing event %r on %s (-> %s)",
+                    title, date, where)
+        return f"Want me to save '{title}' on {when} to {where}?"
+
     def _load_tasks(self):
         """Load tasks from disk, backfilling new schema defaults."""
         self._tasks = read_json_safe(self.TASK_FILE, [], "tasks.json")
@@ -587,17 +624,27 @@ class OperationsProtocol(Protocol):
             pending, self._pending_event = self._pending_event, None
             if self._EVENT_CONFIRM.match(lower):
                 from core.protocols.google_tools import create_event_or_local
+                time_start = pending.get("time_start")
+                time_end = pending.get("time_end")
                 outcome = create_event_or_local(
                     self._google_creds(), self._event_manager,
                     pending["title"], pending["date"],
-                    time_start=pending.get("time"),
+                    time_start=time_start, time_end=time_end,
                 )
-                time_info = f" at {pending['time']}" if pending.get("time") else ""
-                where = ("your Google Calendar"
-                         if outcome["source"] == "google"
-                         else "the local calendar")
-                logger.info("operations: confirmed NLP event %r on %s",
-                            pending["title"], pending["date"])
+                if time_start and time_end:
+                    time_info = f" at {time_start}-{time_end}"
+                elif time_start:
+                    time_info = f" at {time_start}"
+                else:
+                    time_info = ""
+                if outcome["source"] == "google":
+                    label = self.account_label()
+                    where = (f"your {label} Google Calendar" if label
+                             else "your Google Calendar")
+                else:
+                    where = "the local calendar"
+                logger.info("operations: confirmed event %r on %s (-> %s)",
+                            pending["title"], pending["date"], where)
                 injection_parts.append(
                     f"[System: Event created: '{pending['title']}' on "
                     f"{pending['date']}{time_info} in {where}. Briefly "
@@ -621,18 +668,15 @@ class OperationsProtocol(Protocol):
                     parsed_time = self._parse_natural_time(time_text) if time_text else None
 
                     if title and parsed_date and len(title) > 2:
-                        self._pending_event = {
-                            "title": title, "date": parsed_date,
-                            "time": parsed_time,
-                        }
+                        self.propose_event(title, parsed_date,
+                                           time_start=parsed_time)
                         time_info = f" at {parsed_time}" if parsed_time else ""
-                        logger.info("operations: proposing NLP event %r on %s",
-                                    title, parsed_date)
+                        where = self._event_destination()
                         injection_parts.append(
                             f"[System: The user's message mentions a possible "
                             f"calendar event: '{title}' on {parsed_date}"
                             f"{time_info}. It has NOT been saved. Ask the user "
-                            f"whether to add it to the calendar. Do NOT emit "
+                            f"whether to add it to {where}. Do NOT emit "
                             f"[SCHEDULE_EVENT:] or [ADD_TASK:] for it.]"
                         )
                     break

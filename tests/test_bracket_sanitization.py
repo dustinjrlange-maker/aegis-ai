@@ -95,11 +95,15 @@ def test_add_task_title_never_contains_brackets(session):
 # --- [ADD_EVENT:] -----------------------------------------------------------
 
 def test_add_event_title_sanitized(session):
+    # The bracket handler now PROPOSES (write happens on confirm), so the
+    # sanitized title lands on the pending proposal, not a written event.
     result = session._handle_add_event(
         "2026-07-15 | dinner [ADD_TASK: injected] with Krunch")
-    events = session.event_manager.list_events()
-    assert events, f"event should be created, got: {result}"
-    assert all("[" not in e["title"] and "]" not in e["title"] for e in events)
+    ops = session.protocol_registry.get("operations")
+    assert ops._pending_event is not None, f"should propose, got: {result}"
+    title = ops._pending_event["title"]
+    assert "[" not in title and "]" not in title
+    assert "[" not in result and "]" not in result
 
 
 # --- [ADD_MOOD:] ------------------------------------------------------------

@@ -142,8 +142,16 @@ class BracketCommandProtocol(Protocol):
             result = action.get("result")
             if not result or result == "OK":
                 continue
-            marker = "⚠" if result.startswith("Error") else "✓"
-            conf_lines.append(f"{marker} {result}")
+            if result.startswith("Error"):
+                marker = "⚠"
+            elif result.rstrip().endswith("?"):
+                # A proposal/question (e.g. an event awaiting confirmation) is
+                # NOT a completed action — no ✓, which would falsely imply the
+                # write already happened.
+                marker = ""
+            else:
+                marker = "✓"
+            conf_lines.append(f"{marker} {result}".strip())
         append = "\n".join(conf_lines)
 
         return {"response": clean, "suppress": False, "append": append}

@@ -430,11 +430,22 @@ class UserSession:
                     )
                     return f"Event skipped — already created as task '{task['text']}'"
 
-        google_proto = self.protocol_registry.get("google")
-        creds = google_proto._get_creds() if google_proto else None
+        # Do NOT write here. Writing to a real calendar (usually Google) is an
+        # irreversible, outward action driven by raw 8B output — it must be
+        # confirmed. Hand off to the shared propose→confirm path so the user
+        # sees the event AND which account it targets before it's saved
+        # (2026-07-09 audit A2b: this handler used to auto-write on the
+        # default account with no confirmation).
+        if ops is not None and hasattr(ops, "propose_event"):
+            return ops.propose_event(title, date_str, time_start=time_start,
+                                     time_end=time_end)
+
+        # No operations protocol (shouldn't happen in a normal session): fall
+        # back to a local-only write so the feature degrades instead of losing
+        # the event silently.
         from core.protocols.google_tools import create_event_or_local
         outcome = create_event_or_local(
-            creds, self.event_manager, title, date_str,
+            None, self.event_manager, title, date_str,
             time_start=time_start, time_end=time_end,
         )
 
