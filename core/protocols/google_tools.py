@@ -106,6 +106,15 @@ def load_credentials(user_data_dir, account_id=None):
             creds.refresh(Request())
             save_credentials(user_data_dir, creds, account_id=account_id)
             logger.debug("Refreshed Google OAuth tokens")
+        except RefreshError as e:
+            # Revoked/expired refresh token (Google Testing-mode weekly
+            # expiry). Flag the account so the UI shows a reconnect CTA —
+            # returning bare None here made a dead token indistinguishable
+            # from "never connected".
+            logger.warning("Google token refresh failed (revoked/expired) "
+                           "for account %s: %s", account_id, e)
+            _mark_account_error(user_data_dir, account_id)
+            return None
         except Exception as e:
             logger.warning("Could not refresh Google tokens: %s", e)
             return None
@@ -114,6 +123,20 @@ def load_credentials(user_data_dir, account_id=None):
         return None
 
     return creds
+
+
+def _mark_account_error(user_data_dir, account_id):
+    """Best-effort: flag an account needs-reconnect in the registry."""
+    try:
+        from core.accounts.manager import AccountManager
+        mgr = AccountManager(Path(user_data_dir))
+        if account_id is None:
+            default = mgr.default()
+            account_id = default["id"] if default else None
+        if account_id:
+            mgr.set_status(account_id, "error")
+    except Exception:
+        logger.warning("Could not mark account %s status=error", account_id)
 
 
 def save_credentials(user_data_dir, credentials, account_id=None):
@@ -261,6 +284,8 @@ def get_account_email(creds):
         return ""
     try:
         return service.users().getProfile(userId="me").execute().get("emailAddress", "")
+    except RefreshError:
+        raise
     except Exception as e:
         logger.warning("Could not fetch account email: %s", e)
         return ""
@@ -301,6 +326,8 @@ def gmail_mark_read(creds, message_id):
             body={"removeLabelIds": ["UNREAD"]},
         ).execute()
         return {"ok": True}
+    except RefreshError:
+        raise
     except Exception as e:
         logger.warning("Could not mark message read: %s", e)
         return {"ok": False, "error": str(e)}
@@ -321,6 +348,8 @@ def gmail_mark_unread(creds, message_id):
             body={"addLabelIds": ["UNREAD"]},
         ).execute()
         return {"ok": True}
+    except RefreshError:
+        raise
     except Exception as e:
         logger.warning("Could not mark message unread: %s", e)
         return {"ok": False, "error": str(e)}
@@ -341,6 +370,8 @@ def gmail_archive(creds, message_id):
             body={"removeLabelIds": ["INBOX"]},
         ).execute()
         return {"ok": True}
+    except RefreshError:
+        raise
     except Exception as e:
         logger.warning("Could not archive message: %s", e)
         return {"ok": False, "error": str(e)}
@@ -437,6 +468,8 @@ def gmail_get_message(creds, message_id):
             "date": headers.get("Date", ""),
             "body": body,
         }
+    except RefreshError:
+        raise
     except Exception as e:
         logger.warning("Could not get Gmail message %s: %s", message_id, e)
         return None
@@ -525,6 +558,8 @@ def gmail_send(creds, to, subject, body, reply_to_id=None):
 
         result = service.users().messages().send(userId="me", body=send_body).execute()
         return {"success": True, "message_id": result.get("id", "")}
+    except RefreshError:
+        raise
     except Exception as e:
         logger.warning("Could not send Gmail message: %s", e)
         return {"success": False, "error": str(e)}
@@ -588,6 +623,8 @@ def gmail_create_draft(creds, to, subject, body, reply_to_id=None, cc=None, bcc=
             "draft_id": result.get("id", ""),
             "message_id": result.get("message", {}).get("id", ""),
         }
+    except RefreshError:
+        raise
     except Exception as e:
         logger.warning("Could not create Gmail draft: %s", e)
         return {"success": False, "error": str(e)}
@@ -627,6 +664,8 @@ def gmail_list_drafts(creds, max_results=20):
             })
 
         return drafts
+    except RefreshError:
+        raise
     except Exception as e:
         logger.warning("Could not list Gmail drafts: %s", e)
         return []
@@ -656,6 +695,8 @@ def gmail_get_draft(creds, draft_id):
             "body": body,
             "thread_id": msg.get("threadId", ""),
         }
+    except RefreshError:
+        raise
     except Exception as e:
         logger.warning("Could not get Gmail draft %s: %s", draft_id, e)
         return None
@@ -675,6 +716,8 @@ def gmail_send_draft(creds, draft_id):
             userId="me", body={"id": draft_id},
         ).execute()
         return {"success": True, "message_id": result.get("id", "")}
+    except RefreshError:
+        raise
     except Exception as e:
         logger.warning("Could not send Gmail draft %s: %s", draft_id, e)
         return {"success": False, "error": str(e)}
@@ -692,6 +735,8 @@ def gmail_delete_draft(creds, draft_id):
     try:
         service.users().drafts().delete(userId="me", id=draft_id).execute()
         return {"success": True}
+    except RefreshError:
+        raise
     except Exception as e:
         logger.warning("Could not delete Gmail draft %s: %s", draft_id, e)
         return {"success": False, "error": str(e)}
@@ -748,6 +793,8 @@ def calendar_today(creds):
         ).execute()
 
         return [_format_event(e) for e in result.get("items", [])]
+    except RefreshError:
+        raise
     except Exception as e:
         logger.warning("Could not get today's calendar events: %s", e)
         return []
@@ -776,6 +823,8 @@ def calendar_upcoming(creds, days=7):
         ).execute()
 
         return [_format_event(e) for e in result.get("items", [])]
+    except RefreshError:
+        raise
     except Exception as e:
         logger.warning("Could not get upcoming calendar events: %s", e)
         return []
@@ -805,6 +854,8 @@ def calendar_next_event(creds):
         if items:
             return _format_event(items[0])
         return None
+    except RefreshError:
+        raise
     except Exception as e:
         logger.warning("Could not get next calendar event: %s", e)
         return None
@@ -871,6 +922,8 @@ def calendar_create(creds, summary, start, end, description=""):
             "event_id": result.get("id", ""),
             "link": result.get("htmlLink", ""),
         }
+    except RefreshError:
+        raise
     except Exception as e:
         logger.warning("Could not create calendar event: %s", e)
         return {"success": False, "error": str(e)}
@@ -967,6 +1020,8 @@ def calendar_update(creds, event_id, **kwargs):
             "success": True,
             "event_id": result.get("id", ""),
         }
+    except RefreshError:
+        raise
     except Exception as e:
         logger.warning("Could not update calendar event %s: %s", event_id, e)
         return {"success": False, "error": str(e)}
@@ -984,6 +1039,8 @@ def calendar_delete(creds, event_id):
     try:
         service.events().delete(calendarId="primary", eventId=event_id).execute()
         return {"success": True}
+    except RefreshError:
+        raise
     except Exception as e:
         logger.warning("Could not delete calendar event %s: %s", event_id, e)
         return {"success": False, "error": str(e)}

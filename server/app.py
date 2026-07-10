@@ -53,6 +53,7 @@ from core.memory.personal_log import (
 from core.feature_toggles import load_feature_toggles, save_feature_toggles
 from core.memory.news_service import NewsService
 from core.llm import cloud_settings
+from core.protocols.google_tools import RefreshError
 from server.chat_pipeline import process_chat
 
 
@@ -1012,6 +1013,15 @@ async def google_calendar_write(req: EventRequest, user_id: str = Depends(requir
     if not creds:
         return {"error": "Google account not connected"}
 
+    try:
+        return _google_calendar_write_action(req, creds)
+    except RefreshError:
+        logger.warning("Calendar write: Google token expired/revoked")
+        return {"error": "not_authorized",
+                "detail": "Google login expired — reconnect the account."}
+
+
+def _google_calendar_write_action(req, creds):
     if req.action == "create" and req.title:
         from core.protocols.google_tools import calendar_create
         date_str = req.date or ""

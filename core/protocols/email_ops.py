@@ -158,6 +158,10 @@ class EmailOpsProtocol(Protocol):
 
         try:
             response = handler(action, text)
+        except gt.RefreshError:
+            logger.warning("Email action '%s': Google token expired/revoked", act)
+            response = ("Google login expired for this account — reconnect it "
+                        "in the Mail panel and try again.")
         except Exception as e:
             logger.exception("Email action '%s' failed", act)
             response = f"Something went wrong with that email action: {e}"

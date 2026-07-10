@@ -255,7 +255,10 @@ def draft_reply(session, message_id: str, intent: str | None = None,
     if not creds:
         return {"success": False, "error": "Email not authorized"}
 
-    original = gt.gmail_get_message(creds, message_id)
+    try:
+        original = gt.gmail_get_message(creds, message_id)
+    except RefreshError:
+        return _auth_error_result(session, account_id, "draft_reply")
     if not original:
         return {"success": False, "error": f"Could not load message {message_id}"}
 
@@ -295,9 +298,12 @@ def draft_reply(session, message_id: str, intent: str | None = None,
     sender = original.get("from", "")
     to = sender  # Gmail accepts "Name <email>" format directly
 
-    result = gt.gmail_create_draft(
-        creds, to=to, subject=subject, body=body, reply_to_id=message_id,
-    )
+    try:
+        result = gt.gmail_create_draft(
+            creds, to=to, subject=subject, body=body, reply_to_id=message_id,
+        )
+    except RefreshError:
+        return _auth_error_result(session, account_id, "draft_reply")
     if not result.get("success"):
         return {
             "success": False,
@@ -344,8 +350,11 @@ def draft_new(session, to: str, intent: str, subject_hint: str | None = None,
     if body_verbatim:
         subject = subject_hint or "(no subject)"
         body = body_verbatim
-        result = gt.gmail_create_draft(creds, to=to, subject=subject, body=body,
-                                       cc=cc, bcc=bcc)
+        try:
+            result = gt.gmail_create_draft(creds, to=to, subject=subject,
+                                           body=body, cc=cc, bcc=bcc)
+        except RefreshError:
+            return _auth_error_result(session, account_id, "draft_new")
         if not result.get("success"):
             return {
                 "success": False,
@@ -398,7 +407,11 @@ def draft_new(session, to: str, intent: str, subject_hint: str | None = None,
         subject = first_line[len("subject:"):].strip()
         body = rest.lstrip("\n").strip()
 
-    result = gt.gmail_create_draft(creds, to=to, subject=subject, body=body, cc=cc, bcc=bcc)
+    try:
+        result = gt.gmail_create_draft(creds, to=to, subject=subject, body=body,
+                                       cc=cc, bcc=bcc)
+    except RefreshError:
+        return _auth_error_result(session, account_id, "draft_new")
     if not result.get("success"):
         return {
             "success": False,
@@ -429,7 +442,10 @@ def draft_forward(session, message_id: str, to: str, note: str | None = None,
     creds = _creds_from_session(session, account_id)
     if not creds:
         return {"success": False, "error": "Email not authorized"}
-    original = gt.gmail_get_message(creds, message_id)
+    try:
+        original = gt.gmail_get_message(creds, message_id)
+    except RefreshError:
+        return _auth_error_result(session, account_id, "draft_forward")
     if not original:
         return {"success": False, "error": f"Could not load message {message_id}"}
 
@@ -447,10 +463,32 @@ def draft_forward(session, message_id: str, to: str, note: str | None = None,
     parts.append(original.get("body", "") or "")
     body = "\n".join(parts)
 
-    result = gt.gmail_create_draft(creds, to=to, subject=subject, body=body)
+    try:
+        result = gt.gmail_create_draft(creds, to=to, subject=subject, body=body)
+    except RefreshError:
+        return _auth_error_result(session, account_id, "draft_forward")
     if not result.get("success"):
         return {"success": False, "error": result.get("error", "Draft creation failed"), "body": body}
     return {"success": True, "draft_id": result["draft_id"], "subject": subject, "to": to, "body": body}
+
+
+def _auth_error_result(session, account_id, action):
+    """RefreshError at USE time: flag the account (reconnect CTA) and return
+    a failure the caller/user can act on — never a silent default."""
+    logger.warning("%s failed: Google token expired/revoked (account %s)",
+                   action, account_id)
+    accounts = getattr(session, "accounts", None)
+    if accounts is not None and account_id:
+        try:
+            accounts.set_status(account_id, "error")
+        except Exception:
+            logger.warning("Could not mark account %s status=error", account_id)
+    return {
+        "success": False,
+        "ok": False,
+        "error": "Google login expired — reconnect this account in the Mail panel",
+        "not_authorized": True,
+    }
 
 
 def list_drafts(session, max_results: int = 20, account_id=None) -> list[dict]:
@@ -458,7 +496,11 @@ def list_drafts(session, max_results: int = 20, account_id=None) -> list[dict]:
     creds = _creds_from_session(session, account_id)
     if not creds:
         return []
-    return gt.gmail_list_drafts(creds, max_results=max_results)
+    try:
+        return gt.gmail_list_drafts(creds, max_results=max_results)
+    except RefreshError:
+        _auth_error_result(session, account_id, "list_drafts")
+        return []
 
 
 def get_draft(session, draft_id: str, account_id=None) -> dict | None:
@@ -466,7 +508,11 @@ def get_draft(session, draft_id: str, account_id=None) -> dict | None:
     creds = _creds_from_session(session, account_id)
     if not creds:
         return None
-    return gt.gmail_get_draft(creds, draft_id)
+    try:
+        return gt.gmail_get_draft(creds, draft_id)
+    except RefreshError:
+        _auth_error_result(session, account_id, "get_draft")
+        return None
 
 
 def send_draft(session, draft_id: str, account_id: str | None = None) -> dict:
@@ -479,7 +525,10 @@ def send_draft(session, draft_id: str, account_id: str | None = None) -> dict:
     creds = _creds_from_session(session, account_id)
     if not creds:
         return {"success": False, "error": "Email not authorized"}
-    return gt.gmail_send_draft(creds, draft_id)
+    try:
+        return gt.gmail_send_draft(creds, draft_id)
+    except RefreshError:
+        return _auth_error_result(session, account_id, "send_draft")
 
 
 def discard_draft(session, draft_id: str, account_id=None) -> dict:
@@ -487,7 +536,10 @@ def discard_draft(session, draft_id: str, account_id=None) -> dict:
     creds = _creds_from_session(session, account_id)
     if not creds:
         return {"success": False, "error": "Email not authorized"}
-    return gt.gmail_delete_draft(creds, draft_id)
+    try:
+        return gt.gmail_delete_draft(creds, draft_id)
+    except RefreshError:
+        return _auth_error_result(session, account_id, "discard_draft")
 
 
 def mark_read(session, message_id: str, account_id=None) -> dict:
@@ -499,7 +551,10 @@ def mark_read(session, message_id: str, account_id=None) -> dict:
     creds = _creds_from_session(session, account_id)
     if not creds:
         return {"ok": False, "error": "not_authorized"}
-    return gt.gmail_mark_read(creds, message_id)
+    try:
+        return gt.gmail_mark_read(creds, message_id)
+    except RefreshError:
+        return _auth_error_result(session, account_id, "mark_read")
 
 
 def mark_unread(session, message_id: str, account_id=None) -> dict:
@@ -507,4 +562,7 @@ def mark_unread(session, message_id: str, account_id=None) -> dict:
     creds = _creds_from_session(session, account_id)
     if not creds:
         return {"ok": False, "error": "not_authorized"}
-    return gt.gmail_mark_unread(creds, message_id)
+    try:
+        return gt.gmail_mark_unread(creds, message_id)
+    except RefreshError:
+        return _auth_error_result(session, account_id, "mark_unread")

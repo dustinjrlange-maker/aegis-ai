@@ -14,6 +14,12 @@ from datetime import datetime, timedelta
 from core.protocols.base import Protocol
 from core.config import CONFIG
 
+try:
+    from google.auth.exceptions import RefreshError
+except ImportError:  # pragma: no cover
+    class RefreshError(Exception):  # type: ignore[no-redef]
+        pass
+
 logger = logging.getLogger(__name__)
 
 
@@ -81,6 +87,14 @@ class GoogleProtocol(Protocol):
             if self._inject_calendar:
                 self._cached_next_event = calendar_next_event(creds)
             self._cache_time = now
+        except RefreshError as e:
+            # Dead token at use time: flag the account (reconnect CTA) and
+            # advance the cache window so we don't hammer the dead token on
+            # every message for the next 5 minutes.
+            logger.warning("Google cache refresh: token expired/revoked: %s", e)
+            self._cache_time = now
+            from core.protocols.google_tools import _mark_account_error
+            _mark_account_error(self._data_dir, None)
         except Exception as e:
             logger.warning("Google cache refresh failed: %s", e)
 
