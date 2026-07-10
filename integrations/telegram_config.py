@@ -59,12 +59,12 @@ def get_allowed_ids() -> list[int]:
 def is_allowed(telegram_id: int) -> bool:
     """Check if a Telegram user ID is in the whitelist.
 
-    If the whitelist is empty, all users are allowed (open mode).
+    FAIL-CLOSED: an empty whitelist denies everyone. The old "open mode"
+    (empty list = allow all) meant anyone who discovered the bot token could
+    talk to the bot and probe /pair. To enable Telegram, add your numeric
+    Telegram ID to allowed_telegram_ids in data/telegram.json.
     """
-    allowed = get_allowed_ids()
-    if not allowed:
-        return True
-    return telegram_id in allowed
+    return telegram_id in get_allowed_ids()
 
 
 def get_user_mapping(telegram_id: int) -> str | None:

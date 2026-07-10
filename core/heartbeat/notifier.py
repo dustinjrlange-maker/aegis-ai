@@ -52,6 +52,15 @@ class Notifier:
                 logger.info("telegram push unavailable for %s; degrading", user_id)
                 return False
             text = f"{title}\n\n{body}" if body else title
+            # Telegram bodies traverse Telegram's servers. Private content
+            # (email subjects, health/finance mentions) is withheld here —
+            # the full text still lands in the in-app notification.
+            from core.llm.trouble import detect_private_content
+            private, reason = detect_private_content(text)
+            if private:
+                logger.info("telegram push body withheld (private: %s)", reason)
+                text = (f"{title}\n\nDetails withheld from Telegram "
+                        "(private content) — open Aegis to read them.")
             await app.bot.send_message(chat_id=chat_id, text=text)
             return True
         except Exception:
