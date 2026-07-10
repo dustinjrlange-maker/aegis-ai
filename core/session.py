@@ -48,6 +48,25 @@ from core.auth import load_user_preferences
 
 logger = logging.getLogger(__name__)
 
+# Caps for LLM-emitted bracket args (see the bracket-handler comment below).
+_MAX_CONTACT_NAME = 80
+_MAX_FACT_LEN = 300
+_MAX_TASK_LEN = 200
+_MAX_EVENT_TITLE = 200
+_MAX_MOOD_LABEL = 30
+_MAX_MOOD_NOTE = 500
+
+
+def _sanitize_llm_text(text, max_len):
+    """Strip bracket characters and cap length on an LLM-emitted string.
+
+    Bracket chars are how the 8B's system-prompt echoes and second-order
+    injections ("[REMEMBER: ...]" inside a task title) sneak into persisted
+    data. Returns '' when nothing usable remains."""
+    t = re.sub(r"[\[\]]", " ", text or "")
+    t = re.sub(r"\s+", " ", t).strip()
+    return t[:max_len].strip()
+
 
 class UserSession:
     """Holds all per-user state for an active session."""
@@ -174,9 +193,18 @@ class UserSession:
         logger.info("Session created for user '%s' (agent: %s)", user_id, self.agent_name)
 
     # --- Bracket command handlers ---
+    #
+    # Bracket args come straight out of the LLM and get persisted or written
+    # to real calendars/contacts. The 8B has echoed system-prompt fragments
+    # into them (a live contact was created named "] to track updates or
+    # [REMEMBER:"), so args are never trusted raw: bracket characters are
+    # stripped or rejected and lengths capped via _sanitize_llm_text.
 
     def _handle_remember(self, fact_text: str) -> str:
         """Store a fact via the fact store."""
+        fact_text = _sanitize_llm_text(fact_text, _MAX_FACT_LEN)
+        if not fact_text:
+            return "Nothing usable to save"
         if self.memory._fact_store:
             report = self.memory._fact_store.ingest(
                 [{"key": "general.noted", "value": fact_text}],
@@ -197,6 +225,10 @@ class UserSession:
         ops = self.protocol_registry.get("operations")
         if not ops:
             return "Operations protocol not available"
+
+        # Strip bracket chars up front (keep pipes — they're the field
+        # separator); a task title must never carry a nested bracket command.
+        task_text = re.sub(r"[\[\]]", " ", task_text or "")
 
         due = None
         due_time = None
@@ -243,6 +275,7 @@ class UserSession:
             if extracted_time and not due_time:
                 due_time = extracted_time
 
+        task_text = _sanitize_llm_text(task_text, _MAX_TASK_LEN)
         task = ops.add_task(task_text, due=due, due_time=due_time)
         if task is None:
             return "Task text was empty or duplicate"
@@ -358,7 +391,7 @@ class UserSession:
             if ts:
                 time_start, time_end = ts, te
                 title_segments = segments[2:]
-        title = "|".join(title_segments).strip()
+        title = _sanitize_llm_text("|".join(title_segments), _MAX_EVENT_TITLE)
         if not title:
             return "Event title is empty"
         # Resolve the date deterministically. qwen3:8b is unreliable at date
@@ -420,8 +453,10 @@ class UserSession:
         """Log mood from bracket command: happy, calm | feeling good."""
         parts = arg.split("|", 1)
         moods_str = parts[0].strip()
-        note = parts[1].strip() if len(parts) > 1 else ""
-        moods = [m.strip() for m in moods_str.split(",") if m.strip()]
+        note = _sanitize_llm_text(parts[1] if len(parts) > 1 else "", _MAX_MOOD_NOTE)
+        moods = [_sanitize_llm_text(m, _MAX_MOOD_LABEL)
+                 for m in moods_str.split(",")]
+        moods = [m for m in moods if m]
         if not moods:
             return "No moods specified"
         entry = self.mood_manager.add_mood(moods=moods, note=note)
@@ -431,9 +466,12 @@ class UserSession:
         """Add contact from bracket command: Name | relationship."""
         parts = arg.split("|", 1)
         name = parts[0].strip()
-        relationship = parts[1].strip() if len(parts) > 1 else ""
-        if not name:
-            return "No contact name specified"
+        relationship = _sanitize_llm_text(parts[1] if len(parts) > 1 else "", 80)
+        # A name with bracket chars is an LLM echo/injection, not a person —
+        # reject outright rather than salvage (this exact garbage shipped once:
+        # a contact named "] to track updates or [REMEMBER:").
+        if not name or "[" in name or "]" in name or len(name) > _MAX_CONTACT_NAME:
+            return "That doesn't look like a valid contact name — not saved."
         contact = self.contact_manager.add_contact(name=name, relationship=relationship)
         return f"Contact '{contact['name']}' added"
 

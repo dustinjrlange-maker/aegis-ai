@@ -40,6 +40,13 @@ Only output facts. If none found, output: NO NEW FACTS
 CONVERSATION:
 {conversation}"""
 
+# Keys must belong to the taxonomy defined in EXTRACTION_PROMPT above — an
+# LLM-invented key ("system.prompt", "malware.inject") is a hallucination and
+# must never be persisted (facts are re-injected into every future prompt).
+_ALLOWED_KEY = re.compile(
+    r"^(identity|location|occupation|relationships|preferences|goals|"
+    r"life_events)\.[a-z0-9_]+$")
+
 
 def extract_facts(messages):
     """Extract facts about the companion from a conversation.
@@ -97,9 +104,12 @@ def extract_keyed_facts(messages):
         if ":" in line:
             key, value = line.split(":", 1)
             key = key.strip().lower()
-            value = value.strip()
-            # Validate key format (should contain a dot)
-            if value and "." in key and len(key) < 40:
+            # Bracket chars in a value are command fragments, not facts —
+            # strip them so a persisted fact can never re-inject a bracket
+            # command through future context.
+            value = re.sub(r"[\[\]]", " ", value)
+            value = re.sub(r"\s+", " ", value).strip()
+            if value and len(key) < 40 and _ALLOWED_KEY.match(key):
                 facts.append((key, value))
 
     return facts
