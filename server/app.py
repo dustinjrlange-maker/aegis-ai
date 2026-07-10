@@ -898,8 +898,8 @@ async def manage_events(req: EventRequest, user_id: str = Depends(require_user))
                         return {"success": result.get("success", False),
                                 "google_event": result, "conflicts": conflicts,
                                 "source": "google"}
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Google Calendar event create failed: %s: %s", type(e).__name__, e)
             return {"error": "Google Calendar not connected or write failed"}
 
         event = em.add_event(
@@ -997,8 +997,8 @@ async def calendar_month(year: int, month: int, user_id: str = Depends(require_u
                                 "source": "google",
                                 "read_only": False,
                             })
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Calendar month view Google fetch failed: %s: %s", type(e).__name__, e)
 
     return {
         "year": year,
@@ -1137,8 +1137,8 @@ async def get_briefing(user_id: str = Depends(require_user)):
                         google_today.append(item)
                     elif tomorrow_str <= ev_date <= end_3d:
                         google_upcoming.append(item)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Dashboard Google calendar fetch failed: %s: %s", type(e).__name__, e)
 
     # Side-effect: generate notifications
     ns = session.notification_service
@@ -1525,8 +1525,8 @@ async def get_commands(user_id: str = Depends(require_user)):
                     "description": cmd.get("description", ""),
                     "protocol": proto.name,
                 })
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Protocol get_commands failed: %s: %s", type(e).__name__, e)
     return all_commands
 
 
@@ -1649,8 +1649,9 @@ async def get_protocol_detail(name: str, user_id: str = Depends(require_user)):
                     "command": cmd.get("command", ""),
                     "description": cmd.get("description", ""),
                 })
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Protocol %s get_commands failed: %s: %s",
+                           getattr(proto, "name", "?"), type(e).__name__, e)
         return status
     return {"error": f"Protocol '{name}' not found"}
 

@@ -1,6 +1,8 @@
 """Per-user feature toggles stored at data/users/{user}/features.json."""
 
 import json
+
+from core.jsonio import read_json_safe, write_json_atomic
 from pathlib import Path
 
 DEFAULT_FEATURES = {
@@ -35,18 +37,14 @@ def load_feature_toggles(data_dir: str | Path) -> dict:
     """Load user's feature toggles, filling in defaults for missing keys."""
     path = _features_path(data_dir)
     toggles = dict(DEFAULT_FEATURES)
-    if path.exists():
-        with open(path, "r", encoding="utf-8") as f:
-            stored = json.load(f)
-        toggles.update(stored)
+    stored = read_json_safe(path, {}, "features.json")
+    toggles.update(stored)
     return toggles
 
 
 def save_feature_toggles(data_dir: str | Path, toggles: dict) -> None:
     path = _features_path(data_dir)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(toggles, f, indent=2)
+    write_json_atomic(path, toggles, indent=2)
 
 
 def is_feature_enabled(data_dir: str | Path, feature_name: str) -> bool:

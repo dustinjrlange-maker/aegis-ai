@@ -4,6 +4,7 @@ Loads and manages all system configuration for Aegis AI.
 """
 
 import json
+import logging
 from pathlib import Path
 
 
@@ -37,7 +38,13 @@ def load_capabilities():
     try:
         with open(cap_path, "r", encoding="utf-8") as f:
             caps = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
+    except FileNotFoundError:
+        return ""
+    except json.JSONDecodeError as e:
+        # A missing manifest is a normal minimal install; a CORRUPT one is a
+        # real file being silently ignored — say so.
+        logging.getLogger(__name__).error(
+            "capabilities.json is corrupt (%s) — capabilities prompt disabled", e)
         return ""
 
     can_do = ", ".join(caps.get("can_do", []))

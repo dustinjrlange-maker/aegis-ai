@@ -654,8 +654,8 @@ class OperationsProtocol(Protocol):
                             f"[Event in ~{int(diff_min)} min: '{ev['title']}' at {ts}]"
                         )
                         break  # Only inject one upcoming event
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Upcoming-event injection failed: %s", e)
 
         # NLP task detection — auto-create tasks from conversation
         task_created = False

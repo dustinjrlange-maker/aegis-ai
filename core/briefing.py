@@ -103,7 +103,7 @@ def collect_briefing_facts(session, period: str | None = None) -> dict:
                 elif tomorrow_str <= ev_date <= end_3d:
                     google_upcoming.append(item)
     except Exception as e:
-        logger.debug("Google calendar fetch failed in briefing: %s", e)
+        logger.warning("Google calendar fetch failed in briefing: %s", e)
 
     # Weather (None if not configured / errored)
     weather = session.weather_service.get_weather()
@@ -121,7 +121,7 @@ def collect_briefing_facts(session, period: str | None = None) -> dict:
                 continue
             unread_email_count += gmail_unread_count(creds)
     except Exception as e:
-        logger.debug("Unread email count fetch failed in briefing: %s", e)
+        logger.warning("Unread email count fetch failed in briefing: %s", e)
 
     # Phase 10 extras
     habits_today = session.habit_manager.get_today_status()

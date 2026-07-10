@@ -169,7 +169,7 @@ def test_discard_draft_passes_active_account(client, monkeypatch):
         "core.email_assistant.discard_draft",
         lambda session, draft_id, **kw: captured.update({"draft_id": draft_id, **kw}) or {"ok": True},
     )
-    client.delete("/api/email/drafts/draft-del")
+    client.delete("/api/email/drafts/draft-del?confirm=true")
     assert captured.get("account_id") == "google-work"
 
 

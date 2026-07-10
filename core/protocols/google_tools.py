@@ -45,7 +45,11 @@ def _resolve_token_dir(user_data_dir, account_id=None):
     try:
         accounts = json.loads(
             registry.read_text(encoding="utf-8")).get("accounts", [])
-    except (json.JSONDecodeError, IOError):
+    except (json.JSONDecodeError, IOError) as e:
+        # Falling back to the legacy single-account token dir silently would
+        # make a multi-account user operate on the DEFAULT account's creds.
+        logger.warning("accounts.json unreadable in _resolve_token_dir (%s) — "
+                       "falling back to legacy token path", e)
         return base
     acct = None
     if account_id is not None:
