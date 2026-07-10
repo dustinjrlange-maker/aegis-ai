@@ -97,6 +97,16 @@ class OperationsProtocol(Protocol):
     ]
 
     # Patterns that suggest calendar event creation
+    # Standalone affirmative that confirms an NLP-proposed calendar event.
+    # Fail-closed: anything that isn't a short explicit yes discards the
+    # proposal (2026-07-09 audit: casual mentions like "meeting with Bob on
+    # March 20" were writing straight to Google Calendar, no confirmation).
+    _EVENT_CONFIRM = re.compile(
+        r"^(?:yes|yeah|yep|sure|ok(?:ay)?|please\s+do|do\s+it|add\s+it|"
+        r"save\s+it|confirm|go\s+ahead)"
+        r"(?:[\s,!.]+(?:please|thanks|add\s+it|do\s+it))*[\s,!.]*$",
+        re.IGNORECASE)
+
     EVENT_PATTERNS = [
         # "schedule dentist on March 20 at 2pm"
         r"schedule\s+(.+?)\s+(?:on|for)\s+(.+?)(?:\s+at\s+(.+))?$",
@@ -136,6 +146,7 @@ class OperationsProtocol(Protocol):
             self.TASK_FILE = PROJECT_ROOT / "data" / "tasks.json"
             self.RECURRING_FILE = PROJECT_ROOT / "data" / "recurring.json"
         self._event_manager = event_manager
+        self._pending_event = None  # NLP-proposed event awaiting confirmation
         self._session = None   # UserSession back-ref, set by session.py
         # RLock guards check_recurring→add_task nesting against the chat-pipeline
         # thread racing the heartbeat worker thread on the same _tasks/_recurring data.
@@ -578,11 +589,39 @@ class OperationsProtocol(Protocol):
 
         injection_parts = []
 
-        # NLP event detection — auto-create events from conversation
+        # NLP event detection — PROPOSE events from conversation; the calendar
+        # is only written after an explicit confirmation on the next turn.
         lower = user_input.lower().strip()
         event_created = False
 
-        if self._event_manager:
+        if self._pending_event is not None:
+            # Single-turn proposal: confirm now or it's gone (fail-closed).
+            pending, self._pending_event = self._pending_event, None
+            if self._EVENT_CONFIRM.match(lower):
+                from core.protocols.google_tools import create_event_or_local
+                outcome = create_event_or_local(
+                    self._google_creds(), self._event_manager,
+                    pending["title"], pending["date"],
+                    time_start=pending.get("time"),
+                )
+                time_info = f" at {pending['time']}" if pending.get("time") else ""
+                where = ("your Google Calendar"
+                         if outcome["source"] == "google"
+                         else "the local calendar")
+                logger.info("operations: confirmed NLP event %r on %s",
+                            pending["title"], pending["date"])
+                injection_parts.append(
+                    f"[System: Event created: '{pending['title']}' on "
+                    f"{pending['date']}{time_info} in {where}. Briefly "
+                    f"acknowledge in your response. "
+                    f"Do NOT emit [SCHEDULE_EVENT:] OR [ADD_TASK:] — "
+                    f"the event is already saved. Do not duplicate it as a task.]"
+                )
+                event_created = True
+            else:
+                logger.info("operations: proposed event %r discarded "
+                            "(no confirmation)", pending.get("title"))
+        elif self._event_manager:
             for pattern in self.EVENT_PATTERNS:
                 match = re.search(pattern, lower, re.IGNORECASE)
                 if match:
@@ -594,22 +633,20 @@ class OperationsProtocol(Protocol):
                     parsed_time = self._parse_natural_time(time_text) if time_text else None
 
                     if title and parsed_date and len(title) > 2:
-                        from core.protocols.google_tools import create_event_or_local
-                        outcome = create_event_or_local(
-                            self._google_creds(), self._event_manager,
-                            title, parsed_date, time_start=parsed_time,
-                        )
+                        self._pending_event = {
+                            "title": title, "date": parsed_date,
+                            "time": parsed_time,
+                        }
                         time_info = f" at {parsed_time}" if parsed_time else ""
-                        where = ("your Google Calendar"
-                                 if outcome["source"] == "google"
-                                 else "the local calendar")
+                        logger.info("operations: proposing NLP event %r on %s",
+                                    title, parsed_date)
                         injection_parts.append(
-                            f"[System: Event created: '{title}' on {parsed_date}{time_info} "
-                            f"in {where}. Briefly acknowledge in your response. "
-                            f"Do NOT emit [SCHEDULE_EVENT:] OR [ADD_TASK:] — "
-                            f"the event is already saved. Do not duplicate it as a task.]"
+                            f"[System: The user's message mentions a possible "
+                            f"calendar event: '{title}' on {parsed_date}"
+                            f"{time_info}. It has NOT been saved. Ask the user "
+                            f"whether to add it to the calendar. Do NOT emit "
+                            f"[SCHEDULE_EVENT:] or [ADD_TASK:] for it.]"
                         )
-                        event_created = True
                     break
 
         # Upcoming event context injection (within 30 minutes)
