@@ -3,10 +3,11 @@ Contact Manager -- Aegis AI
 CRUD for user contacts (PupPals equivalent).
 """
 
-import json
 import uuid
 from datetime import datetime
 from pathlib import Path
+
+from core.jsonio import read_json_safe, write_json_atomic
 
 
 class ContactManager:
@@ -18,17 +19,10 @@ class ContactManager:
         self._load()
 
     def _load(self):
-        if self._file.exists():
-            try:
-                with open(self._file, "r", encoding="utf-8") as f:
-                    self._contacts = json.load(f)
-            except (json.JSONDecodeError, IOError):
-                self._contacts = []
+        self._contacts = read_json_safe(self._file, [], "contacts.json")
 
     def _save(self):
-        self._file.parent.mkdir(parents=True, exist_ok=True)
-        with open(self._file, "w", encoding="utf-8") as f:
-            json.dump(self._contacts, f, indent=2, ensure_ascii=False)
+        write_json_atomic(self._file, self._contacts, indent=2)
 
     def add_contact(self, name: str, **kwargs):
         """Create a new contact."""

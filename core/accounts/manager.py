@@ -56,13 +56,12 @@ class AccountManager:
     # -- registry I/O ------------------------------------------------
 
     def _read(self):
-        if not self._registry_path.exists():
-            return {"accounts": []}
-        try:
-            return json.loads(self._registry_path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, IOError) as e:
-            logger.warning("Could not load accounts.json: %s", e)
-            return {"accounts": []}
+        # read_json_safe backs a corrupt registry up to accounts.json.corrupt
+        # before falling back to empty — otherwise the next upsert/link would
+        # OVERWRITE the corrupt file and destroy every linked account.
+        from core.jsonio import read_json_safe
+        return read_json_safe(self._registry_path, {"accounts": []},
+                              "accounts.json")
 
     def _write(self, data):
         try:

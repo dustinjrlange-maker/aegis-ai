@@ -12,6 +12,7 @@ from datetime import datetime, date, time as _time, timedelta
 from pathlib import Path
 from core.protocols.base import Protocol
 from core.config import PROJECT_ROOT, CONFIG
+from core.jsonio import read_json_safe, write_json_atomic
 
 logger = logging.getLogger(__name__)
 
@@ -172,12 +173,7 @@ class OperationsProtocol(Protocol):
 
     def _load_tasks(self):
         """Load tasks from disk, backfilling new schema defaults."""
-        if self.TASK_FILE.exists():
-            try:
-                with open(self.TASK_FILE, "r", encoding="utf-8") as f:
-                    self._tasks = json.load(f)
-            except (json.JSONDecodeError, IOError):
-                self._tasks = []
+        self._tasks = read_json_safe(self.TASK_FILE, [], "tasks.json")
         for task in self._tasks:
             task.setdefault("subtasks", [])
             task.setdefault("starred", False)
@@ -188,24 +184,16 @@ class OperationsProtocol(Protocol):
 
     def _save_tasks(self):
         """Persist tasks to disk."""
-        self.TASK_FILE.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.TASK_FILE, "w", encoding="utf-8") as f:
-            json.dump(self._tasks, f, indent=2, ensure_ascii=False)
+        write_json_atomic(self.TASK_FILE, self._tasks, indent=2)
 
     def _load_recurring(self):
         """Load recurring tasks from disk."""
-        if self.RECURRING_FILE.exists():
-            try:
-                with open(self.RECURRING_FILE, "r", encoding="utf-8") as f:
-                    self._recurring = json.load(f)
-            except (json.JSONDecodeError, IOError):
-                self._recurring = []
+        self._recurring = read_json_safe(self.RECURRING_FILE, [],
+                                         "recurring.json")
 
     def _save_recurring(self):
         """Persist recurring tasks to disk."""
-        self.RECURRING_FILE.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.RECURRING_FILE, "w", encoding="utf-8") as f:
-            json.dump(self._recurring, f, indent=2, ensure_ascii=False)
+        write_json_atomic(self.RECURRING_FILE, self._recurring, indent=2)
 
     # --- Recurring Task Management ---
 
