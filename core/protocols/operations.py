@@ -13,6 +13,7 @@ from pathlib import Path
 from core.protocols.base import Protocol
 from core.config import PROJECT_ROOT, CONFIG
 from core.jsonio import read_json_safe, write_json_atomic
+from core import confirmation
 
 logger = logging.getLogger(__name__)
 
@@ -97,16 +98,11 @@ class OperationsProtocol(Protocol):
         r"throw\s+out\s+(?:the\s+)?(?:task\s+)?(.+)",
     ]
 
-    # Patterns that suggest calendar event creation
-    # Standalone affirmative that confirms an NLP-proposed calendar event.
-    # Fail-closed: anything that isn't a short explicit yes discards the
-    # proposal (2026-07-09 audit: casual mentions like "meeting with Bob on
-    # March 20" were writing straight to Google Calendar, no confirmation).
-    _EVENT_CONFIRM = re.compile(
-        r"^(?:yes|yeah|yep|sure|ok(?:ay)?|please\s+do|do\s+it|add\s+it|"
-        r"save\s+it|confirm|go\s+ahead)"
-        r"(?:[\s,!.]+(?:please|thanks|add\s+it|do\s+it))*[\s,!.]*$",
-        re.IGNORECASE)
+    # A proposed calendar event is confirmed via the canonical
+    # core.confirmation.is_affirmative matcher (fail-closed, shared with email
+    # send) — no per-feature regex. 2026-07-09 audit: casual mentions like
+    # "meeting with Bob on March 20" were writing straight to Google Calendar
+    # with no confirmation.
 
     EVENT_PATTERNS = [
         # "schedule dentist on March 20 at 2pm"
@@ -622,7 +618,7 @@ class OperationsProtocol(Protocol):
         if self._pending_event is not None:
             # Single-turn proposal: confirm now or it's gone (fail-closed).
             pending, self._pending_event = self._pending_event, None
-            if self._EVENT_CONFIRM.match(lower):
+            if confirmation.is_affirmative(lower):
                 from core.protocols.google_tools import create_event_or_local
                 time_start = pending.get("time_start")
                 time_end = pending.get("time_end")

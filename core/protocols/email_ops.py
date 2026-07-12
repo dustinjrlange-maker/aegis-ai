@@ -15,6 +15,7 @@ import re
 
 from core.protocols.base import Protocol
 from core import email_assistant as ea
+from core import confirmation
 from core.protocols import google_tools as gt
 
 logger = logging.getLogger(__name__)
@@ -27,12 +28,11 @@ _EMAIL_CUE = re.compile(
     re.IGNORECASE,
 )
 
-# A real send requires an explicit, STANDALONE send command ("send it",
-# "yes, send it now") — never a send word buried inside a longer sentence.
-# 2026-07-09 incident: "No I want you to send it from my personal email..."
-# contained "send it" and transmitted a held draft. Confirmation is
-# fail-closed: anything that isn't a short affirmative send command
-# re-confirms instead.
+# Email-specific confirmation phrasings ("send it", "ship it", "fire it off").
+# The generic affirmatives and the shared fail-closed negation guard live in
+# core.confirmation — this only ADDS the domain verbs. 2026-07-09 incident:
+# "No I want you to send it from my personal email..." contained "send it";
+# the shared negation guard catches it.
 _CONFIRM_SEND = re.compile(
     r"(?:(?:yes|yeah|yep|sure|ok(?:ay)?|please|alright|go ahead(?:\s+and)?)[\s,!.-]*)*"
     r"(?:send(?:\s+(?:it|that|this|the\s+(?:draft|email|message)))?"
@@ -41,19 +41,12 @@ _CONFIRM_SEND = re.compile(
     re.IGNORECASE,
 )
 
-# ...and a send word alongside a question, deliberation, or negation is NOT a
-# confirmation. Sending is irreversible: when in doubt, re-confirm.
-_NOT_A_CONFIRM = re.compile(
-    r"\?|\b(no|nope|wrong|not|stop|cancel|instead|should|shall|do you think|"
-    r"not sure|maybe|later|wait|hold off|don't|do not|never ?mind)\b",
-    re.IGNORECASE,
-)
-
 
 def _is_send_confirmation(text):
-    """True only for a short, explicit, standalone send command."""
-    t = (text or "").strip()
-    return bool(_CONFIRM_SEND.match(t)) and not _NOT_A_CONFIRM.search(t)
+    """True only for a short, explicit, standalone send command. Delegates the
+    fail-closed decision to the canonical core.confirmation matcher (shared
+    negation guard), extended with email's send verbs."""
+    return confirmation.is_affirmative(text, extra=_CONFIRM_SEND)
 
 
 # "from my personal email" — the user explicitly naming the From account.

@@ -193,8 +193,17 @@ paths at import time. Never hardcode absolute paths.
 - Graceful degradation: if a feature fails, the agent keeps running
 - Never `sys.exit()` from inside a protocol or subsystem
 
+### Irreversible / Outward Actions — the Confirm Rule
+
+Any action that is irreversible or leaves the machine — send email, write/update/delete a calendar event, delete a draft, spend money, post externally, run a write-tier tool — MUST be gated by an explicit **propose → confirm** step. The model proposing the action is never enough to commit it.
+
+- The commit decision goes through `core.confirmation.is_affirmative()` — the ONE canonical, fail-closed matcher. Never hand-roll a per-feature confirm/negation regex (that is exactly how the 2026-07-09 email incident shipped: a fail-open matcher let "No I want you to send it…" transmit). Domain verbs may be passed as `extra=`, but the shared negation guard is non-negotiable.
+- The confirmation prompt must restate what will happen, including the identity/target (which account it sends *from*, which calendar it writes *to*). Never let UI/panel state silently choose the target.
+- Prefer surfacing + confirming over trusting model output: ground recipients/targets against known data, and ask when unsure rather than acting.
+
 ### What NOT To Do
 
+- Do NOT commit an irreversible/outward action without a `core.confirmation`-gated confirm step (see the Confirm Rule above)
 - Do NOT call cloud provider APIs directly — route through `core/llm` (the only provider call is in `core/llm/backends.py`). Local stays the default; cloud is opt-in and gated.
 - Do NOT modify `core/personality/core_directives.txt` — those are immutable
 - Do NOT put character/IP content in `core/` — it goes in `packs/`
