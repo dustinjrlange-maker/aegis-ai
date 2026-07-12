@@ -67,7 +67,8 @@ async def _flush_deferred(now, quiet_hours, state, notifier):
         return
     for push in state.drain_pushes():
         await notifier.push(push["user_id"], push["title"], push["body"],
-                            push["channels"])
+                            push["channels"],
+                            telegram_body=push.get("telegram_body"))
         if "job_id" in push:
             # stamp as fired now so the same-tick evaluate doesn't re-run and double-push
             state.mark_fired(push["job_id"], now,
@@ -130,10 +131,12 @@ async def _evaluate_job(job, now, is_enabled, state, hlog, notifier,
             # Silent job with escalated push — queue for window end.
             state.queue_push({"user_id": user_id, "title": result.title,
                               "body": result.body, "channels": channels,
+                              "telegram_body": result.telegram_body,
                               "job_id": job.id, "cooldown_s": job.cooldown_s})
             hlog.write(now, job.id, job.kind, "deferred", result.silent_log, 0)
         else:
-            await notifier.push(user_id, result.title, result.body, channels)
+            await notifier.push(user_id, result.title, result.body, channels,
+                                telegram_body=result.telegram_body)
             hlog.write(now, job.id, job.kind, "notified", result.silent_log, 0)
     else:
         hlog.write(now, job.id, job.kind, "silent_log", result.silent_log, 0)

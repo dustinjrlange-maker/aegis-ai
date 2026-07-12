@@ -148,11 +148,16 @@ def run(ctx):
             failures.append(f"{check.__name__} raised an error (see logs)")
     if failures:
         body = "\n".join(f"- {f}" for f in failures)
+        n = len(failures)
         return JobResult(
-            silent_log=f"security audit: {len(failures)} issue(s)",
+            silent_log=f"security audit: {n} issue(s)",
             notify=True,
             title="⚠️ Security audit finding",
             body=body,
+            # Full findings name config state (consent gate, cloud flags) —
+            # keep those off Telegram's servers; send only a pointer there.
+            telegram_body=(f"Security audit found {n} "
+                           f"issue{'s' if n != 1 else ''} — open Aegis to review."),
             channels=["notification", "telegram"],
         )
     return JobResult(silent_log="security audit: clean (0 issues)")

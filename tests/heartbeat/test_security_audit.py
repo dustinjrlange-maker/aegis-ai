@@ -299,3 +299,19 @@ def test_live_cloud_cfg_loader_failure_skips_check(monkeypatch):
     assert SA.check_cloud_misconfig(ctx) is None
     assert SA.check_escalation_consent_invariant(ctx) is None
     assert SA.check_escalation_without_cloud(ctx) is None
+
+
+def test_security_finding_telegram_body_is_generic(monkeypatch):
+    """The full finding (config specifics like consent-gate state) must NOT go
+    to Telegram — telegram_body is a generic pointer; the detail stays in-app
+    (2026-07-09 audit D4)."""
+    monkeypatch.setattr(SA, "CHECKS", [
+        lambda ctx: "trouble_private_consent=False — private content may be sent to cloud",
+    ])
+    result = SA.run(_ctx())
+    assert result.telegram_body, "a generic telegram_body must be set"
+    assert "trouble_private_consent" not in result.telegram_body
+    assert "consent" not in result.telegram_body.lower()
+    # full detail still present for the in-app channel
+    assert "trouble_private_consent" in result.body
+    assert result.telegram_body != result.body

@@ -17,5 +17,6 @@ class RecordingNotifier:
     def __init__(self):
         self.pushes = []
 
-    async def push(self, user_id, title, body, channels):
+    async def push(self, user_id, title, body, channels, telegram_body=None):
         self.pushes.append((user_id, title, body, tuple(channels or [])))
+        self.last_telegram_body = telegram_body

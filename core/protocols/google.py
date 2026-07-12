@@ -42,6 +42,9 @@ class GoogleProtocol(Protocol):
         self._cached_unread = 0
         self._cached_next_event = None
         self._cache_time = 0.0
+        # /calendar add holds the parsed event here until /calendar confirm,
+        # so a typo (wrong year, etc.) is visible before a real write.
+        self._pending_calendar_add = None
 
         # Check if Google integration is available
         self._available = False
@@ -327,6 +330,11 @@ class GoogleProtocol(Protocol):
             return self._calendar_week(creds)
         elif subcmd == "add" and len(parts) > 1:
             return self._calendar_add(creds, parts[1].strip())
+        elif subcmd == "confirm":
+            return self._calendar_confirm(creds)
+        elif subcmd == "cancel":
+            self._pending_calendar_add = None
+            return "  Cancelled — nothing added."
 
         return self._calendar_today(creds)
 
@@ -419,11 +427,31 @@ class GoogleProtocol(Protocol):
         except ValueError:
             return "  Invalid date/time format. Use: YYYY-MM-DD HH:MM"
 
-        result = calendar_create(creds, summary, start_iso, end_iso)
-        if result["success"]:
-            return f"  Event created: {summary} on {date_str} at {time_str}"
-        else:
-            return f"  Failed to create event: {result.get('error', 'unknown error')}"
+        # Preview, don't write. Writing to a real calendar is irreversible; a
+        # typo in the year/date should be catchable before it happens.
+        self._pending_calendar_add = {
+            "summary": summary, "date_str": date_str, "time_str": time_str,
+            "start_iso": start_iso, "end_iso": end_iso,
+        }
+        return (f"  Add '{summary}' on {date_str} at {time_str} to your Google "
+                f"Calendar?\n  Reply /calendar confirm to save, or /calendar cancel.")
+
+    def _calendar_confirm(self, creds):
+        """Write the event held by the last /calendar add."""
+        pending = self._pending_calendar_add
+        if not pending:
+            return "  Nothing to confirm — use /calendar add <summary> <date> <time> first."
+        try:
+            from core.protocols.google_tools import calendar_create
+        except ImportError:
+            return "  Google API libraries not installed."
+        self._pending_calendar_add = None
+        result = calendar_create(creds, pending["summary"],
+                                 pending["start_iso"], pending["end_iso"])
+        if result.get("success"):
+            return (f"  Event created: {pending['summary']} on "
+                    f"{pending['date_str']} at {pending['time_str']}")
+        return f"  Failed to create event: {result.get('error', 'unknown error')}"
 
     # ------------------------------------------------------------------
     # Status

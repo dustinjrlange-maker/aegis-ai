@@ -33,6 +33,11 @@ class JobResult:
     title: str = ""
     body: str = ""
     channels: Optional[list[str]] = None   # override Job.channels when set
+    # Optional generic body sent to Telegram INSTEAD of `body`, so a job whose
+    # findings are sensitive (config state, security specifics) keeps full
+    # detail in-app while Telegram — which traverses Telegram's servers — gets
+    # only a pointer. None => Telegram uses `body` (still privacy-scanned).
+    telegram_body: Optional[str] = None
 
 
 @dataclass

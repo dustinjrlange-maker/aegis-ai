@@ -20,7 +20,8 @@ class Notifier:
         self._get_app = get_telegram_app
         self._get_chat_id = get_chat_id
 
-    async def push(self, user_id: str, title: str, body: str, channels: list[str]) -> None:
+    async def push(self, user_id: str, title: str, body: str, channels: list[str],
+                   telegram_body: str = None) -> None:
         """Push *title* / *body* to every channel in *channels* for *user_id*.
 
         Supported channel names: ``"notification"`` (in-app queue) and
@@ -33,7 +34,11 @@ class Notifier:
         channels = channels or ["notification"]
         telegram_ok = False
         if "telegram" in channels:
-            telegram_ok = await self._push_telegram(user_id, title, body)
+            # A generic telegram_body (if the job set one) keeps sensitive
+            # detail off Telegram's servers; the in-app push below still gets
+            # the full body.
+            tg_text = telegram_body if telegram_body is not None else body
+            telegram_ok = await self._push_telegram(user_id, title, tg_text)
         if "notification" in channels or (not telegram_ok and "telegram" in channels):
             self._push_notification(user_id, title, body)
 

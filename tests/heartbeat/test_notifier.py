@@ -84,3 +84,17 @@ def test_inapp_notification_keeps_full_private_body():
     body = "Your bank account statement is ready"
     asyncio.run(n.push("switch", "Inbox scan", body, ["notification"]))
     assert sess.notification_service.added == [("heartbeat", "Inbox scan", body)]
+
+
+def test_telegram_body_override_used_for_telegram_only():
+    """When telegram_body is provided, Telegram gets it while the in-app
+    notification keeps the full body (D4)."""
+    sess = _FakeSession()
+    app = _FakeApp()
+    n = Notifier(_FakeSessionManager(sess), get_telegram_app=lambda: app,
+                 get_chat_id=lambda u: "12345")
+    asyncio.run(n.push("switch", "Security", "FULL secret detail",
+                       ["notification", "telegram"],
+                       telegram_body="Security audit found issues — open Aegis"))
+    assert app.bot.sent == [("12345", "Security\n\nSecurity audit found issues — open Aegis")]
+    assert sess.notification_service.added == [("heartbeat", "Security", "FULL secret detail")]
