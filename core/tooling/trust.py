@@ -21,14 +21,29 @@ _pending = {}
 _pending_lock = threading.Lock()
 
 
+_WRITE_TIERS = {"write_scoped_undoable", "write_destructive"}
+
+
+def _is_write_capable(method_tiers):
+    """True if the tool exposes any write-capable method — meaning its
+    default_tier (a read level) is NOT a safe bound for unlisted methods."""
+    return any(t in _WRITE_TIERS for t in method_tiers.values())
+
+
 def required_tier(catalog_entry, method):
-    """Tier a method needs: per-method map first, else the tool's default.
-    Returns None if the catalog entry has no default_tier (handled fail-closed
-    by check()). NOTE: default_tier must be set conservatively — any method not
-    in method_tiers runs at default_tier, so under-classification is a fail-open
-    risk in the CATALOG (not this code)."""
+    """Tier a method needs.
+
+    Explicitly-classified methods use their listed tier. An UNLISTED method on
+    a write-capable tool fails CLOSED — treated as write_destructive so a
+    future/unknown destructive op (one that shipped with a hint but no tier)
+    can't run at the read-level default_tier without a PIN. Read-only tools
+    keep their default_tier for unlisted methods."""
     method_tiers = catalog_entry.get("method_tiers") or {}
-    return method_tiers.get(method, catalog_entry.get("default_tier"))
+    if method in method_tiers:
+        return method_tiers[method]
+    if _is_write_capable(method_tiers):
+        return "write_destructive"
+    return catalog_entry.get("default_tier")
 
 
 def check(installed_tier, catalog_entry, method):

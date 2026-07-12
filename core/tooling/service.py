@@ -127,6 +127,11 @@ def confirm_pending(username, pin):
 
 def _execute(username, tool_id, method, arguments, reg_entry, cat_entry, outcome_tag):
     started = _time.monotonic()
+    # Log the full call INCLUDING arguments at INFO. The audit store records it
+    # too, but an operator scanning normal logs must be able to see, e.g., which
+    # file path a read touched — otherwise a data-exfil read is invisible.
+    logger.info("tool call [%s]: %s.%s args=%s",
+                outcome_tag, tool_id, method, arguments)
     try:
         _ensure_running(username, tool_id, reg_entry, cat_entry)
         result = MANAGER.call(username, tool_id, method, arguments)

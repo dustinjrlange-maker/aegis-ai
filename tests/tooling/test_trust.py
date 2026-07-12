@@ -4,10 +4,13 @@ from datetime import datetime, timedelta
 import pytest
 
 
+# Write-capable tool: reads are EXPLICITLY tiered (matching the real catalog)
+# so the fail-closed rule for unlisted methods doesn't catch legit reads.
 FS_CATALOG = {
     "default_tier": "read_broad",
-    "method_tiers": {"write_file": "write_destructive"},
+    "method_tiers": {"read_file": "read_broad", "write_file": "write_destructive"},
 }
+# Read-only tool: no write methods, so unlisted methods keep the default tier.
 TIME_CATALOG = {"default_tier": "read_scoped", "method_tiers": {}}
 
 
@@ -15,6 +18,9 @@ def test_required_tier_uses_method_map_then_default():
     from core.tooling import trust
     assert trust.required_tier(FS_CATALOG, "write_file") == "write_destructive"
     assert trust.required_tier(FS_CATALOG, "read_file") == "read_broad"
+    # Unlisted method on a write-capable tool fails CLOSED (D2).
+    assert trust.required_tier(FS_CATALOG, "delete_file") == "write_destructive"
+    # Read-only tool keeps its default for unlisted methods.
     assert trust.required_tier(TIME_CATALOG, "get_current_time") == "read_scoped"
 
 
@@ -22,6 +28,8 @@ def test_check_allows_within_tier():
     from core.tooling import trust
     assert trust.check("read_broad", FS_CATALOG, "read_file") == "allow"
     assert trust.check("read_scoped", TIME_CATALOG, "get_current_time") == "allow"
+    # Unlisted method on a write-capable tool needs a PIN even at read_broad.
+    assert trust.check("read_broad", FS_CATALOG, "delete_file") == "needs_pin"
 
 
 def test_check_escalates_above_tier():
