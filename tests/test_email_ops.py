@@ -756,6 +756,211 @@ def test_edit_deletes_old_draft_with_composing_account_creds(monkeypatch):
     assert p._pending["account_id"] == "google-stitch"   # account preserved across edit
 
 
+# --- summarize/read inbox from chat (2026-07-12 false-refusal fix) --------
+
+
+def test_parse_classification_summarize():
+    p = _proto(_FakeSession())
+    out = p._parse_classification("ACTION=summarize | REF=- | TO=- | INSTRUCTION=-")
+    assert out == {"action": "summarize"}
+
+
+def test_parse_classification_treats_arrow_placeholder_as_blank():
+    """The model often echoes the template placeholder '->' (dash + the '>'
+    from 'or ->'). It must be read as absent, not stored as a real value —
+    else '->' pollutes a draft's recipient/intent."""
+    p = _proto(_FakeSession())
+    out = p._parse_classification(
+        "ACTION=summarize | REF=-> | TO=-> | ACCOUNT=-> | INSTRUCTION=->")
+    assert out == {"action": "summarize"}
+    # and a reply whose fields are all placeholders keeps no garbage intent
+    out2 = p._parse_classification("ACTION=reply | REF=2 | TO=-> | INSTRUCTION=->")
+    assert out2 == {"action": "reply", "ref": "2"}
+
+
+def _msgs(n, *, unread=True):
+    return [
+        {"id": f"m{i}", "sender": f"Person{i} <p{i}@x.ca>",
+         "subject": f"Subject {i}", "snippet": f"Body preview {i}", "unread": unread}
+        for i in range(1, n + 1)
+    ]
+
+
+def test_summarize_builds_itemized_numbered_list(monkeypatch):
+    p = _proto(_FakeSession())
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s, account_id=None: "CREDS")
+    monkeypatch.setattr(gt, "gmail_list_messages",
+                        lambda creds, max_results=10, categories=None, extra_query=None:
+                        _msgs(5)[:max_results])
+    monkeypatch.setattr(ea, "_llm",
+                        lambda messages, **kw: "Person1's Subject 1 looks most urgent.")
+    resp = p._do_summarize({}, "summarize my 5 unread emails")
+    for i in range(1, 6):
+        assert f"{i}. Person{i} — Subject {i}" in resp   # itemized, sender cleaned
+    assert "most urgent" in resp                           # triage header present
+    assert p._summary_map == {1: "m1", 2: "m2", 3: "m3", 4: "m4", 5: "m5"}
+
+
+def test_summarize_honors_count_and_unread_query(monkeypatch):
+    p = _proto(_FakeSession())
+    captured = {}
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s, account_id=None: "CREDS")
+    def fake_list(creds, max_results=10, categories=None, extra_query=None):
+        captured.update(n=max_results, q=extra_query)
+        return _msgs(1)
+    monkeypatch.setattr(gt, "gmail_list_messages", fake_list)
+    monkeypatch.setattr(ea, "_llm", lambda messages, **kw: "routine.")
+    p._do_summarize({}, "give me a summary of the 5 unread emails")
+    assert captured["n"] == 5
+    assert captured["q"] == "is:unread"
+
+
+def test_summarize_no_unread_filter_when_not_requested(monkeypatch):
+    p = _proto(_FakeSession())
+    captured = {}
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s, account_id=None: "CREDS")
+    def fake_list(creds, max_results=10, categories=None, extra_query=None):
+        captured.update(q=extra_query)
+        return _msgs(1, unread=False)
+    monkeypatch.setattr(gt, "gmail_list_messages", fake_list)
+    monkeypatch.setattr(ea, "_llm", lambda messages, **kw: "routine.")
+    p._do_summarize({}, "summarize my inbox")
+    assert captured["q"] is None
+
+
+def test_summarize_default_count_is_five(monkeypatch):
+    p = _proto(_FakeSession())
+    captured = {}
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s, account_id=None: "CREDS")
+    def fake_list(creds, max_results=10, categories=None, extra_query=None):
+        captured.update(n=max_results)
+        return _msgs(1)
+    monkeypatch.setattr(gt, "gmail_list_messages", fake_list)
+    monkeypatch.setattr(ea, "_llm", lambda messages, **kw: "routine.")
+    p._do_summarize({}, "summarize my unread emails")
+    assert captured["n"] == 5
+
+
+def test_summarize_detail_tier_expands_preview(monkeypatch):
+    p = _proto(_FakeSession())
+    long_snip = "START " + ("filler " * 20) + "ENDMARKER"   # ENDMARKER sits ~146 chars in
+    msgs = [{"id": "m1", "sender": "A <a@x>", "subject": "S",
+             "snippet": long_snip, "unread": True}]
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s, account_id=None: "CREDS")
+    monkeypatch.setattr(gt, "gmail_list_messages",
+                        lambda creds, max_results=10, categories=None, extra_query=None: msgs)
+    monkeypatch.setattr(ea, "_llm", lambda messages, **kw: "routine.")
+    plain = p._do_summarize({}, "summarize my unread")
+    detailed = p._do_summarize({}, "give me a detailed summary of my unread")
+    assert "ENDMARKER" not in plain      # default preview truncated
+    assert "ENDMARKER" in detailed       # detail request shows the full snippet
+
+
+def test_summarize_triage_failure_still_lists(monkeypatch):
+    p = _proto(_FakeSession())
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s, account_id=None: "CREDS")
+    monkeypatch.setattr(gt, "gmail_list_messages",
+                        lambda creds, max_results=10, categories=None, extra_query=None:
+                        [{"id": "m1", "sender": "A <a@x>", "subject": "Hello",
+                          "snippet": "hi", "unread": True}])
+    def boom(messages, **kw):
+        raise RuntimeError("llm down")
+    monkeypatch.setattr(ea, "_llm", boom)
+    resp = p._do_summarize({}, "summarize my unread")
+    assert "1. A — Hello" in resp        # list survives a triage LLM failure
+
+
+def test_summarize_empty_inbox_says_clear(monkeypatch):
+    p = _proto(_FakeSession())
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s, account_id=None: "CREDS")
+    monkeypatch.setattr(gt, "gmail_list_messages",
+                        lambda creds, max_results=10, categories=None, extra_query=None: [])
+    resp = p._do_summarize({}, "summarize my unread")
+    assert "clear" in resp.lower()
+
+
+def test_summarize_respects_named_account(tmp_path, monkeypatch):
+    p = _proto(_session_with_accounts(_real_accounts(tmp_path)))
+    captured = {}
+    monkeypatch.setattr(ea, "_creds_from_session",
+                        lambda s, account_id=None: captured.update(acct=account_id) or "CREDS")
+    monkeypatch.setattr(gt, "gmail_list_messages",
+                        lambda creds, max_results=10, categories=None, extra_query=None: _msgs(1))
+    monkeypatch.setattr(ea, "_llm", lambda messages, **kw: "routine.")
+    p._do_summarize({"account": "google-stitch"},
+                    "summarize the unread in my switchstitch email")
+    assert captured["acct"] == "google-stitch"   # fetched from the RIGHT account
+
+
+# --- drill-down: read one email in full -----------------------------------
+
+
+def test_parse_classification_read():
+    p = _proto(_FakeSession())
+    out = p._parse_classification("ACTION=read | REF=2 | TO=- | INSTRUCTION=-")
+    assert out == {"action": "read", "ref": "2"}
+
+
+def test_read_drilldown_uses_summary_map(monkeypatch):
+    p = _proto(_FakeSession())
+    p._summary_map = {1: "m1", 2: "m2"}     # what the user is looking at
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s, account_id=None: "CREDS")
+    monkeypatch.setattr(gt, "gmail_get_message",
+                        lambda creds, mid: {"from": "Ann <ann@x.ca>", "subject": "Numbers",
+                                            "date": "Mon", "body": "Here are the full numbers."}
+                        if mid == "m2" else None)
+    resp = p._do_read_detail({"action": "read", "ref": "2"}, "tell me more about #2")
+    assert "Numbers" in resp and "full numbers" in resp and "Ann" in resp
+
+
+def test_read_drilldown_uses_summary_account(tmp_path, monkeypatch):
+    """The message ids in a summary are account-scoped; drilling into one must
+    reuse the account the summary was drawn from, not the default (else a
+    stitch-inbox id is fetched against the personal account -> 404)."""
+    p = _proto(_session_with_accounts(_real_accounts(tmp_path)))  # default = personal
+    monkeypatch.setattr(gt, "gmail_list_messages",
+                        lambda creds, max_results=10, categories=None, extra_query=None:
+                        [{"id": "stitch-msg", "sender": "A", "subject": "S",
+                          "snippet": "x", "unread": True}])
+    monkeypatch.setattr(ea, "_llm", lambda messages, **kw: "routine.")
+    monkeypatch.setattr(ea, "_creds_from_session",
+                        lambda s, account_id=None: f"CREDS::{account_id}")
+    p._do_summarize({"account": "google-stitch"}, "summarize my 5 unread")
+    assert p._summary_map == {1: "stitch-msg"}
+    got = {}
+    monkeypatch.setattr(gt, "gmail_get_message",
+                        lambda creds, mid: got.update(creds=creds, mid=mid) or {
+                            "from": "A", "subject": "S", "date": "", "body": "full"})
+    p._do_read_detail({"action": "read", "ref": "1"}, "tell me more about #1")
+    assert got["mid"] == "stitch-msg"
+    assert got["creds"] == "CREDS::google-stitch"   # SAME account as the summary
+
+
+def test_read_unknown_ref_asks(monkeypatch):
+    p = _proto(_FakeSession())
+    p._summary_map = {}
+    resp = p._do_read_detail({"action": "read", "ref": "9"}, "tell me more about #9")
+    assert "number" in resp.lower() or "which" in resp.lower()
+
+
+def test_read_routes_through_gate_after_summary(monkeypatch):
+    """'#2' has no email cue, but once a summary is on screen it must route to
+    the read handler (via _summary_map context), not fall through to chat."""
+    p = _proto(_FakeSession())
+    p._summary_map = {1: "m1", 2: "m2"}
+    monkeypatch.setattr(ea, "_creds_from_session", lambda s, account_id=None: "CREDS")
+    monkeypatch.setattr(gt, "gmail_list_messages",
+                        lambda creds, max_results=15, categories=None, extra_query=None: [])
+    monkeypatch.setattr(ea, "_llm",
+                        lambda messages, **kw: "ACTION=read | REF=2 | TO=- | INSTRUCTION=-")
+    monkeypatch.setattr(gt, "gmail_get_message",
+                        lambda creds, mid: {"from": "Ann", "subject": "Numbers",
+                                            "date": "", "body": "full body"})
+    result = p.process_input("tell me more about #2", {})
+    assert result["intercept"] is True
+    assert "full body" in result["response"]
+
+
 def test_gmail_archive_removes_inbox_label(monkeypatch):
     calls = {}
     class _Ex:
