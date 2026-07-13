@@ -203,6 +203,7 @@ class ChatResponse(BaseModel):
     response: str
     emotion: Optional[dict] = None
     wellness_flag: bool = False
+    crisis_flag: bool = False
     bracket_actions: Optional[list] = None
 
 

@@ -20,7 +20,7 @@ class WellnessProtocol(Protocol):
                 r"sleep\s+is\s+(for\s+the\s+weak|overrated|optional)",
                 r"(i('ll|'m going to)\s+)?sleep\s+when\s+i('m|\s+am)\s+dead",
                 r"been\s+up\s+\d+\s+hours",
-                r"(haven't|didnt|didn't|don't)\s+sleep",
+                r"(haven't|didnt|didn't|don't)\s+(sleep|slept)",
                 r"(skip|skipping|skipped)\s+(sleep|bed)",
                 r"who\s+needs\s+sleep",
                 r"sleep\s+(later|tomorrow)",
@@ -171,6 +171,19 @@ class WellnessProtocol(Protocol):
             "suppress": False,
             "append": "",
         }
+
+    def consumed_flag(self):
+        """Whether the last process_input triggered any wellness note. Reads
+        once then resets (the pipeline consumes it per turn)."""
+        v = self._last_triggered
+        self._last_triggered = False
+        return v
+
+    def consumed_crisis(self):
+        """Whether the last process_input detected crisis language. Read-once."""
+        v = self._last_crisis
+        self._last_crisis = False
+        return v
 
     def track_goal(self, goal_text, category="general"):
         """Add a goal to track for accountability."""
