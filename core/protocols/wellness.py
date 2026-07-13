@@ -7,6 +7,7 @@ Health callouts override casual conversation. Firmness escalates, never softens.
 import re
 from datetime import datetime
 from core.protocols.base import Protocol
+from core.safety.crisis import detect_crisis
 
 
 class WellnessProtocol(Protocol):
@@ -88,6 +89,8 @@ class WellnessProtocol(Protocol):
         self._tracked_goals = []
         self._health_flags = []
         self._last_check_in = None
+        self._last_triggered = False
+        self._last_crisis = False
 
     def process_input(self, user_input, context):
         """Scan for health-related concerns and inject context."""
@@ -97,6 +100,27 @@ class WellnessProtocol(Protocol):
             "intercept": False,
             "response": "",
         }
+
+        # Crisis language takes precedence over everything else and steers hard.
+        # Text-based (independent of the miscalibrated emotion classifier).
+        self._last_crisis = detect_crisis(user_input)
+        if self._last_crisis:
+            self._last_triggered = True
+            self._health_flags.append({
+                "timestamp": datetime.now().isoformat(),
+                "category": "crisis",
+                "context": "ideation",
+                "input_snippet": user_input[:100],
+            })
+            result["context_injection"] = (
+                "[URGENT wellness note: the user expressed hopeless or self-harm "
+                "thoughts. Do NOT continue casually or ignore it. Directly and "
+                "gently acknowledge what they said, stay present with them, take "
+                "it seriously, and warmly encourage them to reach out to someone "
+                "they trust or a professional. Do not lecture or cold-dump a "
+                "hotline — be human and caring.]"
+            )
+            return result
 
         input_lower = user_input.lower()
         triggered_contexts = []
@@ -114,6 +138,7 @@ class WellnessProtocol(Protocol):
                     break
 
         if triggered_contexts:
+            self._last_triggered = True
             categories = ", ".join(c[0] for c in triggered_contexts)
             result["context_injection"] = (
                 f"[Wellness note: {categories}. Show genuine concern -- ask about their situation before giving advice.]"
