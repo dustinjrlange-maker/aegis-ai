@@ -627,28 +627,38 @@ class OperationsProtocol(Protocol):
                     pending["title"], pending["date"],
                     time_start=time_start, time_end=time_end,
                 )
+                when = pending["date"]
                 if time_start and time_end:
-                    time_info = f" at {time_start}-{time_end}"
+                    when = f"{pending['date']} {time_start}-{time_end}"
                 elif time_start:
-                    time_info = f" at {time_start}"
-                else:
-                    time_info = ""
-                if outcome["source"] == "google":
+                    when = f"{pending['date']} {time_start}"
+                if outcome.get("source") == "google":
                     label = self.account_label()
                     where = (f"your {label} Google Calendar" if label
                              else "your Google Calendar")
                 else:
                     where = "the local calendar"
-                logger.info("operations: confirmed event %r on %s (-> %s)",
-                            pending["title"], pending["date"], where)
-                injection_parts.append(
-                    f"[System: Event created: '{pending['title']}' on "
-                    f"{pending['date']}{time_info} in {where}. Briefly "
-                    f"acknowledge in your response. "
-                    f"Do NOT emit [SCHEDULE_EVENT:] OR [ADD_TASK:] — "
-                    f"the event is already saved. Do not duplicate it as a task.]"
-                )
-                event_created = True
+                # Authoritative confirmation via INTERCEPT — never leave the ack
+                # to the 8B. An injected "acknowledge this" note can be ignored
+                # or hijacked (2026-07-12: an audio-fixation turn swallowed the
+                # calendar ack, so the user thought the save had failed even
+                # though it succeeded), and a silent success risks double-booking
+                # on a retry. Surface the outcome directly.
+                if outcome.get("success", True):
+                    logger.info("operations: confirmed event %r on %s (-> %s)",
+                                pending["title"], when, where)
+                    result["intercept"] = True
+                    result["response"] = (
+                        f"Saved '{pending['title']}' on {when} to {where}. ✓")
+                else:
+                    err = outcome.get("error", "unknown error")
+                    logger.warning("operations: event save failed %r: %s",
+                                   pending["title"], err)
+                    result["intercept"] = True
+                    result["response"] = (
+                        f"I couldn't save '{pending['title']}' — {err}. "
+                        "Want me to try again?")
+                return result
             else:
                 logger.info("operations: proposed event %r discarded "
                             "(no confirmation)", pending.get("title"))

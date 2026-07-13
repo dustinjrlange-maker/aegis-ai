@@ -63,7 +63,44 @@ def test_confirm_creates_proposed_event(proto, created):
     assert len(created) == 1
     assert created[0]["title"] == "bob"
     assert created[0]["time_start"] == "14:00"
-    assert "Event created" in result["context_injection"]
+
+
+def test_confirm_intercepts_with_authoritative_confirmation(proto, created):
+    """The save confirmation must be authoritative (intercept), not an injected
+    note the 8B may ignore or hijack (2026-07-12: an audio-fixation turn
+    swallowed the ack, so the user thought the save had failed)."""
+    proto.process_input(MENTION, {})
+    result = proto.process_input("yes please", {})
+    assert result["intercept"] is True              # not left to the LLM
+    resp = result["response"]
+    assert "bob" in resp and "14:00" in resp         # names the event + time
+    assert "✓" in resp or "saved" in resp.lower()    # definitive
+
+
+def test_confirmation_names_google_account(proto, monkeypatch):
+    def fake_google(creds, event_manager, title, date, time_start=None,
+                    time_end=None, **kw):
+        return {"source": "google", "success": True}
+    monkeypatch.setattr(gt, "create_event_or_local", fake_google)
+    monkeypatch.setattr(proto, "_google_creds", lambda: "CREDS")
+    monkeypatch.setattr(proto, "account_label", lambda: "Personal")
+    proto.process_input(MENTION, {})
+    result = proto.process_input("yes", {})
+    assert result["intercept"] is True
+    assert "Google Calendar" in result["response"]
+    assert "Personal" in result["response"]
+
+
+def test_confirmation_surfaces_save_failure(proto, monkeypatch):
+    def fake_fail(creds, event_manager, title, date, time_start=None,
+                  time_end=None, **kw):
+        return {"source": "local", "success": False, "error": "disk full"}
+    monkeypatch.setattr(gt, "create_event_or_local", fake_fail)
+    proto.process_input(MENTION, {})
+    result = proto.process_input("yes", {})
+    assert result["intercept"] is True
+    assert "couldn't save" in result["response"].lower()
+    assert "disk full" in result["response"]
 
 
 def test_nonconfirm_reply_discards_proposal(proto, created):

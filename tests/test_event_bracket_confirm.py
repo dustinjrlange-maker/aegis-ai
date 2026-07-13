@@ -124,7 +124,7 @@ def test_propose_event_local_when_no_creds(tmp_path, monkeypatch):
 
 
 def test_confirm_names_account_in_result(tmp_path, monkeypatch):
-    """After a confirmed write to Google, the acknowledgement injection names
+    """After a confirmed write to Google, the authoritative confirmation names
     the account so the user can see where it landed."""
     ops = OperationsProtocol(event_manager=_EM(), data_dir=tmp_path)
     ops._session = _Sess("SwitchStitch")
@@ -134,4 +134,5 @@ def test_confirm_names_account_in_result(tmp_path, monkeypatch):
     ops._pending_event = {"title": "shoot", "date": "2026-07-20",
                           "time_start": "10:00", "time_end": None}
     result = ops.process_input("yes", {})
-    assert "SwitchStitch" in result["context_injection"]
+    assert result["intercept"] is True
+    assert "SwitchStitch" in result["response"]
