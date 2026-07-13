@@ -188,8 +188,32 @@ def get_video_path(log_id: str, data_dir: Path) -> Path | None:
     return None
 
 
-def load_recent_log_text(count: int, data_dir: Path) -> list[str]:
-    """Load recent personal log text snippets for MemoryManager context injection."""
+def _log_age_days(entry: dict, filename: str, now: datetime):
+    """Age of a log in days from its `created` stamp (fallback: filename date).
+    Returns None when the age can't be determined."""
+    created = entry.get("created")
+    if created:
+        try:
+            return (now - datetime.fromisoformat(created)).days
+        except (ValueError, TypeError):
+            pass
+    # Fallback: filenames are 'YYYY-MM-DD_HHMMSS'.
+    try:
+        return (now - datetime.strptime(filename[:10], "%Y-%m-%d")).days
+    except (ValueError, IndexError):
+        return None
+
+
+def load_recent_log_text(count: int, data_dir: Path, max_age_days: int = 14,
+                         now: datetime | None = None) -> list[str]:
+    """Recent personal-log snippets for MemoryManager context injection.
+
+    Only logs created within the last `max_age_days` are returned — a stale log
+    (e.g. a six-week-old audio-test memo) must not be injected every turn as
+    'recent', which made the local model fixate on a long-resolved topic.
+    """
+    if now is None:
+        now = datetime.now()
     logs_path = _logs_dir(data_dir)
     entries = []
     for f in sorted(logs_path.glob("*.json"), reverse=True):
@@ -197,9 +221,12 @@ def load_recent_log_text(count: int, data_dir: Path) -> list[str]:
             break
         try:
             entry = json.loads(f.read_text(encoding="utf-8"))
-            text = entry.get("text") or entry.get("transcription") or ""
-            if text.strip():
-                entries.append(text.strip()[:200])
-        except (json.JSONDecodeError, KeyError, IOError):
+        except (json.JSONDecodeError, IOError):
             continue
+        age = _log_age_days(entry, f.name, now)
+        if age is not None and age > max_age_days:
+            continue
+        text = entry.get("text") or entry.get("transcription") or ""
+        if text.strip():
+            entries.append(text.strip()[:200])
     return entries
