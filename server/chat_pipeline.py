@@ -198,6 +198,12 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
     )
     task_tag = route_task_tag(turn)
 
+    # Length leeway: lift the sentence cap when the user explicitly asks for a
+    # detailed/itemized answer (casual turns only; emotional stays short,
+    # routing/task_tag untouched).
+    from core.response_length import effective_shaping_mode
+    shaping_mode = effective_shaping_mode(turn.mode, user_input)
+
     # Escalate-on-trouble: decide (trouble-only) whether this turn wants cloud.
     # The private-content gate is deferred until the payload is assembled below.
     _rcfg = _load_router_config()
@@ -223,7 +229,7 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
         context_parts.append(char_relevant)
     if emotion_tag:
         context_parts.append(emotion_tag)
-    mode_hint = _MODE_HINTS.get(turn.mode)
+    mode_hint = _MODE_HINTS.get(shaping_mode)
     if mode_hint:
         context_parts.append(mode_hint)
     injections = proto_result.get("context_injections", [])
@@ -298,7 +304,7 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
             model=CONFIG["model"]["chat"],
             trouble=_wants_cloud,
         )
-        reply = session.clean_reply(reply_content, mode=turn.mode)
+        reply = session.clean_reply(reply_content, mode=shaping_mode)
 
         # Run through output protocols
         output_result = session.protocol_registry.process_output(reply, proto_context)
@@ -331,7 +337,7 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
                 route_meta=route_meta,
                 router=_tool_router, call_tool=tool_service.call_tool,
                 process_output=_tool_process_output,
-                clean_reply=lambda rc: session.clean_reply(rc, mode=turn.mode),
+                clean_reply=lambda rc: session.clean_reply(rc, mode=shaping_mode),
                 # Tool-synthesis rounds carry tool RESULTS — i.e. file contents.
                 # Pin them to "private" so those never leave the machine, even
                 # with cloud on. (Revisit under the "best of both" build if

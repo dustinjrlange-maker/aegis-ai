@@ -16,6 +16,7 @@ import re
 from core.protocols.base import Protocol
 from core import email_assistant as ea
 from core import confirmation
+from core import response_length as rl
 from core.protocols import google_tools as gt
 
 logger = logging.getLogger(__name__)
@@ -24,7 +25,22 @@ logger = logging.getLogger(__name__)
 # (so follow-ups like "send it" route here too).
 _EMAIL_CUE = re.compile(
     r"\b(reply|respond|draft|compose|e-?mail|forward|inbox|archive|"
-    r"mark\b.*\bread|send)\b",
+    r"mark\b.*\bread|send|summar\w*|unread)\b",
+    re.IGNORECASE,
+)
+
+# Count of messages to summarize when the user names one ("summarize my 5 …").
+_COUNT = re.compile(r"\b(\d{1,2})\b")
+
+# "unread" -> restrict the summary to unread mail (Gmail is:unread).
+_UNREAD_CUE = re.compile(r"\bunread\b", re.IGNORECASE)
+
+# A reference to an item in the summary the user is looking at ("#2", "number 2",
+# "the second one", "more about 3"). Gates drill-down follow-ups that carry no
+# other email cue, but only once a summary has actually been shown.
+_REF_CUE = re.compile(
+    r"(#\s*\d+|\bnumber\s+\d+|\b(?:first|second|third|fourth|fifth|last)\b|"
+    r"\bmore\s+(?:about|on)\b|\bopen\b|\bwhat\s+does\s+(?:#?\d+|it)\b)",
     re.IGNORECASE,
 )
 
@@ -105,6 +121,8 @@ class EmailOpsProtocol(Protocol):
         self._session = None   # UserSession back-ref, set by session.py
         self._pending = None   # {draft_id, kind, message_id, to, subject, intent} or None
         self._id_map = {}      # inbox listing index -> message_id (set per classify)
+        self._summary_map = {} # displayed-summary index -> message_id (for drill-down)
+        self._summary_account_id = None  # account the displayed summary was drawn from
 
     def attach_session(self, session):
         """Give the protocol access to its UserSession (creds + LLM)."""
@@ -118,7 +136,10 @@ class EmailOpsProtocol(Protocol):
         text = (user_input or "").strip()
         if not text:
             return result
-        if not (self._pending or _EMAIL_CUE.search(text)):
+        # Engage on: a pending draft, an email cue, or a reference to the
+        # summary currently on screen (drill-down like "#2" carries no cue).
+        has_ref_context = bool(self._summary_map) and bool(_REF_CUE.search(text))
+        if not (self._pending or has_ref_context or _EMAIL_CUE.search(text)):
             return result
 
         action = self._classify(text)
@@ -142,6 +163,8 @@ class EmailOpsProtocol(Protocol):
             "forward": self._do_forward,
             "mark_read": self._do_mark_read,
             "archive": self._do_archive,
+            "summarize": self._do_summarize,
+            "read": self._do_read_detail,
             "send": self._do_send,
             "edit": self._do_edit,
             "discard": self._do_discard,
@@ -304,6 +327,150 @@ class EmailOpsProtocol(Protocol):
         if not res.get("ok"):
             return f"I couldn't archive it: {res.get('error', 'unknown error')}"
         return "Archived it — it's out of your inbox."
+
+    def _summary_count(self, text):
+        """How many messages to itemize. Honours a number the user named
+        ('summarize my 5 unread'), else a sensible chat default."""
+        m = _COUNT.search(text or "")
+        if not m:
+            return 5
+        n = int(m.group(1))
+        return max(1, min(n, 25))
+
+    @staticmethod
+    def _clean_sender(raw):
+        """'Name <addr>' -> 'Name'; bare address stays as-is."""
+        s = (raw or "Unknown").strip()
+        m = re.match(r'^\s*"?([^"<]+?)"?\s*<[^>]+>\s*$', s)
+        return m.group(1).strip() if m else s
+
+    @staticmethod
+    def _preview(snippet, detailed):
+        """One-line preview by default; fuller snippet when detail is asked."""
+        s = (snippet or "").strip()
+        if not s:
+            return ""
+        limit = 200 if detailed else 100
+        if len(s) > limit:
+            s = s[:limit].rstrip() + "…"
+        return s
+
+    def _triage(self, msgs):
+        """One grounded LLM line flagging what's most urgent. '' on failure."""
+        facts = ea._format_messages_for_llm(msgs)
+        prompt = (
+            "Here is a list of the user's emails. In ONE short sentence, flag "
+            "the most urgent or important item(s) to look at first. Use ONLY "
+            "what's listed — invent nothing. If nothing stands out, say they "
+            "look routine.\n\n" + facts
+        )
+        try:
+            raw = ea._llm(
+                [{"role": "system", "content": "You triage an inbox in one line."},
+                 {"role": "user", "content": prompt}],
+                sensitivity="private", task="email_triage",
+            )
+        except Exception:
+            logger.exception("summarize: triage LLM failed")
+            return ""
+        clean = re.sub(r"<think>.*?</think>", "", raw or "", flags=re.DOTALL).strip()
+        for line in clean.splitlines():
+            if line.strip():
+                return line.strip()
+        return ""
+
+    def _do_summarize(self, action, text):
+        """Read-only, itemized inbox summary — no draft, no confirm gate.
+
+        Deterministic list built straight from the message metadata (accurate,
+        guaranteed count, no hallucination), with a single grounded triage line
+        on top. Grounded to the account the user named (or the active/default
+        one) so a request about one inbox never surfaces another's mail."""
+        acct_over, ask = self._explicit_from(text)
+        if ask:
+            return ask
+        if acct_over is not None:
+            action = {**action, "account": acct_over["id"]}
+        acct, acct_note = self._resolve_account(action)
+        acct_id = acct["id"] if acct else None
+        creds = ea._creds_from_session(self._session, acct_id)
+
+        n = self._summary_count(text)
+        unread_only = bool(_UNREAD_CUE.search(text or ""))
+        extra = "is:unread" if unread_only else None
+        try:
+            msgs = gt.gmail_list_messages(creds, max_results=n,
+                                          categories=("primary",), extra_query=extra)
+        except gt.RefreshError:
+            raise
+        except Exception:
+            logger.exception("summarize: could not list inbox")
+            msgs = []
+
+        if not msgs:
+            where = "unread " if unread_only else ""
+            return f"{acct_note}No {where}mail waiting — your inbox is clear."
+
+        detailed = rl.wants_detailed_answer(text)
+        self._summary_map = {}
+        self._summary_account_id = acct_id   # drill-down must reuse this account
+        rows = []
+        for i, m in enumerate(msgs, 1):
+            self._summary_map[i] = m.get("id")
+            sender = self._clean_sender(m.get("sender"))
+            subject = (m.get("subject") or "(no subject)").strip()
+            row = f"{i}. {sender} — {subject}"
+            preview = self._preview(m.get("snippet"), detailed)
+            if preview:
+                row += f"\n   {preview}"
+            rows.append(row)
+
+        count = len(msgs)
+        lead = (f"Here {'is' if count == 1 else 'are'} your {count} "
+                f"{'unread ' if unread_only else ''}"
+                f"email{'' if count == 1 else 's'} —")
+        parts = [f"{acct_note}{lead}"]
+        triage = self._triage(msgs)
+        if triage:
+            parts.append(triage)
+        parts.append("")
+        parts.append("\n".join(rows))
+        parts.append('\nWant the full text of one? Say "tell me more about #2".')
+        return "\n".join(parts)
+
+    def _do_read_detail(self, action, text):
+        """Open ONE email in full — resolves the number against the summary the
+        user is looking at (falling back to the classifier's inbox listing)."""
+        ref = action.get("ref")
+        message_id = None
+        from_summary = False
+        if ref and str(ref).isdigit():
+            idx = int(ref)
+            if idx in self._summary_map:
+                message_id, from_summary = self._summary_map[idx], True
+            else:
+                message_id = self._id_map.get(idx)
+        if not message_id:
+            return "Which one? Give me the number from the list."
+        # Message ids are account-scoped: a drill-down into a summary must use
+        # the SAME account that produced it, unless the user names another.
+        if from_summary and not action.get("account"):
+            acct_id = self._summary_account_id
+        else:
+            acct, _ = self._resolve_account(action)
+            acct_id = acct["id"] if acct else None
+        creds = ea._creds_from_session(self._session, acct_id)
+        msg = gt.gmail_get_message(creds, message_id)
+        if not msg:
+            return "I couldn't open that email."
+        sender = self._clean_sender(msg.get("from"))
+        date = msg.get("date", "")
+        return (
+            f"From: {sender}\n"
+            f"Subject: {msg.get('subject', '(no subject)')}\n"
+            + (f"Date: {date}\n" if date else "")
+            + f"\n{(msg.get('body') or '').strip()}"
+        )
 
     def _do_send(self, action, text):
         t = (text or "").strip()
@@ -526,7 +693,7 @@ class EmailOpsProtocol(Protocol):
     # ---- classification ----
 
     _ALLOWED_ACTIONS = ("reply", "new", "forward", "mark_read", "archive",
-                        "send", "edit", "discard")
+                        "summarize", "read", "send", "edit", "discard")
 
     def _build_classifier_prompt(self, text, listing, pending):
         accounts = getattr(self._session, "accounts", None)
@@ -555,7 +722,7 @@ class EmailOpsProtocol(Protocol):
             f"A draft is currently pending: {'yes' if pending else 'no'}\n\n"
             f'User said: "{text}"\n\n'
             "Reply with ONE line, exactly this format:\n"
-            "ACTION=<reply|new|forward|mark_read|archive|send|edit|discard|none> | REF=<inbox number or -> "
+            "ACTION=<reply|new|forward|mark_read|archive|summarize|read|send|edit|discard|none> | REF=<inbox number or -> "
             f"| TO=<email address or -> {acct_field}| INSTRUCTION=<what to say, or ->\n\n"
             f"{acct_lines}"
             "Rules:\n"
@@ -567,6 +734,12 @@ class EmailOpsProtocol(Protocol):
             "TO = the recipient's email address.\n"
             "- mark_read: mark an inbox email as read. REF = the inbox number.\n"
             "- archive: remove an inbox email from the inbox. REF = the inbox number.\n"
+            "- summarize: the user wants an overview/summary of their inbox or "
+            "unread mail (e.g. 'what's in my inbox', 'summarize my unread emails', "
+            "'anything new'). No REF or TO.\n"
+            "- read: the user wants the FULL contents of ONE email they "
+            "referenced from a summary (e.g. 'tell me more about #2', 'open 3', "
+            "'what does 1 say'). REF = that number.\n"
             "- send: send the pending draft. Only if a draft is pending.\n"
             "- edit: change the pending draft. INSTRUCTION = the change. "
             "Only if a draft is pending.\n"
@@ -575,6 +748,11 @@ class EmailOpsProtocol(Protocol):
             f"{acct_rule}"
             "Output ONLY the one line. No explanation."
         )
+
+    # A placeholder value the model echoed from the prompt template: a bare
+    # dash, or "->" (the dash plus the '>' that closes "<... or ->"). Treated
+    # as "field absent" so it never becomes a real recipient/intent/account.
+    _PLACEHOLDER = re.compile(r"^-+>?$")
 
     def _parse_classification(self, raw):
         text = re.sub(r"<think>.*?</think>", "", raw or "", flags=re.DOTALL)
@@ -591,19 +769,19 @@ class EmailOpsProtocol(Protocol):
         to_m = re.search(r"TO\s*=\s*([^|]+)", text)
         if to_m:
             to_val = to_m.group(1).strip()
-            if to_val and to_val != "-":
+            if to_val and not self._PLACEHOLDER.match(to_val):
                 out["to"] = to_val
         acct_m = re.search(r"ACCOUNT\s*=\s*([^|]+)", text)
         if acct_m:
             acct_val = acct_m.group(1).strip()
-            if acct_val and acct_val != "-":
+            if acct_val and not self._PLACEHOLDER.match(acct_val):
                 out["account"] = acct_val
         ins_m = re.search(r"INSTRUCTION\s*=\s*(.+)", text)
         if ins_m:
             ins = ins_m.group(1).strip()
             # strip a trailing " | KEY=..." if the model crammed extra fields after
             ins = re.split(r"\s*\|\s*[A-Z]+\s*=", ins)[0].strip()
-            if ins and ins != "-":
+            if ins and not self._PLACEHOLDER.match(ins):
                 out["instruction"] = ins
         return out
 
