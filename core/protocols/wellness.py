@@ -78,6 +78,15 @@ class WellnessProtocol(Protocol):
             ],
             "context": "work_fatigue",
         },
+        "self_defeat": {
+            "negative": [
+                r"\bi('?m| am)\s+(useless|worthless|a failure|not good enough)\b",
+                r"\bi('?ll| will)\s+never\s+(make it|succeed|be able to|get)\b",
+                r"\b(should|just)\s+(just\s+)?(quit|give up)\s+(everything|it all|on everything)\b",
+                r"\bwhat'?s the point of (trying|any of it)\b",
+            ],
+            "context": "self_defeat",
+        },
     }
 
     def __init__(self):
@@ -140,9 +149,17 @@ class WellnessProtocol(Protocol):
         if triggered_contexts:
             self._last_triggered = True
             categories = ", ".join(c[0] for c in triggered_contexts)
-            result["context_injection"] = (
-                f"[Wellness note: {categories}. Show genuine concern -- ask about their situation before giving advice.]"
-            )
+            if any(c[0] == "self_defeat" for c in triggered_contexts):
+                result["context_injection"] = (
+                    "[Wellness note: the user is being harshly self-critical or "
+                    "talking about giving up. Be warm AND honest — validate the "
+                    "feeling but gently challenge the conclusion; don't simply "
+                    "agree that they should quit or that they're useless.]"
+                )
+            else:
+                result["context_injection"] = (
+                    f"[Wellness note: {categories}. Show genuine concern -- ask about their situation before giving advice.]"
+                )
 
         return result
 
