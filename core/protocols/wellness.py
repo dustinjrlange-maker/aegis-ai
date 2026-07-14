@@ -7,6 +7,7 @@ Health callouts override casual conversation. Firmness escalates, never softens.
 import re
 from datetime import datetime
 from core.protocols.base import Protocol
+from core.safety.crisis import detect_crisis
 
 
 class WellnessProtocol(Protocol):
@@ -19,7 +20,7 @@ class WellnessProtocol(Protocol):
                 r"sleep\s+is\s+(for\s+the\s+weak|overrated|optional)",
                 r"(i('ll|'m going to)\s+)?sleep\s+when\s+i('m|\s+am)\s+dead",
                 r"been\s+up\s+\d+\s+hours",
-                r"(haven't|didnt|didn't|don't)\s+sleep",
+                r"(haven't|didnt|didn't|don't)\s+(sleep|slept)",
                 r"(skip|skipping|skipped)\s+(sleep|bed)",
                 r"who\s+needs\s+sleep",
                 r"sleep\s+(later|tomorrow)",
@@ -77,6 +78,15 @@ class WellnessProtocol(Protocol):
             ],
             "context": "work_fatigue",
         },
+        "self_defeat": {
+            "negative": [
+                r"\bi('?m| am)\s+(useless|worthless|a failure|not good enough)\b",
+                r"\bi('?ll| will)\s+never\s+(make it|succeed|be able to|get)\b",
+                r"\b(should|just)\s+(just\s+)?(quit|give up)\s+(everything|it all|on everything)\b",
+                r"\bwhat'?s the point of (trying|any of it)\b",
+            ],
+            "context": "self_defeat",
+        },
     }
 
     def __init__(self):
@@ -88,6 +98,8 @@ class WellnessProtocol(Protocol):
         self._tracked_goals = []
         self._health_flags = []
         self._last_check_in = None
+        self._last_triggered = False
+        self._last_crisis = False
 
     def process_input(self, user_input, context):
         """Scan for health-related concerns and inject context."""
@@ -97,6 +109,27 @@ class WellnessProtocol(Protocol):
             "intercept": False,
             "response": "",
         }
+
+        # Crisis language takes precedence over everything else and steers hard.
+        # Text-based (independent of the miscalibrated emotion classifier).
+        self._last_crisis = detect_crisis(user_input)
+        if self._last_crisis:
+            self._last_triggered = True
+            self._health_flags.append({
+                "timestamp": datetime.now().isoformat(),
+                "category": "crisis",
+                "context": "ideation",
+                "input_snippet": user_input[:100],
+            })
+            result["context_injection"] = (
+                "[URGENT wellness note: the user expressed hopeless or self-harm "
+                "thoughts. Do NOT continue casually or ignore it. Directly and "
+                "gently acknowledge what they said, stay present with them, take "
+                "it seriously, and warmly encourage them to reach out to someone "
+                "they trust or a professional. Do not lecture or cold-dump a "
+                "hotline — be human and caring.]"
+            )
+            return result
 
         input_lower = user_input.lower()
         triggered_contexts = []
@@ -114,10 +147,19 @@ class WellnessProtocol(Protocol):
                     break
 
         if triggered_contexts:
+            self._last_triggered = True
             categories = ", ".join(c[0] for c in triggered_contexts)
-            result["context_injection"] = (
-                f"[Wellness note: {categories}. Show genuine concern -- ask about their situation before giving advice.]"
-            )
+            if any(c[0] == "self_defeat" for c in triggered_contexts):
+                result["context_injection"] = (
+                    "[Wellness note: the user is being harshly self-critical or "
+                    "talking about giving up. Be warm AND honest — validate the "
+                    "feeling but gently challenge the conclusion; don't simply "
+                    "agree that they should quit or that they're useless.]"
+                )
+            else:
+                result["context_injection"] = (
+                    f"[Wellness note: {categories}. Show genuine concern -- ask about their situation before giving advice.]"
+                )
 
         return result
 
@@ -129,6 +171,19 @@ class WellnessProtocol(Protocol):
             "suppress": False,
             "append": "",
         }
+
+    def consumed_flag(self):
+        """Whether the last process_input triggered any wellness note. Reads
+        once then resets (the pipeline consumes it per turn)."""
+        v = self._last_triggered
+        self._last_triggered = False
+        return v
+
+    def consumed_crisis(self):
+        """Whether the last process_input detected crisis language. Read-once."""
+        v = self._last_crisis
+        self._last_crisis = False
+        return v
 
     def track_goal(self, goal_text, category="general"):
         """Add a goal to track for accountability."""

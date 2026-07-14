@@ -382,11 +382,19 @@ async def process_chat(session_manager, user_id: str, user_input: str) -> dict:
             session.memory.extract_recent_facts(session.messages, since_index=session.last_fact_extraction_index)
             session.last_fact_extraction_index = msg_count
 
+        # Wellness/crisis flags reflect the wellness protocol's REAL firing this
+        # turn — not "any injection happened" (which raised on spurious tone
+        # hints). consumed_* are read-once (reset per turn).
+        wellness_proto = session.protocol_registry.get("wellness")
+        _wellness_flag = bool(wellness_proto and wellness_proto.consumed_flag())
+        _crisis_flag = bool(wellness_proto and wellness_proto.consumed_crisis())
+
         return {
             "agent_name": session.agent_name,
             "response": display_reply,
             "emotion": emotion_result,
-            "wellness_flag": bool(proto_result.get("context_injections")),
+            "wellness_flag": _wellness_flag,
+            "crisis_flag": _crisis_flag,
             "bracket_actions": bracket_actions,
         }
 
